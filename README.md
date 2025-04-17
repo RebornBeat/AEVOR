@@ -82,7 +82,7 @@ Aevor applies principles akin to the Double-Slit Experiment in quantum mechanics
 
 ## 📜 License
 
-Aevor is open-source under the **Apache 2.0 License**.
+Aevor is open-source under the **MIT License**.
 
 ---
 
