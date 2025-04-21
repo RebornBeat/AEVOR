@@ -203,4 +203,132 @@ impl AevorError {
     }
 
     /// Create a new API error
-    pub fn api<S:
+    pub fn api<S: Into<String>>(msg: S) -> Self {
+        AevorError::API(msg.into())
+    }
+
+    /// Create a new VM error
+    pub fn vm<S: Into<String>>(msg: S) -> Self {
+        AevorError::VM(msg.into())
+    }
+
+    /// Create a new wallet error
+    pub fn wallet<S: Into<String>>(msg: S) -> Self {
+        AevorError::Wallet(msg.into())
+    }
+
+    /// Create a new configuration error
+    pub fn config<S: Into<String>>(msg: S) -> Self {
+        AevorError::Config(msg.into())
+    }
+
+    /// Create a new serialization error
+    pub fn serialization<S: Into<String>>(msg: S) -> Self {
+        AevorError::Serialization(msg.into())
+    }
+
+    /// Create a new deserialization error
+    pub fn deserialization<S: Into<String>>(msg: S) -> Self {
+        AevorError::Deserialization(msg.into())
+    }
+
+    /// Create a new DAG error
+    pub fn dag<S: Into<String>>(msg: S) -> Self {
+        AevorError::DAG(msg.into())
+    }
+
+    /// Create a new security acceleration error
+    pub fn security_acceleration<S: Into<String>>(msg: S) -> Self {
+        AevorError::SecurityAcceleration(msg.into())
+    }
+
+    /// Create a new BLS signature error
+    pub fn bls_signature<S: Into<String>>(msg: S) -> Self {
+        AevorError::BLSSignature(msg.into())
+    }
+
+    /// Create a new multi-party computation error
+    pub fn mpc<S: Into<String>>(msg: S) -> Self {
+        AevorError::MultiPartyComputation(msg.into())
+    }
+
+    /// Create a new dependency error
+    pub fn dependency<S: Into<String>>(msg: S) -> Self {
+        AevorError::Dependency(msg.into())
+    }
+
+    /// Create a new object versioning error
+    pub fn object_versioning<S: Into<String>>(msg: S) -> Self {
+        AevorError::ObjectVersioning(msg.into())
+    }
+
+    /// Create a new timeout error
+    pub fn timeout<S: Into<String>>(msg: S) -> Self {
+        AevorError::Timeout(msg.into())
+    }
+
+    /// Create a new authentication error
+    pub fn authentication<S: Into<String>>(msg: S) -> Self {
+        AevorError::Authentication(msg.into())
+    }
+
+    /// Create a new authorization error
+    pub fn authorization<S: Into<String>>(msg: S) -> Self {
+        AevorError::Authorization(msg.into())
+    }
+
+    /// Create a new rate limit error
+    pub fn rate_limit<S: Into<String>>(msg: S) -> Self {
+        AevorError::RateLimit(msg.into())
+    }
+
+    /// Create a new database consistency error
+    pub fn database_consistency<S: Into<String>>(msg: S) -> Self {
+        AevorError::DatabaseConsistency(msg.into())
+    }
+
+    /// Create a new unsupported feature error
+    pub fn unsupported_feature<S: Into<String>>(msg: S) -> Self {
+        AevorError::UnsupportedFeature(msg.into())
+    }
+
+    /// Create a new internal error
+    pub fn internal<S: Into<String>>(msg: S) -> Self {
+        AevorError::Internal(msg.into())
+    }
+
+    /// Return whether this error is retryable
+    pub fn is_retryable(&self) -> bool {
+        match self {
+            AevorError::Network(_) => true,
+            AevorError::Timeout(_) => true,
+            AevorError::RateLimit(_) => true,
+            // Generally not retryable
+            AevorError::Validation(_) => false,
+            AevorError::Blockchain(_) => false,
+            AevorError::Consensus(_) => false,
+            AevorError::CryptoError { .. } => false,
+            AevorError::TEEError { .. } => false,
+            AevorError::Storage(_) => false,
+            AevorError::VM(_) => false,
+            AevorError::Wallet(_) => false,
+            AevorError::Config(_) => false,
+            AevorError::IO(_) => false,
+            AevorError::Serialization(_) => false,
+            AevorError::Deserialization(_) => false,
+            AevorError::API(_) => false,
+            AevorError::DAG(_) => false,
+            AevorError::SecurityAcceleration(_) => false,
+            AevorError::BLSSignature(_) => false,
+            AevorError::MultiPartyComputation(_) => false,
+            AevorError::Dependency(_) => false,
+            AevorError::ObjectVersioning(_) => false,
+            AevorError::Authentication(_) => false,
+            AevorError::Authorization(_) => false,
+            AevorError::DatabaseConsistency(_) => false,
+            AevorError::UnsupportedFeature(_) => false,
+            AevorError::Internal(_) => false,
+            AevorError::Execution(_) => false,
+        }
+    }
+}
