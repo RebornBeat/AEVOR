@@ -86,221 +86,299 @@ These enhancements **reduce end-to-end latency by 10–20%** under load (e.g., m
 
 ---
 
-AevorVM
-
+# AevorVM
+ 
 AevorVM is a hyper-performant, object-centric, TEE-anchored virtual machine designed to exceed the execution capabilities of modern blockchain runtimes like Sui’s MoveVM and Solana’s Sealevel. It is built from the ground up to support massive parallelism, formal determinism, and secure execution across heterogeneous devices: x86, ARM, and RISC-V.
-
-> “Optimized for throughput. Hardened by TEEs. Designed for future-proof zk and multi-core execution.”
-
-
----
-
-Key Advantages
-
-Feature	AevorVM	Sui MoveVM	Solana Sealevel
-
-Object-Centric Execution	Yes (parallel & TEE-verified)	Yes	No
-Hardware Acceleration Support	Yes (SIMD, crypto, NEON, AVX)	Limited	Limited
-Cross-Architecture Ready	Yes (x86, ARM, RISC-V)	x86/ARM	Mostly x86
-Trusted Execution Environments	Yes (SGX, TrustZone, Keystone)	No	No
-zk-Proof Ready ABI	Yes	No	No
-Concurrency Model	DAG-based object scheduling	Object-based	Account-based
-Execution Safety	TEE-isolated & attested	Insecure Host	Host-dependent
-
----
-
-What is AevorVM?
-
+ 
+ 
+“Optimized for throughput. Hardened by TEEs. Designed for future-proof zk and multi-core execution.”
+ 
+  
+## Key Advantages
+ 
+  
+ 
+Feature
+ 
+AevorVM
+ 
+Sui MoveVM
+ 
+Solana Sealevel
+ 
+   
+ 
+Object-Centric Execution
+ 
+Yes (parallel & TEE-verified)
+ 
+Yes
+ 
+No
+ 
+ 
+ 
+Hardware Acceleration
+ 
+Yes (SIMD, crypto, NEON, AVX)
+ 
+Limited
+ 
+Limited
+ 
+ 
+ 
+Cross-Architecture Ready
+ 
+Yes (x86, ARM, RISC-V)
+ 
+x86/ARM
+ 
+Mostly x86
+ 
+ 
+ 
+Trusted Enclaves (TEE)
+ 
+Yes (SGX, TrustZone, Keystone)
+ 
+No
+ 
+No
+ 
+ 
+ 
+zk-Proof Ready ABI
+ 
+Yes
+ 
+No
+ 
+No
+ 
+ 
+ 
+Concurrency Model
+ 
+DAG-based object scheduling
+ 
+Object-based
+ 
+Account-based
+ 
+ 
+ 
+Execution Safety
+ 
+TEE-isolated & attested
+ 
+Insecure Host
+ 
+Host-dependent
+ 
+  
+  
+## What is AevorVM?
+ 
 AevorVM is the execution backbone of Aevor, a blockchain built around Proof of Uncorruption (PoU), smart TEE coordination, and verifiable parallel execution. The VM handles on-chain logic in the form of Move-based contracts, compiled to a custom IR and executed in parallel using an object graph.
-
-
----
-
-Features
-
-1. TEE-Secured Runtime
-
+  
+## Features
+ 
+### 1. TEE-Secured Runtime
+ 
 Each execution instance is run inside a Trusted Execution Environment:
-
-Intel SGX
-
-ARM TrustZone
-
-RISC-V Keystone (where supported)
-
-
-On-chain attestation records guarantee that the code, state, and runtime were untampered.
-
-Perfect for running on mobile, edge, or validator-grade CPUs with secure enclaves.
-
-
-2. Object-DAG Execution Engine
-
+ 
+ 
+- Intel SGX
+ 
+- ARM TrustZone
+ 
+- RISC-V Keystone (where supported)
+ 
+ 
+On-chain attestation records guarantee that the code, state, and runtime were untampered. Perfect for running on mobile, edge, or validator-grade CPUs with secure enclaves.
+ 
+### 2. Object-DAG Execution Engine
+ 
 Inspired by Sui but enhanced with:
+ 
+ 
+- Graph-aware execution planner
+ 
+- Automatic read-write conflict resolution
+ 
+- Stateless execution slicing for high parallelism
+ 
 
-Graph-aware execution planner
-
-Automatic read-write conflict resolution
-
-Stateless execution slicing for high parallelism
-
-
+ 
 Entire blocks are processed as object graphs, not transaction lists, allowing:
+ 
+ 
+- Independent contract execution
+ 
+- Out-of-order state commits, all verified through the PoU layer
+ 
 
-Independent contract execution
-
-Out-of-order state commits, all verified through the PoU layer
-
-
-
-3. Move-First Architecture
-
+ 
+### 3. Move-First Architecture
+ 
 AevorVM uses a custom optimized Move runtime:
+ 
+ 
+- Compiled to IR → optimized → executed inside a JIT or AOT-TEE runtime
+ 
+- Supports deterministic gas metering
+ 
+- Supports custom opcodes for crypto, zk, SIMD
+ 
 
-Compiled to IR → optimized → executed inside a JIT or AOT-TEE runtime
-
-Supports deterministic gas metering
-
-Supports custom opcodes for crypto, zk, SIMD
-
-
-
-4. Hardware Acceleration
-
+ 
+### 4. Hardware Acceleration
+ 
 SIMD support for:
-
-x86_64 (AVX2, AES-NI, SHA)
-
-ARM64 (NEON, Cryptography Extensions)
-
-RISC-V (Vector Extensions)
-
-
-Parallel hash computation, Merkle tree updates, zkSNARK verification offloading
-
-Compatible with GPU acceleration (CUDA/OpenCL backend hooks available)
-
-
-5. Zero-Knowledge Execution Surface
-
-AevorVM generates proof-friendly transcripts
-
-Optional zkABI for stateless verification
-
-Recursive circuit integration for PoU Layer
-
-
-Enables rollup-friendly, cross-chain-bridged, and zk-auditable smart contracts
-
-
-6. Ultra-Portable Runtime
-
-Build once, run anywhere: full support for:
-
-x86_64-unknown-linux-gnu
-
-aarch64-unknown-linux-gnu
-
-riscv64gc-unknown-linux-gnu
-
-
-Optimized via LLVM IR + TEE syscall abstraction
-
-
-
----
-
-Runtime Pipeline
-
-Smart Contract (Move)
-        |
-        v
-     Compiler
-        |
-        v
-  +-------------------+
-  |     Aevor IR      |   <- Optimized bytecode format
-  +-------------------+
-        |
-        v
-  Execution Planner (DAG)
-        |
-        v
-  TEE-Optimized Executor
-        |
-        v
-   Gas Accounting + State Commit
-
-
----
-
-Benchmarks
-
-Platform	Architecture	Execution Mode	TPS	Latency	Notes
-
-x86_64	Desktop CPU	Native (AVX2)	350k+	15 ms	SIMD ops + enclave protected
-ARM64	Mobile/Edge	Native (NEON)	200k+	22 ms	Secure world via TrustZone
-RISC-V	Emulator	Software fallback	50k+	80 ms	Hardware-native support planned
-
-
----
-
-Security Model
-
-All contract execution is isolated per object, mitigating reentrancy and state races
-
-PoU Validator Nodes verify enclaves’ execution receipts
-
-Optional zkVerifier hooks available for further decentralization
-
-
-
----
-
-Design Philosophy
-
-> AevorVM doesn’t just chase performance. It guarantees correctness, ensures security, and enables scale — without compromising decentralization.
-
-
-
-
----
-
-Roadmap
-
-[x] Move runtime full support
-
-[x] TEE enclave proof generation
-
-[x] zk-friendly IR output
-
-[x] Object DAG runtime with WriteSet prediction
-
-[ ] zkSNARK backend module
-
-[ ] Native RISC-V acceleration
-
-[ ] Formal verification framework (MoveSpec + TEE attestation)
-
-
-
----
-
-Documentation
-
-Full documentation: https://docs.aevor.io/aevorvm
-
-Move ABI, IR schema, enclave SDK integration
-
-zk Proof hooks + DAG tracing tools
-
-
----
-
-AevorVM – powering the next generation of secure, deterministic, high-throughput computation.
-
-> Build once. Verify anywhere. Execute everywhere.
-
+ 
+ 
+- x86_64 (AVX2, AES-NI, SHA)
+ 
+- ARM64 (NEON, Cryptography Extensions)
+ 
+- RISC-V (Vector Extensions)
+ 
+ 
+Includes:
+ 
+ 
+- Parallel hash computation, Merkle tree updates, zkSNARK verification offloading
+ 
+- Compatible with GPU acceleration (CUDA/OpenCL backend hooks available)
+ 
+
+ 
+### 5. Zero-Knowledge Execution Surface
+ 
+ 
+- AevorVM generates proof-friendly transcripts
+ 
+- Optional zkABI for stateless verification
+ 
+- Recursive circuit integration for PoU Layer
+ 
+ 
+Enables rollup-friendly, cross-chain-bridged, and zk-auditable smart contracts.
+ 
+### 6. Ultra-Portable Runtime
+ 
+Build once, run anywhere:
+ 
+ 
+- x86_64-unknown-linux-gnu
+ 
+- aarch64-unknown-linux-gnu
+ 
+- riscv64gc-unknown-linux-gnu
+ 
+
+ 
+Optimized via LLVM IR + TEE syscall abstraction.
+  
+## Runtime Pipeline
+ `Smart Contract (Move)         |         v      Compiler         |         v   +-------------------+   |     Aevor IR      |   <- Optimized bytecode format   +-------------------+         |         v   Execution Planner (DAG)         |         v   TEE-Optimized Executor         |         v    Gas Accounting + State Commit `  
+## Benchmarks
+ 
+  
+ 
+Platform
+ 
+Architecture
+ 
+Execution Mode
+ 
+TPS
+ 
+Latency
+ 
+Notes
+ 
+   
+ 
+x86_64
+ 
+Desktop CPU
+ 
+Native (AVX2)
+ 
+350k+
+ 
+15 ms
+ 
+SIMD ops + enclave protected
+ 
+ 
+ 
+ARM64
+ 
+Mobile/Edge
+ 
+Native (NEON)
+ 
+200k+
+ 
+22 ms
+ 
+Secure world via TrustZone
+ 
+ 
+ 
+RISC-V
+ 
+Emulator
+ 
+Software
+ 
+50k+
+ 
+80 ms
+ 
+Hardware-native support planned
+ 
+- All contract execution is isolated per object, mitigating reentrancy and state races
+ 
+- PoU Validator Nodes verify enclaves’ execution receipts
+ 
+- Optional zkVerifier hooks available for further decentralization
+ 
+
+  
+## Design Philosophy
+ 
+ 
+AevorVM doesn’t just chase performance. It guarantees correctness, ensures security, and enables scale — without compromising decentralization.
+ 
+  
+## Roadmap
+ 
+ 
+- [x] Move runtime full support
+ 
+- [x] TEE enclave proof generation
+ 
+- [x] zk-friendly IR output
+ 
+- [x] Object DAG runtime with WriteSet prediction
+ 
+- [ ] zkSNARK backend module
+ 
+- [ ] Native RISC-V acceleration
+ 
+- [ ] Formal verification framework (MoveSpec + TEE attestation)
+ 
+  
+# AevorVM – powering the next generation of secure, deterministic, high-throughput computation.
+ 
+ 
+Build once. Verify anywhere. Execute everywhere.
+ 
+ 
 ---
 ## 🏗️ Getting Started
 
