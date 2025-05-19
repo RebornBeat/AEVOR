@@ -95,7 +95,7 @@ These enhancements **reduce end-to-end latency by 10–20%** under load (e.g., m
 
 # AevorVM
  
-AevorVM is a hyper-performant, object-centric, TEE-anchored virtual machine designed to exceed the execution capabilities of modern blockchain runtimes like Sui's MoveVM and Solana's Sealevel. It is built from the ground up to support massive parallelism, formal determinism, and secure execution across heterogeneous devices: x86, ARM, and RISC-V.
+AevorVM is a hyper-performant, object-centric, TEE-anchored virtual machine designed to exceed the execution capabilities of modern blockchain runtimes like Sui's MoveVM and Solana's Sealevel. It is built around a revolutionary Double DAG architecture (Object DAG + Execution DAG) that enables unprecedented parallelism, formal determinism, and secure execution across heterogeneous devices: x86, ARM, and RISC-V.
  
  
 "Optimized for throughput. Hardened by TEEs. Designed for future-proof zk and multi-core execution."
@@ -135,12 +135,15 @@ On-chain attestation records guarantee that the code, state, and runtime were un
  
 ### 2. Object-DAG Execution Engine
  
-Inspired by Sui but enhanced with:
+Surpassing Sui with a revolutionary Double DAG architecture and more:
  
  
-- Graph-aware execution planner
-- Automatic read-write conflict resolution
-- Stateless execution slicing for high parallelism
+- **Double DAG Architecture**:
+  - Object DAG: Maps ownership and access dependencies between objects
+  - Execution DAG: Tracks attested enclave execution flow with verified state transitions
+- **Graph-aware execution planner**
+- **Automatic read-write conflict resolution**
+- **Stateless execution slicing for high parallelism**
  
 
  
