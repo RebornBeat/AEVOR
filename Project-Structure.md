@@ -13463,3 +13463,650 @@ The analytics and monitoring systems address the challenge of governance at unpr
 The predictive analytics and trend analysis enable proactive governance that can identify potential problems before they become crises. The participation monitoring ensures that the system remains inclusive and representative as it scales.
 
 This governance architecture transforms the theoretical possibility of global decentralized governance into a practical system that can handle the complexity, scale, and security requirements of modern blockchain networks while maintaining the democratic legitimacy that gives these systems their ultimate authority.
+
+# Aevor NS - Complete Project Structure
+
+## Native Naming Service Architecture
+
+`aevor-ns` implements the comprehensive Native Naming Service for the Aevor ecosystem, representing a fundamental architectural innovation where domain resolution becomes an integral part of the blockchain protocol rather than an external service. This approach enables unprecedented integration between smart contracts and naming services, while providing the economic and security guarantees that make decentralized naming systems practical at scale.
+
+Understanding this naming service architecture reveals how modern blockchain systems can embed complex services directly into the protocol layer, creating capabilities that external naming systems cannot match. Traditional blockchain naming systems operate as smart contracts that must make separate blockchain queries for each resolution. Aevor's native implementation provides zero-latency domain resolution for smart contracts, hardware-secured domain ownership validation, and direct integration with the economic mechanisms that drive network security.
+
+Think of this like the difference between using a phone book (external naming system) versus having caller ID built into your phone (native naming system). The external approach requires separate lookups and provides no guarantees about data freshness or security. The native approach provides instant, verified information as an integrated part of the communication process.
+
+```
+aevor-ns/
+├── Cargo.toml                 # NS crate with dependencies on core, config, crypto, consensus, tee
+├── README.md                  # Comprehensive naming service documentation
+├── CHANGELOG.md               # Naming service version history and protocol updates
+├── LICENSE                    # License information
+├── build.rs                   # Build script for optimization and cross-platform support
+├── examples/                  # Naming service usage examples
+│   ├── basic_registration.rs  # Basic domain registration example
+│   ├── smart_contract_resolution.rs # Smart contract domain resolution
+│   ├── service_discovery.rs   # Service discovery via domains
+│   ├── subdomain_management.rs # Subdomain management example
+│   └── integration_patterns.rs # Common integration patterns
+└── src/
+    ├── lib.rs                 # Naming service exports and protocol overview
+    ├── core/                  # Core naming service implementation
+    │   ├── mod.rs             # Core NS coordination and public interface
+    │   ├── protocol/          # Core naming protocol implementation
+    │   │   ├── mod.rs         # Protocol coordination
+    │   │   ├── registration.rs # Domain registration protocol
+    │   │   ├── resolution.rs  # Domain resolution protocol
+    │   │   ├── ownership.rs   # Domain ownership management
+    │   │   ├── transfer.rs    # Domain transfer protocol
+    │   │   ├── renewal.rs     # Domain renewal protocol
+    │   │   ├── delegation.rs  # Subdomain delegation protocol
+    │   │   └── revocation.rs  # Domain revocation protocol
+    │   ├── state/             # Naming service state management
+    │   │   ├── mod.rs         # State management coordination
+    │   │   ├── domains.rs     # Domain state representation
+    │   │   ├── ownership.rs   # Ownership state tracking
+    │   │   ├── metadata.rs    # Domain metadata management
+    │   │   ├── history.rs     # Domain history tracking
+    │   │   ├── snapshots.rs   # State snapshot management
+    │   │   ├── migrations.rs  # State migration procedures
+    │   │   └── consistency.rs # State consistency validation
+    │   ├── validation/        # Domain validation and verification
+    │   │   ├── mod.rs         # Validation coordination
+    │   │   ├── syntax.rs      # Domain name syntax validation
+    │   │   ├── semantic.rs    # Semantic domain validation
+    │   │   ├── ownership.rs   # Ownership validation procedures
+    │   │   ├── transfer.rs    # Transfer validation logic
+    │   │   ├── renewal.rs     # Renewal validation procedures
+    │   │   ├── conflicts.rs   # Domain conflict resolution
+    │   │   └── integrity.rs   # Data integrity validation
+    │   ├── resolution/        # Domain resolution engine
+    │   │   ├── mod.rs         # Resolution coordination
+    │   │   ├── cache.rs       # Resolution caching system
+    │   │   ├── hierarchy.rs   # Hierarchical name resolution
+    │   │   ├── wildcards.rs   # Wildcard domain resolution
+    │   │   ├── aliases.rs     # Domain alias management
+    │   │   ├── forwarding.rs  # Domain forwarding rules
+    │   │   ├── fallback.rs    # Resolution fallback mechanisms
+    │   │   └── optimization.rs # Resolution performance optimization
+    │   └── consensus_integration/ # Consensus mechanism integration
+    │       ├── mod.rs         # Consensus integration coordination
+    │       ├── transactions.rs # Domain transaction integration
+    │       ├── validation.rs  # Consensus-level validation
+    │       ├── finality.rs    # Domain finality determination
+    │       ├── synchronization.rs # Cross-validator synchronization
+    │       ├── attestation.rs # TEE attestation integration
+    │       └── economics.rs   # Economic mechanism integration
+    ├── economics/             # Domain economics and pricing
+    │   ├── mod.rs             # Economics coordination
+    │   ├── pricing/           # Domain pricing system
+    │   │   ├── mod.rs         # Pricing coordination
+    │   │   ├── tiers.rs       # Length-based pricing tiers
+    │   │   │   ├── reserved.rs # Reserved domain handling (1-2 chars)
+    │   │   │   ├── premium.rs  # Premium domain pricing (3-5 chars)
+    │   │   │   ├── standard.rs # Standard domain pricing (6-10 chars)
+    │   │   │   ├── extended.rs # Extended domain pricing (11+ chars)
+    │   │   │   └── custom.rs   # Custom pricing rules
+    │   │   ├── calculation.rs # Price calculation algorithms
+    │   │   ├── adjustment.rs  # Dynamic price adjustment
+    │   │   ├── discounts.rs   # Discount mechanism implementation
+    │   │   ├── bundling.rs    # Domain bundling pricing
+    │   │   └── auctions.rs    # Domain auction mechanisms (for reserved domains)
+    │   ├── payments/          # Payment processing system
+    │   │   ├── mod.rs         # Payment coordination
+    │   │   ├── native_token.rs # Native Aevor token payments
+    │   │   ├── alternative_tokens.rs # Alternative token payment support
+    │   │   ├── hybrid_payments.rs # Hybrid payment mechanisms
+    │   │   ├── escrow.rs      # Payment escrow for complex transactions
+    │   │   ├── refunds.rs     # Refund processing system
+    │   │   ├── validation.rs  # Payment validation procedures
+    │   │   └── settlement.rs  # Payment settlement mechanisms
+    │   ├── revenue/           # Revenue distribution system
+    │   │   ├── mod.rs         # Revenue coordination
+    │   │   ├── collection.rs  # Revenue collection mechanisms
+    │   │   ├── distribution.rs # Revenue distribution to validators
+    │   │   ├── treasury.rs    # Treasury allocation procedures
+    │   │   ├── incentives.rs  # Validator incentive structures
+    │   │   ├── burn.rs        # Token burning mechanisms
+    │   │   └── analytics.rs   # Revenue analytics and reporting
+    │   ├── governance/        # Economic governance
+    │   │   ├── mod.rs         # Economic governance coordination
+    │   │   ├── parameter_adjustment.rs # Pricing parameter governance
+    │   │   ├── policy_changes.rs # Economic policy governance
+    │   │   ├── emergency_measures.rs # Emergency economic measures
+    │   │   ├── community_proposals.rs # Community economic proposals
+    │   │   └── voting.rs      # Economic governance voting
+    │   └── analytics/         # Economic analytics
+    │       ├── mod.rs         # Analytics coordination
+    │       ├── market_analysis.rs # Domain market analysis
+    │       ├── demand_modeling.rs # Domain demand modeling
+    │       ├── price_optimization.rs # Pricing optimization analysis
+    │       ├── revenue_forecasting.rs # Revenue forecasting models
+    │       └── behavioral_analysis.rs # User behavior analysis
+    ├── registration/          # Domain registration system
+    │   ├── mod.rs             # Registration coordination
+    │   ├── process/           # Registration process management
+    │   │   ├── mod.rs         # Process coordination
+    │   │   ├── application.rs # Registration application processing
+    │   │   ├── validation.rs  # Registration validation procedures
+    │   │   ├── payment.rs     # Registration payment processing
+    │   │   ├── commitment.rs  # Registration commitment protocol
+    │   │   ├── reveal.rs      # Registration reveal protocol
+    │   │   ├── finalization.rs # Registration finalization
+    │   │   └── rollback.rs    # Registration rollback procedures
+    │   ├── restrictions/      # Registration restrictions and policies
+    │   │   ├── mod.rs         # Restrictions coordination
+    │   │   ├── reserved_names.rs # Reserved name management
+    │   │   ├── prohibited_content.rs # Content prohibition rules
+    │   │   ├── trademark_protection.rs # Trademark protection mechanisms
+    │   │   ├── rate_limiting.rs # Registration rate limiting
+    │   │   ├── geographic_restrictions.rs # Geographic restrictions (if any)
+    │   │   └── eligibility.rs # Registration eligibility requirements
+    │   ├── lifecycle/         # Domain lifecycle management
+    │   │   ├── mod.rs         # Lifecycle coordination
+    │   │   ├── creation.rs    # Domain creation procedures
+    │   │   ├── activation.rs  # Domain activation process
+    │   │   ├── maintenance.rs # Domain maintenance requirements
+    │   │   ├── renewal.rs     # Domain renewal procedures
+    │   │   ├── expiration.rs  # Domain expiration handling
+    │   │   ├── grace_period.rs # Grace period management
+    │   │   └── deletion.rs    # Domain deletion procedures
+    │   ├── batch_operations/  # Batch registration operations
+    │   │   ├── mod.rs         # Batch operations coordination
+    │   │   ├── bulk_registration.rs # Bulk domain registration
+    │   │   ├── batch_renewal.rs # Batch domain renewal
+    │   │   ├── mass_transfer.rs # Mass domain transfer
+    │   │   ├── validation.rs  # Batch operation validation
+    │   │   ├── optimization.rs # Batch operation optimization
+    │   │   └── rollback.rs    # Batch operation rollback
+    │   └── security/          # Registration security
+    │       ├── mod.rs         # Registration security coordination
+    │       ├── fraud_detection.rs # Registration fraud detection
+    │       ├── abuse_prevention.rs # Domain abuse prevention
+    │       ├── verification.rs # Identity verification procedures
+    │       ├── monitoring.rs  # Registration monitoring systems
+    │       └── incident_response.rs # Security incident response
+    ├── resolution/            # Domain resolution system
+    │   ├── mod.rs             # Resolution coordination
+    │   ├── engine/            # Core resolution engine
+    │   │   ├── mod.rs         # Resolution engine coordination
+    │   │   ├── lookup.rs      # Domain lookup algorithms
+    │   │   ├── traversal.rs   # Domain hierarchy traversal
+    │   │   ├── wildcards.rs   # Wildcard resolution logic
+    │   │   ├── aliases.rs     # Alias resolution handling
+    │   │   ├── redirects.rs   # Domain redirect processing
+    │   │   ├── canonical.rs   # Canonical name resolution
+    │   │   └── validation.rs  # Resolution result validation
+    │   ├── caching/           # Resolution caching system
+    │   │   ├── mod.rs         # Caching coordination
+    │   │   ├── memory.rs      # In-memory resolution caching
+    │   │   ├── distributed.rs # Distributed caching system
+    │   │   ├── persistence.rs # Persistent cache storage
+    │   │   ├── invalidation.rs # Cache invalidation strategies
+    │   │   ├── preloading.rs  # Cache preloading mechanisms
+    │   │   ├── compression.rs # Cache data compression
+    │   │   └── analytics.rs   # Cache performance analytics
+    │   ├── performance/       # Resolution performance optimization
+    │   │   ├── mod.rs         # Performance coordination
+    │   │   ├── parallel.rs    # Parallel resolution processing
+    │   │   ├── batching.rs    # Resolution request batching
+    │   │   ├── prefetching.rs # Predictive resolution prefetching
+    │   │   ├── indexing.rs    # Resolution indexing optimization
+    │   │   ├── compression.rs # Resolution data compression
+    │   │   └── monitoring.rs  # Resolution performance monitoring
+    │   ├── security/          # Resolution security
+    │   │   ├── mod.rs         # Resolution security coordination
+    │   │   ├── authentication.rs # Resolution request authentication
+    │   │   ├── authorization.rs # Resolution authorization
+    │   │   ├── rate_limiting.rs # Resolution rate limiting
+    │   │   ├── ddos_protection.rs # DDoS protection for resolution
+    │   │   ├── audit.rs       # Resolution audit logging
+    │   │   └── privacy.rs     # Resolution privacy protection
+    │   └── integration/       # Smart contract integration
+    │       ├── mod.rs         # Integration coordination
+    │       ├── vm_interface.rs # Virtual machine interface
+    │       ├── contract_apis.rs # Smart contract API implementation
+    │       ├── gas_optimization.rs # Gas-optimized resolution
+    │       ├── batch_resolution.rs # Batch resolution for contracts
+    │       ├── callback_system.rs # Resolution callback system
+    │       └── error_handling.rs # Integration error handling
+    ├── services/              # Service discovery and management
+    │   ├── mod.rs             # Services coordination
+    │   ├── discovery/         # Service discovery system
+    │   │   ├── mod.rs         # Discovery coordination
+    │   │   ├── registration.rs # Service registration procedures
+    │   │   ├── announcement.rs # Service announcement protocols
+    │   │   ├── lookup.rs      # Service lookup algorithms
+    │   │   ├── load_balancing.rs # Service load balancing
+    │   │   ├── health_checking.rs # Service health monitoring
+    │   │   ├── failover.rs    # Service failover mechanisms
+    │   │   └── optimization.rs # Discovery optimization techniques
+    │   ├── endpoints/         # Service endpoint management
+    │   │   ├── mod.rs         # Endpoint coordination
+    │   │   ├── api_endpoints.rs # API endpoint management
+    │   │   ├── websocket_endpoints.rs # WebSocket endpoint handling
+    │   │   ├── p2p_endpoints.rs # P2P endpoint management
+    │   │   ├── cdn_endpoints.rs # CDN endpoint integration
+    │   │   ├── validation.rs  # Endpoint validation procedures
+    │   │   ├── monitoring.rs  # Endpoint health monitoring
+    │   │   └── analytics.rs   # Endpoint usage analytics
+    │   ├── metadata/          # Service metadata management
+    │   │   ├── mod.rs         # Metadata coordination
+    │   │   ├── schema.rs      # Service metadata schema
+    │   │   ├── validation.rs  # Metadata validation procedures
+    │   │   ├── versioning.rs  # Service version management
+    │   │   ├── capabilities.rs # Service capability declarations
+    │   │   ├── requirements.rs # Service requirement specifications
+    │   │   └── documentation.rs # Service documentation management
+    │   ├── stack0x_integration/ # Stack0X service integration
+    │   │   ├── mod.rs         # Stack0X integration coordination
+    │   │   ├── compute_services.rs # Compute service endpoint registration
+    │   │   ├── edge_services.rs # Edge service endpoint registration
+    │   │   ├── index_services.rs # Index service endpoint registration
+    │   │   ├── deploy_services.rs # Deploy service endpoint registration
+    │   │   ├── load_balancing.rs # Stack0X load balancing integration
+    │   │   ├── health_monitoring.rs # Stack0X service health monitoring
+    │   │   └── scaling.rs     # Stack0X service scaling integration
+    │   └── universal_apis/    # Universal dApp integration APIs
+    │       ├── mod.rs         # Universal API coordination
+    │       ├── contract_interface.rs # Smart contract interface
+    │       ├── rest_api.rs    # RESTful API for service discovery
+    │       ├── graphql_api.rs # GraphQL API for complex queries
+    │       ├── websocket_api.rs # WebSocket API for real-time updates
+    │       ├── sdk_integration.rs # SDK integration points
+    │       └── documentation.rs # API documentation generation
+    ├── subdomains/            # Subdomain management system
+    │   ├── mod.rs             # Subdomain coordination
+    │   ├── hierarchy/         # Domain hierarchy management
+    │   │   ├── mod.rs         # Hierarchy coordination
+    │   │   ├── tree_structure.rs # Domain tree structure management
+    │   │   ├── traversal.rs   # Hierarchy traversal algorithms
+    │   │   ├── depth_limits.rs # Subdomain depth limitations
+    │   │   ├── circular_prevention.rs # Circular reference prevention
+    │   │   ├── optimization.rs # Hierarchy optimization techniques
+    │   │   └── validation.rs  # Hierarchy validation procedures
+    │   ├── delegation/        # Subdomain delegation system
+    │   │   ├── mod.rs         # Delegation coordination
+    │   │   ├── authorization.rs # Delegation authorization procedures
+    │   │   ├── policies.rs    # Delegation policy management
+    │   │   ├── inheritance.rs # Permission inheritance rules
+    │   │   ├── revocation.rs  # Delegation revocation procedures
+    │   │   ├── monitoring.rs  # Delegation monitoring and audit
+    │   │   └── security.rs    # Delegation security controls
+    │   ├── management/        # Subdomain lifecycle management
+    │   │   ├── mod.rs         # Management coordination
+    │   │   ├── creation.rs    # Subdomain creation procedures
+    │   │   ├── modification.rs # Subdomain modification handling
+    │   │   ├── deletion.rs    # Subdomain deletion procedures
+    │   │   ├── bulk_operations.rs # Bulk subdomain operations
+    │   │   ├── templates.rs   # Subdomain template system
+    │   │   └── automation.rs  # Automated subdomain management
+    │   ├── resolution/        # Subdomain resolution
+    │   │   ├── mod.rs         # Subdomain resolution coordination
+    │   │   ├── recursive.rs   # Recursive subdomain resolution
+    │   │   ├── caching.rs     # Subdomain resolution caching
+    │   │   ├── wildcards.rs   # Wildcard subdomain handling
+    │   │   ├── aliases.rs     # Subdomain alias management
+    │   │   └── optimization.rs # Resolution optimization
+    │   └── security/          # Subdomain security
+    │       ├── mod.rs         # Subdomain security coordination
+    │       ├── access_control.rs # Subdomain access control
+    │       ├── isolation.rs   # Subdomain isolation mechanisms
+    │       ├── abuse_prevention.rs # Subdomain abuse prevention
+    │       ├── monitoring.rs  # Security monitoring for subdomains
+    │       └── incident_response.rs # Subdomain security incidents
+    ├── security/              # Naming service security
+    │   ├── mod.rs             # Security coordination
+    │   ├── authentication/    # Authentication mechanisms
+    │   │   ├── mod.rs         # Authentication coordination
+    │   │   ├── digital_signatures.rs # Digital signature authentication
+    │   │   ├── multisig.rs    # Multi-signature authentication
+    │   │   ├── hardware_keys.rs # Hardware key authentication
+    │   │   ├── biometric.rs   # Biometric authentication integration
+    │   │   ├── two_factor.rs  # Two-factor authentication
+    │   │   ├── session_management.rs # Authentication session management
+    │   │   └── recovery.rs    # Authentication recovery procedures
+    │   ├── authorization/     # Authorization and access control
+    │   │   ├── mod.rs         # Authorization coordination
+    │   │   ├── ownership_verification.rs # Domain ownership verification
+    │   │   ├── permission_system.rs # Fine-grained permission system
+    │   │   ├── role_based.rs  # Role-based access control
+    │   │   ├── attribute_based.rs # Attribute-based access control
+    │   │   ├── delegation.rs  # Authorization delegation
+    │   │   ├── audit.rs       # Authorization audit logging
+    │   │   └── policy_engine.rs # Authorization policy engine
+    │   ├── fraud_prevention/  # Fraud prevention and detection
+    │   │   ├── mod.rs         # Fraud prevention coordination
+    │   │   ├── pattern_detection.rs # Fraudulent pattern detection
+    │   │   ├── anomaly_analysis.rs # Anomaly analysis for fraud
+    │   │   ├── risk_scoring.rs # Domain registration risk scoring
+    │   │   ├── machine_learning.rs # ML-based fraud detection
+    │   │   ├── real_time_monitoring.rs # Real-time fraud monitoring
+    │   │   ├── investigation.rs # Fraud investigation procedures
+    │   │   └── response.rs    # Fraud response mechanisms
+    │   ├── abuse_prevention/  # Domain abuse prevention
+    │   │   ├── mod.rs         # Abuse prevention coordination
+    │   │   ├── content_filtering.rs # Abusive content filtering
+    │   │   ├── behavior_analysis.rs # Abusive behavior analysis
+    │   │   ├── reputation_system.rs # Domain reputation management
+    │   │   ├── blacklisting.rs # Domain blacklisting mechanisms
+    │   │   ├── reporting.rs   # Abuse reporting system
+    │   │   ├── investigation.rs # Abuse investigation procedures
+    │   │   └── remediation.rs # Abuse remediation actions
+    │   ├── tee_integration/   # TEE security integration
+    │   │   ├── mod.rs         # TEE integration coordination
+    │   │   ├── attestation.rs # TEE attestation for domain operations
+    │   │   ├── secure_storage.rs # TEE-secured domain data storage
+    │   │   ├── key_management.rs # TEE-based key management
+    │   │   ├── integrity_verification.rs # TEE integrity verification
+    │   │   ├── isolation.rs   # TEE isolation for domain operations
+    │   │   └── monitoring.rs  # TEE security monitoring
+    │   └── compliance/        # Security compliance
+    │       ├── mod.rs         # Compliance coordination
+    │       ├── standards.rs   # Security standards compliance
+    │       ├── auditing.rs    # Security auditing procedures
+    │       ├── certification.rs # Security certification management
+    │       ├── reporting.rs   # Compliance reporting mechanisms
+    │       ├── monitoring.rs  # Compliance monitoring systems
+    │       └── remediation.rs # Compliance remediation procedures
+    ├── integration/           # System integration interfaces
+    │   ├── mod.rs             # Integration coordination
+    │   ├── consensus/         # Consensus system integration
+    │   │   ├── mod.rs         # Consensus integration coordination
+    │   │   ├── transaction_integration.rs # Domain transaction integration
+    │   │   ├── validation_integration.rs # Validation integration
+    │   │   ├── finality_integration.rs # Finality determination integration
+    │   │   ├── economic_integration.rs # Economic mechanism integration
+    │   │   ├── governance_integration.rs # Governance integration
+    │   │   └── attestation_integration.rs # TEE attestation integration
+    │   ├── vm/                # Virtual machine integration
+    │   │   ├── mod.rs         # VM integration coordination
+    │   │   ├── contract_interface.rs # Smart contract interface
+    │   │   ├── execution_context.rs # Domain resolution execution context
+    │   │   ├── gas_optimization.rs # Gas-optimized domain operations
+    │   │   ├── state_management.rs # Domain state in VM
+    │   │   ├── event_system.rs # Domain event system integration
+    │   │   └── error_handling.rs # VM integration error handling
+    │   ├── storage/           # Storage system integration
+    │   │   ├── mod.rs         # Storage integration coordination
+    │   │   ├── domain_storage.rs # Domain data storage integration
+    │   │   ├── indexing.rs    # Domain indexing integration
+    │   │   ├── caching.rs     # Storage caching integration
+    │   │   ├── backup.rs      # Domain data backup integration
+    │   │   ├── migration.rs   # Domain data migration
+    │   │   └── consistency.rs # Storage consistency integration
+    │   ├── network/           # Network system integration
+    │   │   ├── mod.rs         # Network integration coordination
+    │   │   ├── protocol_integration.rs # Network protocol integration
+    │   │   ├── discovery_integration.rs # Network discovery integration
+    │   │   ├── routing_integration.rs # Network routing integration
+    │   │   ├── security_integration.rs # Network security integration
+    │   │   └── optimization_integration.rs # Network optimization integration
+    │   └── external/          # External system integration
+    │       ├── mod.rs         # External integration coordination
+    │       ├── dns_bridge.rs  # Traditional DNS bridge
+    │       ├── ipfs_integration.rs # IPFS content addressing
+    │       ├── ens_compatibility.rs # ENS compatibility layer
+    │       ├── certificate_authorities.rs # CA integration
+    │       ├── social_verification.rs # Social verification integration
+    │       └── legacy_systems.rs # Legacy system integration
+    ├── analytics/             # Analytics and monitoring
+    │   ├── mod.rs             # Analytics coordination
+    │   ├── usage/             # Usage analytics
+    │   │   ├── mod.rs         # Usage analytics coordination
+    │   │   ├── registration_analytics.rs # Registration pattern analysis
+    │   │   ├── resolution_analytics.rs # Resolution pattern analysis
+    │   │   ├── performance_analytics.rs # Performance analysis
+    │   │   ├── user_behavior.rs # User behavior analysis
+    │   │   ├── trending.rs    # Domain trending analysis
+    │   │   ├── geographic.rs  # Geographic usage analysis
+    │   │   └── forecasting.rs # Usage forecasting models
+    │   ├── economic/          # Economic analytics
+    │   │   ├── mod.rs         # Economic analytics coordination
+    │   │   ├── market_analysis.rs # Domain market analysis
+    │   │   ├── pricing_optimization.rs # Pricing optimization analysis
+    │   │   ├── revenue_analysis.rs # Revenue analysis and forecasting
+    │   │   ├── demand_modeling.rs # Domain demand modeling
+    │   │   ├── competition_analysis.rs # Competitive analysis
+    │   │   └── value_assessment.rs # Domain value assessment
+    │   ├── security/          # Security analytics
+    │   │   ├── mod.rs         # Security analytics coordination
+    │   │   ├── threat_analysis.rs # Security threat analysis
+    │   │   ├── attack_pattern_detection.rs # Attack pattern analysis
+    │   │   ├── vulnerability_assessment.rs # Security vulnerability assessment
+    │   │   ├── compliance_monitoring.rs # Compliance monitoring analytics
+    │   │   └── incident_analysis.rs # Security incident analysis
+    │   ├── performance/       # Performance analytics
+    │   │   ├── mod.rs         # Performance analytics coordination
+    │   │   ├── resolution_performance.rs # Resolution performance analysis
+    │   │   ├── registration_performance.rs # Registration performance analysis
+    │   │   ├── system_performance.rs # Overall system performance
+    │   │   ├── bottleneck_analysis.rs # Performance bottleneck analysis
+    │   │   ├── optimization_recommendations.rs # Performance optimization
+    │   │   └── capacity_planning.rs # Capacity planning analytics
+    │   └── reporting/         # Analytics reporting
+    │       ├── mod.rs         # Reporting coordination
+    │       ├── dashboard.rs   # Real-time analytics dashboard
+    │       ├── periodic_reports.rs # Periodic analytics reports
+    │       ├── custom_reports.rs # Custom report generation
+    │       ├── visualization.rs # Data visualization utilities
+    │       ├── export.rs      # Report export functionality
+    │       └── distribution.rs # Report distribution mechanisms
+    ├── governance/            # Naming service governance
+    │   ├── mod.rs             # Governance coordination
+    │   ├── proposals/         # Governance proposal system
+    │   │   ├── mod.rs         # Proposal coordination
+    │   │   ├── submission.rs  # Proposal submission procedures
+    │   │   ├── validation.rs  # Proposal validation procedures
+    │   │   ├── discussion.rs  # Proposal discussion mechanisms
+    │   │   ├── voting.rs      # Proposal voting procedures
+    │   │   ├── execution.rs   # Proposal execution procedures
+    │   │   └── tracking.rs    # Proposal status tracking
+    │   ├── policies/          # Policy management
+    │   │   ├── mod.rs         # Policy coordination
+    │   │   ├── creation.rs    # Policy creation procedures
+    │   │   ├── modification.rs # Policy modification procedures
+    │   │   ├── enforcement.rs # Policy enforcement mechanisms
+    │   │   ├── compliance.rs  # Policy compliance monitoring
+    │   │   ├── review.rs      # Policy review procedures
+    │   │   └── sunset.rs      # Policy sunset procedures
+    │   ├── committees/        # Governance committees
+    │   │   ├── mod.rs         # Committee coordination
+    │   │   ├── technical.rs   # Technical governance committee
+    │   │   ├── economic.rs    # Economic governance committee
+    │   │   ├── security.rs    # Security governance committee
+    │   │   ├── community.rs   # Community governance committee
+    │   │   ├── advisory.rs    # Advisory governance committee
+    │   │   └── oversight.rs   # Oversight governance committee
+    │   ├── participation/     # Governance participation
+    │   │   ├── mod.rs         # Participation coordination
+    │   │   ├── eligibility.rs # Governance participation eligibility
+    │   │   ├── voting_power.rs # Voting power calculation
+    │   │   ├── delegation.rs  # Governance delegation mechanisms
+    │   │   ├── representation.rs # Stakeholder representation
+    │   │   ├── incentives.rs  # Participation incentive mechanisms
+    │   │   └── accountability.rs # Governance accountability measures
+    │   └── transparency/      # Governance transparency
+    │       ├── mod.rs         # Transparency coordination
+    │       ├── public_records.rs # Public governance records
+    │       ├── decision_tracking.rs # Decision tracking and history
+    │       ├── impact_assessment.rs # Governance impact assessment
+    │       ├── public_participation.rs # Public participation mechanisms
+    │       └── audit_trail.rs # Governance audit trail
+    ├── testing/               # Comprehensive testing framework
+    │   ├── mod.rs             # Testing coordination
+    │   ├── unit/              # Unit testing
+    │   │   ├── mod.rs         # Unit test coordination
+    │   │   ├── protocol.rs    # Protocol unit tests
+    │   │   ├── economics.rs   # Economics unit tests
+    │   │   ├── registration.rs # Registration unit tests
+    │   │   ├── resolution.rs  # Resolution unit tests
+    │   │   ├── security.rs    # Security unit tests
+    │   │   └── integration_points.rs # Integration point unit tests
+    │   ├── integration/       # Integration testing
+    │   │   ├── mod.rs         # Integration test coordination
+    │   │   ├── end_to_end.rs  # End-to-end naming service tests
+    │   │   ├── consensus_integration.rs # Consensus integration tests
+    │   │   ├── vm_integration.rs # VM integration tests
+    │   │   ├── storage_integration.rs # Storage integration tests
+    │   │   ├── network_integration.rs # Network integration tests
+    │   │   └── cross_platform.rs # Cross-platform integration tests
+    │   ├── performance/       # Performance testing
+    │   │   ├── mod.rs         # Performance test coordination
+    │   │   ├── registration_performance.rs # Registration performance tests
+    │   │   ├── resolution_performance.rs # Resolution performance tests
+    │   │   ├── scalability.rs # Scalability testing
+    │   │   ├── load_testing.rs # Load testing procedures
+    │   │   ├── stress_testing.rs # Stress testing procedures
+    │   │   └── benchmarking.rs # Performance benchmarking
+    │   ├── security/          # Security testing
+    │   │   ├── mod.rs         # Security test coordination
+    │   │   ├── penetration.rs # Penetration testing procedures
+    │   │   ├── vulnerability_scanning.rs # Vulnerability scanning
+    │   │   ├── attack_simulation.rs # Attack simulation testing
+    │   │   ├── fraud_testing.rs # Fraud prevention testing
+    │   │   ├── abuse_testing.rs # Abuse prevention testing
+    │   │   └── compliance_testing.rs # Security compliance testing
+    │   ├── economics/         # Economic testing
+    │   │   ├── mod.rs         # Economic test coordination
+    │   │   ├── pricing_model_testing.rs # Pricing model validation
+    │   │   ├── payment_testing.rs # Payment system testing
+    │   │   ├── auction_testing.rs # Auction mechanism testing
+    │   │   ├── incentive_testing.rs # Incentive mechanism testing
+    │   │   └── market_simulation.rs # Market behavior simulation
+    │   ├── governance/        # Governance testing
+    │   │   ├── mod.rs         # Governance test coordination
+    │   │   ├── proposal_testing.rs # Governance proposal testing
+    │   │   ├── voting_testing.rs # Voting mechanism testing
+    │   │   ├── policy_testing.rs # Policy enforcement testing
+    │   │   ├── participation_testing.rs # Participation mechanism testing
+    │   │   └── transparency_testing.rs # Transparency mechanism testing
+    │   └── utilities/         # Testing utilities
+    │       ├── mod.rs         # Testing utility coordination
+    │       ├── mock_consensus.rs # Mock consensus for testing
+    │       ├── mock_vm.rs     # Mock VM for testing
+    │       ├── test_data.rs   # Test data generation
+    │       ├── assertion_helpers.rs # Custom assertion helpers
+    │       ├── performance_helpers.rs # Performance testing helpers
+    │       └── simulation_helpers.rs # Simulation testing helpers
+    ├── compatibility/         # Cross-platform and compatibility
+    │   ├── mod.rs             # Compatibility coordination
+    │   ├── platforms/         # Platform compatibility
+    │   │   ├── mod.rs         # Platform coordination
+    │   │   ├── x86_64.rs      # x86_64 platform optimizations
+    │   │   ├── aarch64.rs     # ARM64 platform optimizations
+    │   │   ├── riscv64.rs     # RISC-V platform optimizations
+    │   │   ├── wasm.rs        # WebAssembly compatibility
+    │   │   └── mobile.rs      # Mobile platform considerations
+    │   ├── versions/          # Version compatibility
+    │   │   ├── mod.rs         # Version coordination
+    │   │   ├── backwards_compatibility.rs # Backwards compatibility
+    │   │   ├── migration.rs   # Version migration procedures
+    │   │   ├── deprecation.rs # Feature deprecation management
+    │   │   └── upgrade_paths.rs # Version upgrade paths
+    │   ├── standards/         # Standards compliance
+    │   │   ├── mod.rs         # Standards coordination
+    │   │   ├── dns_compatibility.rs # DNS standard compatibility
+    │   │   ├── unicode_support.rs # Unicode domain name support
+    │   │   ├── internationalization.rs # Internationalization support
+    │   │   ├── accessibility.rs # Accessibility compliance
+    │   │   └── regulatory_compliance.rs # Regulatory compliance
+    │   └── interoperability/  # System interoperability
+    │       ├── mod.rs         # Interoperability coordination
+    │       ├── external_naming.rs # External naming system integration
+    │       ├── cross_chain.rs # Cross-chain naming integration
+    │       ├── bridge_compatibility.rs # Bridge system compatibility
+    │       └── legacy_integration.rs # Legacy system integration
+    └── utilities/             # Naming service utilities
+        ├── mod.rs             # Utility coordination
+        ├── validation/        # Validation utilities
+        │   ├── mod.rs         # Validation utility coordination
+        │   ├── domain_syntax.rs # Domain name syntax validation
+        │   ├── character_validation.rs # Character set validation
+        │   ├── length_validation.rs # Domain length validation
+        │   ├── format_validation.rs # Domain format validation
+        │   └── security_validation.rs # Security validation utilities
+        ├── encoding/          # Encoding and normalization
+        │   ├── mod.rs         # Encoding coordination
+        │   ├── punycode.rs    # Punycode encoding/decoding
+        │   ├── unicode_normalization.rs # Unicode normalization
+        │   ├── case_folding.rs # Case folding algorithms
+        │   ├── canonicalization.rs # Domain canonicalization
+        │   └── internationalization.rs # Internationalization utilities
+        ├── serialization/     # Domain data serialization
+        │   ├── mod.rs         # Serialization coordination
+        │   ├── domain_serialization.rs # Domain data serialization
+        │   ├── metadata_serialization.rs # Metadata serialization
+        │   ├── state_serialization.rs # State serialization
+        │   ├── compression.rs # Domain data compression
+        │   └── binary_formats.rs # Binary format utilities
+        ├── cryptography/      # Naming service cryptography
+        │   ├── mod.rs         # Cryptography coordination
+        │   ├── domain_hashing.rs # Domain hashing utilities
+        │   ├── commitment_schemes.rs # Domain commitment schemes
+        │   ├── digital_signatures.rs # Domain signature utilities
+        │   ├── encryption.rs  # Domain data encryption
+        │   └── key_derivation.rs # Domain key derivation
+        ├── networking/        # Network utilities
+        │   ├── mod.rs         # Network utility coordination
+        │   ├── dns_protocol.rs # DNS protocol utilities
+        │   ├── network_discovery.rs # Network discovery utilities
+        │   ├── peer_communication.rs # Peer communication utilities
+        │   ├── load_balancing.rs # Load balancing utilities
+        │   └── failover.rs    # Network failover utilities
+        ├── performance/       # Performance utilities
+        │   ├── mod.rs         # Performance coordination
+        │   ├── caching.rs     # Performance caching utilities
+        │   ├── indexing.rs    # Performance indexing utilities
+        │   ├── batching.rs    # Batch processing utilities
+        │   ├── parallel_processing.rs # Parallel processing utilities
+        │   └── optimization.rs # General optimization utilities
+        └── monitoring/        # Monitoring utilities
+            ├── mod.rs         # Monitoring coordination
+            ├── metrics_collection.rs # Metrics collection utilities
+            ├── health_monitoring.rs # Health monitoring utilities
+            ├── performance_monitoring.rs # Performance monitoring
+            ├── security_monitoring.rs # Security monitoring utilities
+            ├── alert_systems.rs # Alert system utilities
+            └── logging.rs     # Logging utilities
+```
+
+## Educational Deep Dive: Understanding Native Naming Service Architecture
+
+Let me walk you through what makes this naming service architecture both innovative and practical for production blockchain systems. Traditional blockchain naming services operate as smart contracts that require separate blockchain queries for each domain resolution. This creates latency bottlenecks, gas costs for every lookup, and security limitations that make naming systems impractical for high-performance applications.
+
+Aevor's native naming service integration represents a fundamental architectural advancement. By embedding domain resolution directly into the protocol layer, we achieve zero-latency domain resolution for smart contracts, hardware-secured domain ownership validation, and direct integration with the economic mechanisms that drive network security.
+
+Think of this architectural difference like comparing how phone systems handle caller ID. Early phone systems required separate directory lookups to identify callers, adding delay and complexity to every call. Modern phone systems embed caller identification directly into the call signaling, providing instant, verified caller information as an integrated part of the communication process. Similarly, native naming service integration provides instant, verified domain information as an integrated part of blockchain operations.
+
+## Economic Architecture Innovation
+
+The economics module demonstrates how sophisticated pricing mechanisms can be implemented systematically within blockchain protocols. Rather than simple fixed pricing, we implement dynamic pricing tiers that reflect actual domain utility and market demand. The length-based pricing tiers we designed (individual pricing for 3, 4, and 5-character domains, grouped pricing for longer domains, and reservation system for ultra-premium 1-2 character domains) create natural market incentives while keeping the system accessible for legitimate use cases.
+
+The payment system architecture shows how modern blockchain systems can support flexible economic models. Native Aevor token payments provide the simplest and most efficient path, while alternative token support enables broader ecosystem participation. The hybrid payment mechanisms allow sophisticated economic models while keeping simple cases simple.
+
+The revenue distribution system ensures that domain registration fees contribute to network security by flowing to validators, while treasury allocation enables protocol development and community initiatives. This economic integration makes the naming service a positive contributor to network sustainability rather than a resource drain.
+
+## Service Discovery and Stack0X Integration
+
+The services module demonstrates how native naming systems can enable entirely new categories of applications. Traditional naming systems can only map names to addresses. Aevor's service discovery capabilities enable mapping names to complex service specifications, health monitoring, load balancing, and failover mechanisms.
+
+The Stack0X integration modules show how the naming system prepares for future decentralized service platforms. When Stack0X provides compute, edge, index, and deploy services, the naming system enables service discovery, load balancing, and health monitoring that makes these services practical for production applications. Smart contracts can resolve service endpoints, check service health, and automatically failover to alternative providers without requiring complex external integration.
+
+## Security Through Multiple Layers
+
+The security architecture demonstrates how production naming systems must defend against sophisticated attack vectors. The fraud prevention modules use pattern detection, anomaly analysis, and machine learning to identify suspicious registration patterns before they can cause harm. The abuse prevention systems monitor domain usage patterns to identify malicious activity and implement appropriate countermeasures.
+
+The TEE integration provides hardware-secured domain operations that traditional naming systems cannot match. Domain registration, ownership transfers, and resolution operations benefit from cryptographic proof of correct execution environment. This hardware security layer makes certain classes of attacks computationally infeasible rather than merely economically unprofitable.
+
+## Integration Excellence
+
+The integration modules show how native services achieve capabilities that external services cannot match. The consensus integration ensures that domain operations respect finality guarantees and contribute to network security. The VM integration provides the zero-latency domain resolution that enables smart contracts to use naming services without gas penalties or latency concerns.
+
+The storage integration enables efficient indexing and caching strategies that optimize for naming service access patterns. The network integration allows domain resolution to leverage network topology optimization and security mechanisms.
+
+## Governance and Evolution
+
+The governance modules demonstrate how decentralized naming systems can evolve while maintaining stability and security. Rather than requiring hard forks for policy changes, the governance integration allows stakeholders to propose, discuss, and implement changes through on-chain mechanisms. The transparency mechanisms ensure that governance decisions are publicly auditable and accountable.
+
+The policy management system enables sophisticated rules about domain registration, ownership, and usage while maintaining the flexibility needed to adapt to changing requirements and attack vectors.
+
+This naming service architecture transforms domain resolution from a simple lookup service into an intelligent platform that enables new categories of decentralized applications while maintaining the security, performance, and economic sustainability that production blockchain systems require. The systematic decomposition ensures that each component can be implemented, tested, and optimized independently while contributing to the overall capabilities of the ecosystem.
