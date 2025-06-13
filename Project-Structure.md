@@ -15607,3 +15607,1477 @@ The documentation, client library generation, and testing frameworks show how mo
 The versioning system enables API evolution without breaking existing applications. Rather than forcing all users to upgrade simultaneously, the system supports multiple API versions concurrently while providing clear migration paths and deprecation timelines.
 
 This API architecture transforms the sophisticated capabilities we've built throughout the Aevor ecosystem into accessible, powerful interfaces that enable developers to build innovative applications while maintaining the security, performance, and reliability characteristics that make blockchain systems valuable for critical applications.
+
+# Aevor Client - Complete Project Structure
+
+## Comprehensive Client Library Architecture
+
+`aevor-client` serves as the comprehensive client library that provides developers with intuitive, powerful interfaces for building applications on the Aevor blockchain. This architecture demonstrates how sophisticated blockchain capabilities can be packaged into developer-friendly libraries that abstract complexity while preserving full functionality. Rather than requiring developers to understand the intricacies of blockchain protocols, cryptographic operations, or network communication, this client library provides high-level abstractions that make blockchain development as straightforward as traditional application development.
+
+Understanding this client architecture reveals how production blockchain systems achieve widespread adoption. Technical excellence means nothing if developers cannot easily leverage it in their applications. This client library transforms the sophisticated capabilities we've built throughout the Aevor ecosystem - TEE integration, hardware acceleration, dual-DAG execution, advanced cryptographic features, and comprehensive APIs - into simple method calls that any application developer can use effectively.
+
+Think of this like the difference between requiring every driver to understand internal combustion engines versus providing a simple steering wheel, accelerator, and brake pedal interface. The blockchain infrastructure underneath is incredibly sophisticated, but the client library provides intuitive abstractions that enable developers to build powerful applications without needing deep blockchain expertise.
+
+```
+aevor-client/
+├── Cargo.toml                 # Client library with dependencies on core, crypto, and api
+├── README.md                  # Comprehensive client library documentation and examples
+├── CHANGELOG.md               # Client library version history and breaking changes
+├── LICENSE                    # License information
+├── build.rs                   # Build script for client optimization and feature detection
+├── examples/                  # Client library usage examples and tutorials
+│   ├── basic_usage.rs         # Basic client usage examples
+│   ├── wallet_integration.rs  # Wallet integration examples
+│   ├── dapp_integration.rs    # dApp integration examples
+│   ├── real_time_updates.rs   # Real-time data subscription examples
+│   ├── advanced_features.rs   # Advanced feature usage examples
+│   ├── multi_network.rs       # Multi-network client examples
+│   ├── async_patterns.rs      # Async programming patterns
+│   └── error_handling.rs      # Error handling best practices
+└── src/
+├── lib.rs                 # Client library exports and main interface
+├── client/                # Core client implementation
+│   ├── mod.rs             # Client coordination and main client struct
+│   ├── builder/           # Client builder pattern implementation
+│   │   ├── mod.rs         # Builder coordination
+│   │   ├── client_builder.rs # Main client builder implementation
+│   │   ├── network_config.rs # Network configuration builder
+│   │   ├── authentication_config.rs # Authentication configuration builder
+│   │   ├── connection_config.rs # Connection configuration builder
+│   │   ├── feature_config.rs # Feature configuration builder
+│   │   ├── security_config.rs # Security configuration builder
+│   │   └── validation.rs  # Builder configuration validation
+│   ├── configuration/     # Client configuration management
+│   │   ├── mod.rs         # Configuration coordination
+│   │   ├── network_config.rs # Network-specific configuration
+│   │   ├── connection_config.rs # Connection configuration
+│   │   ├── authentication_config.rs # Authentication configuration
+│   │   ├── retry_config.rs # Retry and timeout configuration
+│   │   ├── caching_config.rs # Client-side caching configuration
+│   │   ├── logging_config.rs # Client logging configuration
+│   │   └── feature_flags.rs # Client feature flag configuration
+│   ├── connection/        # Connection management
+│   │   ├── mod.rs         # Connection coordination
+│   │   ├── http_connection.rs # HTTP connection management
+│   │   ├── websocket_connection.rs # WebSocket connection management
+│   │   ├── grpc_connection.rs # gRPC connection management
+│   │   ├── connection_pool.rs # Connection pooling and reuse
+│   │   ├── load_balancing.rs # Client-side load balancing
+│   │   ├── failover.rs    # Connection failover handling
+│   │   └── health_monitoring.rs # Connection health monitoring
+│   ├── authentication/    # Client authentication handling
+│   │   ├── mod.rs         # Authentication coordination
+│   │   ├── jwt_auth.rs    # JWT token authentication
+│   │   ├── api_key_auth.rs # API key authentication
+│   │   ├── signature_auth.rs # Cryptographic signature authentication
+│   │   ├── oauth_auth.rs  # OAuth 2.0 authentication
+│   │   ├── multi_auth.rs  # Multi-method authentication support
+│   │   ├── token_refresh.rs # Automatic token refresh
+│   │   └── credential_storage.rs # Secure credential storage
+│   ├── retry/             # Request retry and resilience
+│   │   ├── mod.rs         # Retry coordination
+│   │   ├── retry_policy.rs # Retry policy implementation
+│   │   ├── exponential_backoff.rs # Exponential backoff strategy
+│   │   ├── circuit_breaker.rs # Circuit breaker pattern
+│   │   ├── timeout_handling.rs # Request timeout handling
+│   │   ├── error_classification.rs # Error classification for retry decisions
+│   │   └── resilience_metrics.rs # Resilience pattern metrics
+│   ├── caching/           # Client-side caching
+│   │   ├── mod.rs         # Caching coordination
+│   │   ├── memory_cache.rs # In-memory response caching
+│   │   ├── persistent_cache.rs # Persistent client-side cache
+│   │   ├── cache_invalidation.rs # Cache invalidation strategies
+│   │   ├── cache_warming.rs # Proactive cache warming
+│   │   ├── cache_compression.rs # Cache data compression
+│   │   └── cache_metrics.rs # Cache performance metrics
+│   └── monitoring/        # Client monitoring and observability
+│       ├── mod.rs         # Monitoring coordination
+│       ├── request_tracing.rs # Client request tracing
+│       ├── performance_monitoring.rs # Client performance monitoring
+│       ├── error_tracking.rs # Client error tracking
+│       ├── usage_analytics.rs # Client usage analytics
+│       ├── health_reporting.rs # Client health reporting
+│       └── diagnostics.rs # Client diagnostic information
+├── consensus/             # Consensus-related client operations
+│   ├── mod.rs             # Consensus client coordination
+│   ├── status/            # Consensus status queries
+│   │   ├── mod.rs         # Status coordination
+│   │   ├── network_status.rs # Network consensus status
+│   │   ├── validator_status.rs # Validator status queries
+│   │   ├── finality_status.rs # Transaction finality status
+│   │   ├── security_level_status.rs # Security level status
+│   │   ├── participation_status.rs # Network participation status
+│   │   └── health_status.rs # Consensus health indicators
+│   ├── validators/        # Validator information and interaction
+│   │   ├── mod.rs         # Validator coordination
+│   │   ├── validator_info.rs # Validator information queries
+│   │   ├── validator_list.rs # Validator set queries
+│   │   ├── validator_performance.rs # Validator performance metrics
+│   │   ├── validator_staking.rs # Validator staking information
+│   │   ├── validator_attestation.rs # Validator TEE attestation
+│   │   └── validator_rewards.rs # Validator reward information
+│   ├── blocks/            # Block information and queries
+│   │   ├── mod.rs         # Block coordination
+│   │   ├── block_queries.rs # Block information queries
+│   │   ├── block_subscription.rs # Real-time block subscriptions
+│   │   ├── block_history.rs # Historical block queries
+│   │   ├── block_finality.rs # Block finality information
+│   │   └── block_analytics.rs # Block analytics and metrics
+│   ├── attestation/       # TEE attestation client operations
+│   │   ├── mod.rs         # Attestation coordination
+│   │   ├── attestation_queries.rs # Attestation information queries
+│   │   ├── attestation_verification.rs # Client-side attestation verification
+│   │   ├── attestation_subscription.rs # Attestation event subscriptions
+│   │   └── attestation_analytics.rs # Attestation analytics
+│   └── metrics/           # Consensus metrics client
+│       ├── mod.rs         # Metrics coordination
+│       ├── performance_metrics.rs # Consensus performance metrics
+│       ├── security_metrics.rs # Consensus security metrics
+│       ├── participation_metrics.rs # Participation metrics
+│       └── economic_metrics.rs # Economic consensus metrics
+├── transactions/          # Transaction management and execution
+│   ├── mod.rs             # Transaction coordination
+│   ├── building/          # Transaction building and construction
+│   │   ├── mod.rs         # Transaction building coordination
+│   │   ├── transaction_builder.rs # Transaction builder implementation
+│   │   ├── transfer_builder.rs # Transfer transaction builder
+│   │   ├── contract_builder.rs # Smart contract transaction builder
+│   │   ├── governance_builder.rs # Governance transaction builder
+│   │   ├── staking_builder.rs # Staking transaction builder
+│   │   ├── domain_builder.rs # Domain transaction builder
+│   │   └── bridge_builder.rs # Cross-chain transaction builder
+│   ├── signing/           # Transaction signing
+│   │   ├── mod.rs         # Signing coordination
+│   │   ├── local_signing.rs # Local transaction signing
+│   │   ├── hardware_signing.rs # Hardware wallet signing
+│   │   ├── multi_sig_signing.rs # Multi-signature transaction signing
+│   │   ├── threshold_signing.rs # Threshold signature signing
+│   │   ├── tee_signing.rs # TEE-based transaction signing
+│   │   └── signature_verification.rs # Signature verification
+│   ├── submission/        # Transaction submission and broadcasting
+│   │   ├── mod.rs         # Submission coordination
+│   │   ├── transaction_submission.rs # Transaction submission handling
+│   │   ├── batch_submission.rs # Batch transaction submission
+│   │   ├── priority_submission.rs # Priority transaction submission
+│   │   ├── broadcast_strategy.rs # Transaction broadcast strategies
+│   │   ├── submission_tracking.rs # Transaction submission tracking
+│   │   └── confirmation_waiting.rs # Transaction confirmation waiting
+│   ├── monitoring/        # Transaction monitoring and tracking
+│   │   ├── mod.rs         # Transaction monitoring coordination
+│   │   ├── status_tracking.rs # Transaction status tracking
+│   │   ├── confirmation_tracking.rs # Confirmation tracking
+│   │   ├── finality_tracking.rs # Finality tracking
+│   │   ├── receipt_handling.rs # Transaction receipt handling
+│   │   ├── error_handling.rs # Transaction error handling
+│   │   └── analytics.rs   # Transaction analytics
+│   ├── gas/               # Gas estimation and management
+│   │   ├── mod.rs         # Gas coordination
+│   │   ├── gas_estimation.rs # Gas cost estimation
+│   │   ├── gas_price_oracle.rs # Gas price oracle integration
+│   │   ├── gas_optimization.rs # Gas usage optimization
+│   │   ├── fee_calculation.rs # Transaction fee calculation
+│   │   └── fee_strategies.rs # Fee payment strategies
+│   ├── simulation/        # Transaction simulation and testing
+│   │   ├── mod.rs         # Simulation coordination
+│   │   ├── dry_run.rs     # Transaction dry run execution
+│   │   ├── state_simulation.rs # State change simulation
+│   │   ├── gas_simulation.rs # Gas usage simulation
+│   │   ├── outcome_prediction.rs # Transaction outcome prediction
+│   │   └── scenario_testing.rs # Transaction scenario testing
+│   └── history/           # Transaction history and queries
+│       ├── mod.rs         # History coordination
+│       ├── transaction_history.rs # Transaction history queries
+│       ├── account_history.rs # Account transaction history
+│       ├── contract_history.rs # Contract interaction history
+│       ├── filtered_history.rs # Filtered transaction queries
+│       └── analytics.rs   # Transaction history analytics
+├── accounts/              # Account management and wallet integration
+│   ├── mod.rs             # Account coordination
+│   ├── management/        # Account lifecycle management
+│   │   ├── mod.rs         # Account management coordination
+│   │   ├── account_creation.rs # Account creation and setup
+│   │   ├── key_generation.rs # Cryptographic key generation
+│   │   ├── key_derivation.rs # Hierarchical key derivation
+│   │   ├── account_recovery.rs # Account recovery mechanisms
+│   │   ├── multi_account.rs # Multiple account management
+│   │   └── account_metadata.rs # Account metadata management
+│   ├── wallets/           # Wallet integration and support
+│   │   ├── mod.rs         # Wallet coordination
+│   │   ├── software_wallet.rs # Software wallet integration
+│   │   ├── hardware_wallet.rs # Hardware wallet integration
+│   │   ├── web_wallet.rs  # Web-based wallet integration
+│   │   ├── mobile_wallet.rs # Mobile wallet integration
+│   │   ├── multi_sig_wallet.rs # Multi-signature wallet support
+│   │   ├── threshold_wallet.rs # Threshold signature wallet support
+│   │   └── wallet_connect.rs # WalletConnect protocol integration
+│   ├── balances/          # Account balance queries and monitoring
+│   │   ├── mod.rs         # Balance coordination
+│   │   ├── balance_queries.rs # Account balance queries
+│   │   ├── token_balances.rs # Token balance tracking
+│   │   ├── staking_balances.rs # Staking balance information
+│   │   ├── delegation_balances.rs # Delegation balance tracking
+│   │   ├── real_time_balances.rs # Real-time balance updates
+│   │   └── balance_history.rs # Balance history tracking
+│   ├── permissions/       # Account permissions and access control
+│   │   ├── mod.rs         # Permission coordination
+│   │   ├── permission_queries.rs # Account permission queries
+│   │   ├── role_management.rs # Account role management
+│   │   ├── delegation_permissions.rs # Permission delegation
+│   │   ├── temporary_permissions.rs # Temporary permission grants
+│   │   └── permission_verification.rs # Permission verification
+│   └── security/          # Account security features
+│       ├── mod.rs         # Account security coordination
+│       ├── key_security.rs # Cryptographic key security
+│       ├── access_monitoring.rs # Account access monitoring
+│       ├── fraud_detection.rs # Account fraud detection
+│       ├── security_alerts.rs # Security alert system
+│       └── compliance_tracking.rs # Compliance requirement tracking
+├── contracts/             # Smart contract interaction
+│   ├── mod.rs             # Contract coordination
+│   ├── deployment/        # Smart contract deployment
+│   │   ├── mod.rs         # Deployment coordination
+│   │   ├── contract_deployment.rs # Contract deployment handling
+│   │   ├── move_deployment.rs # Move contract deployment
+│   │   ├── deployment_verification.rs # Deployment verification
+│   │   ├── upgrade_deployment.rs # Contract upgrade deployment
+│   │   └── deployment_tracking.rs # Deployment status tracking
+│   ├── interaction/       # Smart contract interaction
+│   │   ├── mod.rs         # Interaction coordination
+│   │   ├── contract_calls.rs # Contract function calls
+│   │   ├── view_functions.rs # Read-only contract queries
+│   │   ├── state_queries.rs # Contract state queries
+│   │   ├── event_queries.rs # Contract event queries
+│   │   ├── batch_calls.rs # Batch contract calls
+│   │   └── call_simulation.rs # Contract call simulation
+│   ├── events/            # Smart contract event handling
+│   │   ├── mod.rs         # Event coordination
+│   │   ├── event_subscription.rs # Real-time event subscriptions
+│   │   ├── event_filtering.rs # Event filtering and queries
+│   │   ├── event_history.rs # Historical event queries
+│   │   ├── event_parsing.rs # Event data parsing
+│   │   └── event_analytics.rs # Event analytics and insights
+│   ├── move_integration/  # Move language contract support
+│   │   ├── mod.rs         # Move integration coordination
+│   │   ├── move_calls.rs  # Move contract function calls
+│   │   ├── resource_queries.rs # Move resource queries
+│   │   ├── module_queries.rs # Move module information queries
+│   │   ├── type_reflection.rs # Move type reflection
+│   │   └── move_analytics.rs # Move contract analytics
+│   ├── tee_integration/   # TEE-secured contract execution
+│   │   ├── mod.rs         # TEE integration coordination
+│   │   ├── tee_contract_calls.rs # TEE-secured contract calls
+│   │   ├── attestation_verification.rs # Contract attestation verification
+│   │   ├── secure_state_queries.rs # Secure contract state queries
+│   │   └── tee_analytics.rs # TEE contract analytics
+│   └── utilities/         # Contract utility functions
+│       ├── mod.rs         # Contract utility coordination
+│       ├── abi_handling.rs # Contract ABI handling
+│       ├── bytecode_analysis.rs # Contract bytecode analysis
+│       ├── gas_estimation.rs # Contract gas estimation
+│       ├── error_decoding.rs # Contract error decoding
+│       └── debugging_tools.rs # Contract debugging utilities
+├── governance/            # Governance participation and queries
+│   ├── mod.rs             # Governance coordination
+│   ├── proposals/         # Governance proposal interaction
+│   │   ├── mod.rs         # Proposal coordination
+│   │   ├── proposal_queries.rs # Proposal information queries
+│   │   ├── proposal_submission.rs # Proposal submission
+│   │   ├── proposal_voting.rs # Proposal voting
+│   │   ├── proposal_tracking.rs # Proposal lifecycle tracking
+│   │   ├── proposal_analysis.rs # Proposal impact analysis
+│   │   └── proposal_history.rs # Proposal history queries
+│   ├── voting/            # Governance voting operations
+│   │   ├── mod.rs         # Voting coordination
+│   │   ├── vote_casting.rs # Vote casting operations
+│   │   ├── vote_delegation.rs # Vote delegation management
+│   │   ├── voting_power.rs # Voting power calculations
+│   │   ├── vote_tracking.rs # Vote tracking and status
+│   │   ├── vote_verification.rs # Vote verification
+│   │   └── voting_analytics.rs # Voting behavior analytics
+│   ├── delegation/        # Governance delegation
+│   │   ├── mod.rs         # Delegation coordination
+│   │   ├── delegate_selection.rs # Delegate selection and management
+│   │   ├── delegation_tracking.rs # Delegation tracking
+│   │   ├── delegate_performance.rs # Delegate performance monitoring
+│   │   ├── delegation_rewards.rs # Delegation reward tracking
+│   │   └── delegation_analytics.rs # Delegation analytics
+│   ├── treasury/          # Treasury governance
+│   │   ├── mod.rs         # Treasury coordination
+│   │   ├── treasury_proposals.rs # Treasury spending proposals
+│   │   ├── treasury_tracking.rs # Treasury fund tracking
+│   │   ├── allocation_queries.rs # Treasury allocation queries
+│   │   └── treasury_analytics.rs # Treasury analytics
+│   └── parameters/        # Protocol parameter governance
+│       ├── mod.rs         # Parameter coordination
+│       ├── parameter_queries.rs # Current parameter queries
+│       ├── parameter_proposals.rs # Parameter change proposals
+│       ├── parameter_tracking.rs # Parameter change tracking
+│       └── parameter_impact.rs # Parameter change impact analysis
+├── domains/               # Domain service client (AevorNS)
+│   ├── mod.rs             # Domain coordination
+│   ├── registration/      # Domain registration operations
+│   │   ├── mod.rs         # Registration coordination
+│   │   ├── domain_registration.rs # Domain registration handling
+│   │   ├── availability_check.rs # Domain availability checking
+│   │   ├── pricing_queries.rs # Domain pricing queries
+│   │   ├── registration_tracking.rs # Registration status tracking
+│   │   └── registration_analytics.rs # Registration analytics
+│   ├── resolution/        # Domain resolution operations
+│   │   ├── mod.rs         # Resolution coordination
+│   │   ├── domain_resolution.rs # Domain to address resolution
+│   │   ├── reverse_resolution.rs # Address to domain resolution
+│   │   ├── resolution_caching.rs # Resolution result caching
+│   │   ├── resolution_verification.rs # Resolution verification
+│   │   └── resolution_analytics.rs # Resolution analytics
+│   ├── management/        # Domain management operations
+│   │   ├── mod.rs         # Management coordination
+│   │   ├── domain_updates.rs # Domain information updates
+│   │   ├── ownership_transfer.rs # Domain ownership transfers
+│   │   ├── domain_renewal.rs # Domain renewal operations
+│   │   ├── domain_delegation.rs # Domain delegation management
+│   │   └── management_analytics.rs # Management analytics
+│   ├── queries/           # Domain information queries
+│   │   ├── mod.rs         # Query coordination
+│   │   ├── domain_info.rs # Domain information queries
+│   │   ├── ownership_queries.rs # Domain ownership queries
+│   │   ├── history_queries.rs # Domain history queries
+│   │   ├── analytics_queries.rs # Domain analytics queries
+│   │   └── search_queries.rs # Domain search functionality
+│   └── integration/       # Domain integration utilities
+│       ├── mod.rs         # Integration coordination
+│       ├── wallet_integration.rs # Wallet domain integration
+│       ├── dapp_integration.rs # dApp domain integration
+│       ├── browser_integration.rs # Browser domain integration
+│       └── api_integration.rs # API domain integration
+├── bridge/                # Cross-chain bridge client operations
+│   ├── mod.rs             # Bridge coordination
+│   ├── transfers/         # Cross-chain transfer operations
+│   │   ├── mod.rs         # Transfer coordination
+│   │   ├── transfer_initiation.rs # Transfer initiation
+│   │   ├── transfer_tracking.rs # Transfer status tracking
+│   │   ├── transfer_completion.rs # Transfer completion handling
+│   │   ├── transfer_verification.rs # Transfer verification
+│   │   └── transfer_analytics.rs # Transfer analytics
+│   ├── supported_chains/  # Supported blockchain queries
+│   │   ├── mod.rs         # Supported chain coordination
+│   │   ├── chain_info.rs  # Blockchain information queries
+│   │   ├── capability_queries.rs # Chain capability queries
+│   │   ├── fee_queries.rs # Cross-chain fee queries
+│   │   └── status_queries.rs # Chain status queries
+│   ├── verification/      # Bridge verification operations
+│   │   ├── mod.rs         # Verification coordination
+│   │   ├── proof_verification.rs # Cross-chain proof verification
+│   │   ├── attestation_verification.rs # Bridge attestation verification
+│   │   ├── consensus_verification.rs # Consensus verification
+│   │   └── security_verification.rs # Security verification
+│   └── utilities/         # Bridge utility functions
+│       ├── mod.rs         # Bridge utility coordination
+│       ├── address_conversion.rs # Cross-chain address conversion
+│       ├── format_conversion.rs # Data format conversion
+│       ├── fee_calculation.rs # Cross-chain fee calculation
+│       └── path_optimization.rs # Transfer path optimization
+├── storage/               # Storage and state query client
+│   ├── mod.rs             # Storage coordination
+│   ├── state/             # Blockchain state queries
+│   │   ├── mod.rs         # State query coordination
+│   │   ├── account_state.rs # Account state queries
+│   │   ├── contract_state.rs # Contract state queries
+│   │   ├── global_state.rs # Global state queries
+│   │   ├── historical_state.rs # Historical state queries
+│   │   ├── state_proofs.rs # State proof generation and verification
+│   │   └── state_analytics.rs # State analytics
+│   ├── objects/           # Object storage queries
+│   │   ├── mod.rs         # Object coordination
+│   │   ├── object_queries.rs # Object information queries
+│   │   ├── object_history.rs # Object history tracking
+│   │   ├── object_ownership.rs # Object ownership queries
+│   │   ├── object_metadata.rs # Object metadata queries
+│   │   └── object_analytics.rs # Object analytics
+│   ├── indexing/          # Storage indexing and search
+│   │   ├── mod.rs         # Indexing coordination
+│   │   ├── index_queries.rs # Index-based queries
+│   │   ├── search_queries.rs # Full-text search queries
+│   │   ├── filtering.rs   # Advanced filtering capabilities
+│   │   ├── aggregation.rs # Data aggregation queries
+│   │   └── analytics.rs   # Search analytics
+│   ├── versioning/        # Data versioning queries
+│   │   ├── mod.rs         # Versioning coordination
+│   │   ├── version_queries.rs # Data version queries
+│   │   ├── version_history.rs # Version history tracking
+│   │   ├── version_comparison.rs # Version comparison utilities
+│   │   └── version_analytics.rs # Versioning analytics
+│   └── performance/       # Storage performance optimization
+│       ├── mod.rs         # Performance coordination
+│       ├── query_optimization.rs # Query performance optimization
+│       ├── batch_queries.rs # Batch query operations
+│       ├── parallel_queries.rs # Parallel query execution
+│       └── caching_strategies.rs # Query result caching
+├── network/               # Network information and monitoring
+│   ├── mod.rs             # Network coordination
+│   ├── peers/             # Peer network information
+│   │   ├── mod.rs         # Peer coordination
+│   │   ├── peer_queries.rs # Peer information queries
+│   │   ├── peer_discovery.rs # Peer discovery operations
+│   │   ├── peer_monitoring.rs # Peer status monitoring
+│   │   ├── peer_analytics.rs # Peer network analytics
+│   │   └── connection_monitoring.rs # Connection quality monitoring
+│   ├── topology/          # Network topology information
+│   │   ├── mod.rs         # Topology coordination
+│   │   ├── topology_queries.rs # Network topology queries
+│   │   ├── routing_queries.rs # Network routing information
+│   │   ├── latency_monitoring.rs # Network latency monitoring
+│   │   ├── connectivity_analysis.rs # Connectivity analysis
+│   │   └── topology_analytics.rs # Topology analytics
+│   ├── performance/       # Network performance monitoring
+│   │   ├── mod.rs         # Performance coordination
+│   │   ├── throughput_monitoring.rs # Network throughput monitoring
+│   │   ├── latency_analysis.rs # Latency analysis
+│   │   ├── bandwidth_monitoring.rs # Bandwidth utilization monitoring
+│   │   ├── quality_metrics.rs # Network quality metrics
+│   │   └── performance_analytics.rs # Performance analytics
+│   └── diagnostics/       # Network diagnostics
+│       ├── mod.rs         # Diagnostics coordination
+│       ├── connectivity_tests.rs # Network connectivity testing
+│       ├── performance_tests.rs # Network performance testing
+│       ├── troubleshooting.rs # Network troubleshooting utilities
+│       └── health_checks.rs # Network health monitoring
+├── security/              # Security monitoring and verification
+│   ├── mod.rs             # Security coordination
+│   ├── attestation/       # TEE attestation client operations
+│   │   ├── mod.rs         # Attestation coordination
+│   │   ├── attestation_queries.rs # Attestation status queries
+│   │   ├── verification_client.rs # Client-side attestation verification
+│   │   ├── attestation_monitoring.rs # Attestation monitoring
+│   │   └── attestation_analytics.rs # Attestation analytics
+│   ├── threat_monitoring/ # Security threat monitoring
+│   │   ├── mod.rs         # Threat monitoring coordination
+│   │   ├── threat_detection.rs # Client-side threat detection
+│   │   ├── anomaly_detection.rs # Anomaly detection
+│   │   ├── security_alerts.rs # Security alert handling
+│   │   └── threat_analytics.rs # Threat analytics
+│   ├── compliance/        # Security compliance monitoring
+│   │   ├── mod.rs         # Compliance coordination
+│   │   ├── compliance_queries.rs # Compliance status queries
+│   │   ├── audit_trail.rs # Audit trail access
+│   │   ├── compliance_reporting.rs # Compliance reporting
+│   │   └── compliance_analytics.rs # Compliance analytics
+│   └── incident_response/ # Security incident handling
+│       ├── mod.rs         # Incident response coordination
+│       ├── incident_reporting.rs # Security incident reporting
+│       ├── incident_tracking.rs # Incident status tracking
+│       ├── response_automation.rs # Automated response handling
+│       └── incident_analytics.rs # Incident analytics
+├── real_time/             # Real-time data streaming and subscriptions
+│   ├── mod.rs             # Real-time coordination
+│   ├── subscriptions/     # Data subscription management
+│   │   ├── mod.rs         # Subscription coordination
+│   │   ├── subscription_manager.rs # Subscription lifecycle management
+│   │   ├── event_subscriptions.rs # Event-based subscriptions
+│   │   ├── data_subscriptions.rs # Data stream subscriptions
+│   │   ├── filtered_subscriptions.rs # Filtered data subscriptions
+│   │   ├── batch_subscriptions.rs # Batch subscription operations
+│   │   └── subscription_analytics.rs # Subscription analytics
+│   ├── streaming/         # Real-time data streaming
+│   │   ├── mod.rs         # Streaming coordination
+│   │   ├── websocket_streaming.rs # WebSocket-based streaming
+│   │   ├── grpc_streaming.rs # gRPC streaming support
+│   │   ├── event_streaming.rs # Event stream handling
+│   │   ├── data_streaming.rs # Data stream processing
+│   │   ├── stream_multiplexing.rs # Multiple stream management
+│   │   └── stream_analytics.rs # Stream analytics
+│   ├── notifications/     # Real-time notification handling
+│   │   ├── mod.rs         # Notification coordination
+│   │   ├── push_notifications.rs # Push notification handling
+│   │   ├── alert_notifications.rs # Alert-based notifications
+│   │   ├── threshold_notifications.rs # Threshold-based notifications
+│   │   ├── custom_notifications.rs # Custom notification rules
+│   │   └── notification_analytics.rs # Notification analytics
+│   ├── synchronization/   # Real-time data synchronization
+│   │   ├── mod.rs         # Synchronization coordination
+│   │   ├── state_synchronization.rs # State synchronization
+│   │   ├── event_synchronization.rs # Event synchronization
+│   │   ├── conflict_resolution.rs # Synchronization conflict resolution
+│   │   └── sync_analytics.rs # Synchronization analytics
+│   └── utilities/         # Real-time utility functions
+│       ├── mod.rs         # Real-time utility coordination
+│       ├── connection_management.rs # Real-time connection management
+│       ├── retry_logic.rs # Real-time retry handling
+│       ├── buffering.rs   # Data buffering strategies
+│       └── performance_monitoring.rs # Real-time performance monitoring
+├── analytics/             # Client-side analytics and insights
+│   ├── mod.rs             # Analytics coordination
+│   ├── data_collection/   # Analytics data collection
+│   │   ├── mod.rs         # Data collection coordination
+│   │   ├── usage_tracking.rs # Client usage tracking
+│   │   ├── performance_tracking.rs # Performance metrics tracking
+│   │   ├── error_tracking.rs # Error occurrence tracking
+│   │   ├── behavior_tracking.rs # User behavior tracking
+│   │   └── custom_tracking.rs # Custom analytics tracking
+│   ├── processing/        # Analytics data processing
+│   │   ├── mod.rs         # Processing coordination
+│   │   ├── data_aggregation.rs # Analytics data aggregation
+│   │   ├── trend_analysis.rs # Trend analysis processing
+│   │   ├── pattern_recognition.rs # Pattern recognition
+│   │   ├── anomaly_detection.rs # Analytics anomaly detection
+│   │   └── predictive_analytics.rs # Predictive analytics processing
+│   ├── reporting/         # Analytics reporting
+│   │   ├── mod.rs         # Reporting coordination
+│   │   ├── usage_reports.rs # Usage analytics reports
+│   │   ├── performance_reports.rs # Performance analytics reports
+│   │   ├── error_reports.rs # Error analytics reports
+│   │   ├── custom_reports.rs # Custom analytics reports
+│   │   └── automated_reporting.rs # Automated report generation
+│   ├── visualization/     # Analytics data visualization
+│   │   ├── mod.rs         # Visualization coordination
+│   │   ├── chart_generation.rs # Chart and graph generation
+│   │   ├── dashboard_data.rs # Dashboard data preparation
+│   │   ├── export_utilities.rs # Data export utilities
+│   │   └── interactive_visualizations.rs # Interactive visualization support
+│   └── insights/          # Analytics insights generation
+│       ├── mod.rs         # Insights coordination
+│       ├── performance_insights.rs # Performance optimization insights
+│       ├── usage_insights.rs # Usage pattern insights
+│       ├── optimization_suggestions.rs # Client optimization suggestions
+│       └── trend_insights.rs # Trend-based insights
+├── utilities/             # Client utility functions and helpers
+│   ├── mod.rs             # Utility coordination
+│   ├── serialization/     # Serialization utilities
+│   │   ├── mod.rs         # Serialization coordination
+│   │   ├── json_utils.rs  # JSON serialization utilities
+│   │   ├── binary_utils.rs # Binary serialization utilities
+│   │   ├── compression_utils.rs # Data compression utilities
+│   │   ├── encoding_utils.rs # Data encoding utilities
+│   │   └── validation_utils.rs # Serialization validation utilities
+│   ├── cryptography/      # Client-side cryptography utilities
+│   │   ├── mod.rs         # Cryptography coordination
+│   │   ├── key_utilities.rs # Cryptographic key utilities
+│   │   ├── signature_utilities.rs # Signature utilities
+│   │   ├── hash_utilities.rs # Hash function utilities
+│   │   ├── encryption_utilities.rs # Encryption utilities
+│   │   └── verification_utilities.rs # Verification utilities
+│   ├── conversion/        # Data conversion utilities
+│   │   ├── mod.rs         # Conversion coordination
+│   │   ├── type_conversion.rs # Type conversion utilities
+│   │   ├── format_conversion.rs # Format conversion utilities
+│   │   ├── encoding_conversion.rs # Encoding conversion utilities
+│   │   ├── unit_conversion.rs # Unit conversion utilities
+│   │   └── address_utilities.rs # Address format utilities
+│   ├── validation/        # Client-side validation utilities
+│   │   ├── mod.rs         # Validation coordination
+│   │   ├── input_validation.rs # Input validation utilities
+│   │   ├── format_validation.rs # Format validation utilities
+│   │   ├── constraint_validation.rs # Constraint validation utilities
+│   │   ├── business_validation.rs # Business rule validation
+│   │   └── security_validation.rs # Security validation utilities
+│   ├── formatting/        # Data formatting utilities
+│   │   ├── mod.rs         # Formatting coordination
+│   │   ├── number_formatting.rs # Number formatting utilities
+│   │   ├── date_formatting.rs # Date and time formatting
+│   │   ├── currency_formatting.rs # Currency formatting utilities
+│   │   ├── address_formatting.rs # Address formatting utilities
+│   │   └── display_formatting.rs # Display formatting utilities
+│   ├── caching/           # Client caching utilities
+│   │   ├── mod.rs         # Caching utility coordination
+│   │   ├── cache_key_generation.rs # Cache key generation
+│   │   ├── cache_serialization.rs # Cache data serialization
+│   │   ├── cache_compression.rs # Cache data compression
+│   │   ├── cache_invalidation.rs # Cache invalidation utilities
+│   │   └── cache_analytics.rs # Cache performance analytics
+│   └── debugging/         # Client debugging utilities
+│       ├── mod.rs         # Debugging coordination
+│       ├── logging_utilities.rs # Client logging utilities
+│       ├── tracing_utilities.rs # Request tracing utilities
+│       ├── diagnostic_utilities.rs # Diagnostic utilities
+│       ├── error_utilities.rs # Error handling utilities
+│       └── testing_utilities.rs # Testing and development utilities
+├── testing/               # Client library testing framework
+│   ├── mod.rs             # Testing coordination
+│   ├── unit/              # Unit testing support
+│   │   ├── mod.rs         # Unit test coordination
+│   │   ├── mock_client.rs # Mock client implementation
+│   │   ├── test_utilities.rs # Testing utility functions
+│   │   ├── assertion_helpers.rs # Custom assertion helpers
+│   │   ├── data_generators.rs # Test data generators
+│   │   └── scenario_builders.rs # Test scenario builders
+│   ├── integration/       # Integration testing support
+│   │   ├── mod.rs         # Integration test coordination
+│   │   ├── test_networks.rs # Test network configurations
+│   │   ├── mock_servers.rs # Mock server implementations
+│   │   ├── end_to_end.rs  # End-to-end testing utilities
+│   │   ├── multi_client.rs # Multi-client testing scenarios
+│   │   └── performance_testing.rs # Performance testing utilities
+│   ├── mocking/           # Mock implementation support
+│   │   ├── mod.rs         # Mocking coordination
+│   │   ├── api_mocking.rs # API response mocking
+│   │   ├── network_mocking.rs # Network condition mocking
+│   │   ├── error_mocking.rs # Error condition mocking
+│   │   ├── latency_mocking.rs # Latency simulation
+│   │   └── data_mocking.rs # Mock data generation
+│   ├── benchmarking/      # Performance benchmarking
+│   │   ├── mod.rs         # Benchmarking coordination
+│   │   ├── operation_benchmarks.rs # Individual operation benchmarks
+│   │   ├── throughput_benchmarks.rs # Throughput benchmarking
+│   │   ├── latency_benchmarks.rs # Latency benchmarking
+│   │   ├── memory_benchmarks.rs # Memory usage benchmarking
+│   │   └── comparison_benchmarks.rs # Comparative benchmarking
+│   └── validation/        # Testing validation utilities
+│       ├── mod.rs         # Testing validation coordination
+│       ├── response_validation.rs # API response validation
+│       ├── state_validation.rs # State consistency validation
+│       ├── behavior_validation.rs # Client behavior validation
+│       └── regression_validation.rs # Regression testing validation
+├── documentation/         # Client library documentation
+│   ├── mod.rs             # Documentation coordination
+│   ├── generation/        # Documentation generation
+│   │   ├── mod.rs         # Documentation generation coordination
+│   │   ├── api_docs.rs    # API documentation generation
+│   │   ├── example_generation.rs # Code example generation
+│   │   ├── tutorial_generation.rs # Tutorial generation
+│   │   ├── reference_generation.rs # Reference documentation generation
+│   │   └── integration_guides.rs # Integration guide generation
+│   ├── examples/          # Documentation examples
+│   │   ├── mod.rs         # Example coordination
+│   │   ├── basic_examples.rs # Basic usage examples
+│   │   ├── advanced_examples.rs # Advanced usage examples
+│   │   ├── integration_examples.rs # Integration examples
+│   │   ├── best_practices.rs # Best practice examples
+│   │   └── troubleshooting_examples.rs # Troubleshooting examples
+│   ├── tutorials/         # Interactive tutorials
+│   │   ├── mod.rs         # Tutorial coordination
+│   │   ├── getting_started.rs # Getting started tutorial
+│   │   ├── wallet_integration.rs # Wallet integration tutorial
+│   │   ├── dapp_development.rs # dApp development tutorial
+│   │   ├── advanced_features.rs # Advanced features tutorial
+│   │   └── troubleshooting.rs # Troubleshooting tutorial
+│   └── reference/         # Reference documentation
+│       ├── mod.rs         # Reference coordination
+│       ├── api_reference.rs # Complete API reference
+│       ├── type_reference.rs # Type system reference
+│       ├── error_reference.rs # Error handling reference
+│       ├── configuration_reference.rs # Configuration reference
+│       └── migration_guides.rs # Version migration guides
+└── platform/              # Platform-specific client implementations
+├── mod.rs             # Platform coordination
+├── web/               # Web platform client
+│   ├── mod.rs         # Web platform coordination
+│   ├── browser_client.rs # Browser-specific client implementation
+│   ├── web_worker_client.rs # Web Worker client implementation
+│   ├── service_worker_client.rs # Service Worker integration
+│   ├── local_storage.rs # Browser local storage integration
+│   ├── indexeddb.rs   # IndexedDB integration
+│   ├── web_crypto.rs  # Web Crypto API integration
+│   └── browser_utilities.rs # Browser-specific utilities
+├── mobile/            # Mobile platform clients
+│   ├── mod.rs         # Mobile platform coordination
+│   ├── ios_client.rs  # iOS-specific client implementation
+│   ├── android_client.rs # Android-specific client implementation
+│   ├── react_native.rs # React Native client integration
+│   ├── flutter.rs     # Flutter client integration
+│   ├── secure_storage.rs # Mobile secure storage
+│   ├── biometric_auth.rs # Biometric authentication integration
+│   └── mobile_utilities.rs # Mobile-specific utilities
+├── desktop/           # Desktop platform clients
+│   ├── mod.rs         # Desktop platform coordination
+│   ├── native_client.rs # Native desktop client
+│   ├── electron_client.rs # Electron app integration
+│   ├── tauri_client.rs # Tauri app integration
+│   ├── system_integration.rs # System-level integration
+│   ├── file_system.rs # File system integration
+│   └── desktop_utilities.rs # Desktop-specific utilities
+├── server/            # Server-side client implementations
+│   ├── mod.rs         # Server platform coordination
+│   ├── node_client.rs # Node.js server client
+│   ├── deno_client.rs # Deno server client
+│   ├── serverless.rs  # Serverless function integration
+│   ├── microservice.rs # Microservice integration
+│   ├── container.rs   # Container deployment integration
+│   └── server_utilities.rs # Server-specific utilities
+└── embedded/          # Embedded system clients
+├── mod.rs         # Embedded platform coordination
+├── iot_client.rs  # IoT device client implementation
+├── edge_client.rs # Edge computing client
+├── minimal_client.rs # Minimal resource client
+├── secure_element.rs # Secure element integration
+└── embedded_utilities.rs # Embedded system utilities
+```
+
+## Educational Deep Dive: Client Library Architecture Excellence
+
+This client library architecture demonstrates how sophisticated blockchain systems make advanced capabilities accessible to developers through intuitive, well-designed interfaces. Let me walk you through the key architectural insights that transform complex blockchain operations into simple method calls.
+
+### Comprehensive Abstraction Strategy
+
+The structure shows how effective client libraries provide multiple levels of abstraction simultaneously. The high-level interfaces in modules like `transactions/building/` enable developers to construct complex transactions through simple builder patterns, while lower-level modules like `utilities/cryptography/` provide direct access to cryptographic operations for advanced users who need fine-grained control.
+
+This multi-layer approach recognizes that different developers have different needs and expertise levels. A mobile app developer building a simple wallet wants transaction building to be as easy as `TransactionBuilder::new().transfer(amount, recipient).sign(key).submit()`. A DeFi protocol developer might need direct access to cryptographic operations, gas optimization, and complex contract interactions.
+
+### Real-Time Integration Excellence
+
+The real-time modules demonstrate how modern blockchain applications require immediate responsiveness rather than traditional request-response patterns. The subscription system enables applications to receive notifications about relevant events immediately rather than polling for changes. The streaming capabilities provide efficient real-time data feeds that scale to thousands of concurrent connections.
+
+This real-time architecture transforms blockchain applications from static interfaces into dynamic, responsive experiences. A trading application can immediately show transaction confirmations, balance updates, and market changes. A governance interface can provide real-time voting results and proposal status updates.
+
+### Platform-Specific Optimization
+
+The platform modules show how effective client libraries adapt to different execution environments while maintaining consistent APIs. Web browsers have different security models and storage capabilities than mobile devices or server environments. Each platform module provides optimizations specific to that environment while exposing the same high-level interfaces.
+
+The web platform integration leverages browser-specific features like Web Crypto API for security operations and IndexedDB for persistent storage. Mobile platforms integrate with secure storage and biometric authentication. Server platforms optimize for high throughput and concurrent connections.
+
+### Developer Experience Through Design
+
+The documentation, testing, and utilities modules demonstrate how client libraries prioritize developer experience through thoughtful design. Rather than requiring developers to understand blockchain internals, the library provides comprehensive examples, interactive tutorials, and debugging utilities that make blockchain development approachable.
+
+The testing framework enables developers to build reliable applications by providing mock implementations, test utilities, and validation helpers. The analytics capabilities help developers understand how their applications perform in real-world usage.
+
+### Security Integration Without Complexity
+
+The authentication and security modules show how client libraries can provide enterprise-grade security through simple interfaces. Multi-method authentication supports everything from simple API keys to complex cryptographic signatures without requiring developers to implement security protocols themselves.
+
+The wallet integration modules demonstrate how client libraries can support diverse security models - from software wallets for development to hardware wallets for high-value operations - through consistent interfaces that abstract the complexity of different security implementations.
+
+This client library architecture represents the culmination of our entire Aevor ecosystem, transforming all the sophisticated capabilities we've built - TEE integration, hardware acceleration, dual-DAG execution, advanced cryptographic features, comprehensive monitoring, and powerful APIs - into simple, intuitive interfaces that enable developers to build innovative blockchain applications without needing deep blockchain expertise.
+
+The systematic decomposition ensures that each component can be implemented, tested, and optimized independently while contributing to a cohesive developer experience that makes blockchain application development as straightforward as traditional application development.
+
+# Aevor CLI - Complete Project Structure
+
+## Comprehensive Command-Line Interface Architecture
+
+`aevor-cli` serves as the comprehensive command-line interface that provides developers, operators, and users with powerful terminal-based tools for interacting with Aevor networks. This architecture demonstrates how sophisticated blockchain systems can provide intuitive command-line interfaces that make complex operations accessible through simple, well-designed commands. Rather than requiring users to understand the intricacies of API calls or client library programming, this CLI provides direct access to all Aevor capabilities through familiar terminal commands.
+
+Understanding this CLI architecture reveals how production blockchain systems achieve operational excellence through thoughtful tooling. The command-line interface serves multiple audiences simultaneously - developers who need build and deployment tools, operators who need system administration capabilities, and end users who want direct blockchain interaction. Each audience requires different command patterns, output formats, and interaction models, but all share the need for reliable, intuitive tools that abstract complexity while preserving power.
+
+Think of this like the difference between requiring every user to write custom programs to interact with a database versus providing SQL commands and administrative tools. The CLI transforms the sophisticated blockchain capabilities into accessible commands that follow familiar patterns, provide helpful feedback, and enable everything from simple queries to complex system administration tasks.
+
+```
+aevor-cli/
+├── Cargo.toml                 # CLI crate with dependencies on core, client, and config
+├── README.md                  # Comprehensive CLI documentation and command reference
+├── CHANGELOG.md               # CLI version history and command changes
+├── LICENSE                    # License information
+├── build.rs                   # Build script for CLI optimization and completion generation
+├── completions/               # Shell completion scripts
+│   ├── bash_completion.sh     # Bash completion script
+│   ├── zsh_completion.sh      # Zsh completion script
+│   ├── fish_completion.fish   # Fish shell completion script
+│   └── powershell_completion.ps1 # PowerShell completion script
+├── man/                       # Manual pages
+│   ├── aevor.1                # Main aevor command manual
+│   ├── aevor-node.1           # Node command manual
+│   ├── aevor-wallet.1         # Wallet command manual
+│   ├── aevor-governance.1     # Governance command manual
+│   └── aevor-developer.1      # Developer command manual
+├── scripts/                   # Utility scripts and installers
+│   ├── install.sh             # Installation script
+│   ├── uninstall.sh           # Uninstallation script
+│   ├── update.sh              # Update script
+│   └── setup-dev.sh           # Development environment setup
+└── src/
+    ├── main.rs                # CLI entry point and main command dispatcher
+    ├── cli/                   # Core CLI infrastructure
+    │   ├── mod.rs             # CLI coordination and command framework
+    │   ├── app.rs             # Main CLI application structure
+    │   ├── commands/          # Command definitions and routing
+    │   │   ├── mod.rs         # Command coordination
+    │   │   ├── registry.rs    # Command registry and discovery
+    │   │   ├── routing.rs     # Command routing and dispatch
+    │   │   ├── validation.rs  # Command validation and preprocessing
+    │   │   ├── execution.rs   # Command execution framework
+    │   │   ├── composition.rs # Command composition and chaining
+    │   │   └── plugins.rs     # Plugin command support
+    │   ├── parser/            # Command parsing and argument handling
+    │   │   ├── mod.rs         # Parser coordination
+    │   │   ├── argument_parser.rs # Argument parsing and validation
+    │   │   ├── flag_parser.rs # Flag and option parsing
+    │   │   ├── subcommand_parser.rs # Subcommand parsing
+    │   │   ├── config_parser.rs # Configuration-based parsing
+    │   │   ├── interactive_parser.rs # Interactive command parsing
+    │   │   └── completion_parser.rs # Completion-aware parsing
+    │   ├── output/            # Output formatting and display
+    │   │   ├── mod.rs         # Output coordination
+    │   │   ├── formatters/    # Output format implementations
+    │   │   │   ├── mod.rs     # Formatter coordination
+    │   │   │   ├── json.rs    # JSON output formatter
+    │   │   │   ├── yaml.rs    # YAML output formatter
+    │   │   │   ├── table.rs   # Table output formatter
+    │   │   │   ├── tree.rs    # Tree output formatter
+    │   │   │   ├── csv.rs     # CSV output formatter
+    │   │   │   └── custom.rs  # Custom formatter support
+    │   │   ├── styling/       # Output styling and theming
+    │   │   │   ├── mod.rs     # Styling coordination
+    │   │   │   ├── colors.rs  # Color scheme management
+    │   │   │   ├── themes.rs  # Theme system implementation
+    │   │   │   ├── icons.rs   # Icon and symbol management
+    │   │   │   ├── progress.rs # Progress indicator styling
+    │   │   │   └── interactive.rs # Interactive element styling
+    │   │   ├── paging/        # Output paging and scrolling
+    │   │   │   ├── mod.rs     # Paging coordination
+    │   │   │   ├── pager.rs   # Pager integration
+    │   │   │   ├── scrolling.rs # Scrolling output management
+    │   │   │   ├── filtering.rs # Output filtering
+    │   │   │   └── searching.rs # Output searching
+    │   │   └── export/        # Output export capabilities
+    │   │       ├── mod.rs     # Export coordination
+    │   │       ├── file_export.rs # File export functionality
+    │   │       ├── clipboard.rs # Clipboard integration
+    │   │       ├── sharing.rs # Output sharing utilities
+    │   │       └── archiving.rs # Output archiving
+    │   ├── input/             # User input handling and validation
+    │   │   ├── mod.rs         # Input coordination
+    │   │   ├── interactive/   # Interactive input handling
+    │   │   │   ├── mod.rs     # Interactive coordination
+    │   │   │   ├── prompts.rs # Interactive prompts
+    │   │   │   ├── selections.rs # Selection menus
+    │   │   │   ├── confirmations.rs # Confirmation dialogs
+    │   │   │   ├── forms.rs   # Interactive forms
+    │   │   │   ├── wizards.rs # Setup wizards
+    │   │   │   └── editors.rs # Inline editors
+    │   │   ├── validation/    # Input validation
+    │   │   │   ├── mod.rs     # Validation coordination
+    │   │   │   ├── type_validation.rs # Type-based validation
+    │   │   │   ├── format_validation.rs # Format validation
+    │   │   │   ├── constraint_validation.rs # Constraint validation
+    │   │   │   ├── business_validation.rs # Business rule validation
+    │   │   │   └── security_validation.rs # Security validation
+    │   │   ├── completion/    # Input completion and suggestions
+    │   │   │   ├── mod.rs     # Completion coordination
+    │   │   │   ├── command_completion.rs # Command completion
+    │   │   │   ├── argument_completion.rs # Argument completion
+    │   │   │   ├── path_completion.rs # File path completion
+    │   │   │   ├── network_completion.rs # Network resource completion
+    │   │   │   └── context_completion.rs # Context-aware completion
+    │   │   └── history/       # Command history management
+    │   │       ├── mod.rs     # History coordination
+    │   │       ├── command_history.rs # Command history tracking
+    │   │       ├── session_history.rs # Session history management
+    │   │       ├── search_history.rs # History search functionality
+    │   │       └── replay.rs  # Command replay functionality
+    │   ├── config/            # CLI configuration management
+    │   │   ├── mod.rs         # Configuration coordination
+    │   │   ├── settings.rs    # CLI settings management
+    │   │   ├── profiles.rs    # User profile management
+    │   │   ├── themes.rs      # Theme configuration
+    │   │   ├── aliases.rs     # Command alias management
+    │   │   ├── defaults.rs    # Default value management
+    │   │   ├── environment.rs # Environment variable integration
+    │   │   └── migration.rs   # Configuration migration
+    │   ├── plugins/           # Plugin system architecture
+    │   │   ├── mod.rs         # Plugin coordination
+    │   │   ├── loader.rs      # Plugin loading and management
+    │   │   ├── registry.rs    # Plugin registry and discovery
+    │   │   ├── api.rs         # Plugin API definitions
+    │   │   ├── security.rs    # Plugin security and sandboxing
+    │   │   ├── lifecycle.rs   # Plugin lifecycle management
+    │   │   └── examples/      # Example plugin implementations
+    │   └── utilities/         # CLI utility functions
+    │       ├── mod.rs         # Utility coordination
+    │       ├── platform.rs    # Platform-specific utilities
+    │       ├── terminal.rs    # Terminal feature detection
+    │       ├── networking.rs  # Network utility functions
+    │       ├── filesystem.rs  # File system utilities
+    │       ├── security.rs    # Security utility functions
+    │       └── debugging.rs   # Debugging and diagnostic utilities
+    ├── commands/              # Main command implementations
+    │   ├── mod.rs             # Command implementation coordination
+    │   ├── node/              # Node operation commands
+    │   │   ├── mod.rs         # Node command coordination
+    │   │   ├── start.rs       # Node startup command
+    │   │   ├── stop.rs        # Node shutdown command
+    │   │   ├── restart.rs     # Node restart command
+    │   │   ├── status.rs      # Node status command
+    │   │   ├── info.rs        # Node information command
+    │   │   ├── config.rs      # Node configuration command
+    │   │   ├── logs.rs        # Node log access command
+    │   │   ├── metrics.rs     # Node metrics command
+    │   │   ├── peers.rs       # Node peer management
+    │   │   ├── sync.rs        # Node synchronization command
+    │   │   ├── upgrade.rs     # Node upgrade command
+    │   │   ├── backup.rs      # Node backup command
+    │   │   ├── restore.rs     # Node restore command
+    │   │   ├── validate.rs    # Node validation command
+    │   │   └── diagnostics.rs # Node diagnostics command
+    │   ├── wallet/            # Wallet management commands
+    │   │   ├── mod.rs         # Wallet command coordination
+    │   │   ├── create.rs      # Wallet creation command
+    │   │   ├── import.rs      # Wallet import command
+    │   │   ├── export.rs      # Wallet export command
+    │   │   ├── list.rs        # Wallet listing command
+    │   │   ├── balance.rs     # Balance query command
+    │   │   ├── transfer.rs    # Transfer command
+    │   │   ├── receive.rs     # Receive command and address generation
+    │   │   ├── history.rs     # Transaction history command
+    │   │   ├── stake.rs       # Staking command
+    │   │   ├── unstake.rs     # Unstaking command
+    │   │   ├── delegate.rs    # Delegation command
+    │   │   ├── undelegate.rs  # Undelegation command
+    │   │   ├── sign.rs        # Transaction signing command
+    │   │   ├── verify.rs      # Signature verification command
+    │   │   ├── backup.rs      # Wallet backup command
+    │   │   ├── restore.rs     # Wallet restore command
+    │   │   ├── security.rs    # Wallet security commands
+    │   │   └── utilities.rs   # Wallet utility commands
+    │   ├── transaction/       # Transaction management commands
+    │   │   ├── mod.rs         # Transaction command coordination
+    │   │   ├── create.rs      # Transaction creation command
+    │   │   ├── sign.rs        # Transaction signing command
+    │   │   ├── submit.rs      # Transaction submission command
+    │   │   ├── status.rs      # Transaction status command
+    │   │   ├── history.rs     # Transaction history command
+    │   │   ├── simulate.rs    # Transaction simulation command
+    │   │   ├── estimate.rs    # Gas estimation command
+    │   │   ├── batch.rs       # Batch transaction command
+    │   │   ├── cancel.rs      # Transaction cancellation command
+    │   │   ├── replay.rs      # Transaction replay command
+    │   │   ├── analyze.rs     # Transaction analysis command
+    │   │   └── utilities.rs   # Transaction utilities
+    │   ├── governance/        # Governance participation commands
+    │   │   ├── mod.rs         # Governance command coordination
+    │   │   ├── proposals/     # Proposal management commands
+    │   │   │   ├── mod.rs     # Proposal command coordination
+    │   │   │   ├── list.rs    # Proposal listing command
+    │   │   │   ├── show.rs    # Proposal details command
+    │   │   │   ├── create.rs  # Proposal creation command
+    │   │   │   ├── vote.rs    # Voting command
+    │   │   │   ├── status.rs  # Proposal status command
+    │   │   │   ├── history.rs # Proposal history command
+    │   │   │   └── analyze.rs # Proposal analysis command
+    │   │   ├── voting/        # Voting management commands
+    │   │   │   ├── mod.rs     # Voting command coordination
+    │   │   │   ├── cast.rs    # Vote casting command
+    │   │   │   ├── delegate.rs # Vote delegation command
+    │   │   │   ├── power.rs   # Voting power command
+    │   │   │   ├── history.rs # Voting history command
+    │   │   │   └── analytics.rs # Voting analytics command
+    │   │   ├── treasury/      # Treasury management commands
+    │   │   │   ├── mod.rs     # Treasury command coordination
+    │   │   │   ├── status.rs  # Treasury status command
+    │   │   │   ├── proposals.rs # Treasury proposals command
+    │   │   │   ├── allocations.rs # Treasury allocations command
+    │   │   │   └── analytics.rs # Treasury analytics command
+    │   │   ├── parameters/    # Parameter management commands
+    │   │   │   ├── mod.rs     # Parameter command coordination
+    │   │   │   ├── current.rs # Current parameters command
+    │   │   │   ├── history.rs # Parameter history command
+    │   │   │   ├── propose.rs # Parameter proposal command
+    │   │   │   └── analyze.rs # Parameter analysis command
+    │   │   └── analytics/     # Governance analytics commands
+    │   │       ├── mod.rs     # Analytics coordination
+    │   │       ├── participation.rs # Participation analytics
+    │   │       ├── voting_patterns.rs # Voting pattern analysis
+    │   │       ├── proposal_trends.rs # Proposal trend analysis
+    │   │       └── impact_analysis.rs # Governance impact analysis
+    │   ├── validator/         # Validator operation commands
+    │   │   ├── mod.rs         # Validator command coordination
+    │   │   ├── register.rs    # Validator registration command
+    │   │   ├── update.rs      # Validator update command
+    │   │   ├── deregister.rs  # Validator deregistration command
+    │   │   ├── status.rs      # Validator status command
+    │   │   ├── performance.rs # Validator performance command
+    │   │   ├── rewards.rs     # Validator rewards command
+    │   │   ├── penalties.rs   # Validator penalties command
+    │   │   ├── attestation.rs # Validator attestation command
+    │   │   ├── delegation.rs  # Validator delegation command
+    │   │   ├── commission.rs  # Commission management command
+    │   │   ├── maintenance.rs # Validator maintenance command
+    │   │   ├── monitoring.rs  # Validator monitoring command
+    │   │   └── analytics.rs   # Validator analytics command
+    │   ├── network/           # Network management and monitoring commands
+    │   │   ├── mod.rs         # Network command coordination
+    │   │   ├── status.rs      # Network status command
+    │   │   ├── peers.rs       # Peer management command
+    │   │   ├── topology.rs    # Network topology command
+    │   │   ├── connectivity.rs # Connectivity testing command
+    │   │   ├── performance.rs # Network performance command
+    │   │   ├── diagnostics.rs # Network diagnostics command
+    │   │   ├── monitoring.rs  # Network monitoring command
+    │   │   ├── security.rs    # Network security command
+    │   │   └── analytics.rs   # Network analytics command
+    │   ├── contract/          # Smart contract commands
+    │   │   ├── mod.rs         # Contract command coordination
+    │   │   ├── deploy.rs      # Contract deployment command
+    │   │   ├── call.rs        # Contract call command
+    │   │   ├── query.rs       # Contract query command
+    │   │   ├── events.rs      # Contract events command
+    │   │   ├── upgrade.rs     # Contract upgrade command
+    │   │   ├── verify.rs      # Contract verification command
+    │   │   ├── analyze.rs     # Contract analysis command
+    │   │   ├── debug.rs       # Contract debugging command
+    │   │   ├── test.rs        # Contract testing command
+    │   │   ├── benchmark.rs   # Contract benchmarking command
+    │   │   └── utilities.rs   # Contract utilities
+    │   ├── domain/            # Domain service commands (AevorNS)
+    │   │   ├── mod.rs         # Domain command coordination
+    │   │   ├── register.rs    # Domain registration command
+    │   │   ├── resolve.rs     # Domain resolution command
+    │   │   ├── update.rs      # Domain update command
+    │   │   ├── transfer.rs    # Domain transfer command
+    │   │   ├── renew.rs       # Domain renewal command
+    │   │   ├── list.rs        # Domain listing command
+    │   │   ├── search.rs      # Domain search command
+    │   │   ├── history.rs     # Domain history command
+    │   │   ├── pricing.rs     # Domain pricing command
+    │   │   └── analytics.rs   # Domain analytics command
+    │   ├── bridge/            # Cross-chain bridge commands
+    │   │   ├── mod.rs         # Bridge command coordination
+    │   │   ├── transfer.rs    # Cross-chain transfer command
+    │   │   ├── status.rs      # Bridge status command
+    │   │   ├── chains.rs      # Supported chains command
+    │   │   ├── fees.rs        # Bridge fees command
+    │   │   ├── history.rs     # Bridge history command
+    │   │   ├── verify.rs      # Bridge verification command
+    │   │   ├── monitor.rs     # Bridge monitoring command
+    │   │   └── analytics.rs   # Bridge analytics command
+    │   ├── security/          # Security management commands
+    │   │   ├── mod.rs         # Security command coordination
+    │   │   ├── attestation.rs # Attestation commands
+    │   │   ├── levels.rs      # Security level commands
+    │   │   ├── threats.rs     # Threat monitoring commands
+    │   │   ├── incidents.rs   # Incident management commands
+    │   │   ├── compliance.rs  # Compliance commands
+    │   │   ├── audit.rs       # Security audit commands
+    │   │   ├── monitoring.rs  # Security monitoring commands
+    │   │   └── analytics.rs   # Security analytics commands
+    │   ├── developer/         # Developer tools and utilities
+    │   │   ├── mod.rs         # Developer command coordination
+    │   │   ├── init.rs        # Project initialization command
+    │   │   ├── build.rs       # Build command
+    │   │   ├── test.rs        # Testing command
+    │   │   ├── deploy.rs      # Deployment command
+    │   │   ├── debug.rs       # Debugging command
+    │   │   ├── profile.rs     # Profiling command
+    │   │   ├── benchmark.rs   # Benchmarking command
+    │   │   ├── generate.rs    # Code generation command
+    │   │   ├── validate.rs    # Validation command
+    │   │   ├── docs.rs        # Documentation command
+    │   │   ├── lint.rs        # Linting command
+    │   │   ├── format.rs      # Code formatting command
+    │   │   ├── publish.rs     # Publishing command
+    │   │   └── utilities.rs   # Development utilities
+    │   ├── monitoring/        # System monitoring commands
+    │   │   ├── mod.rs         # Monitoring command coordination
+    │   │   ├── metrics.rs     # Metrics command
+    │   │   ├── logs.rs        # Log access command
+    │   │   ├── alerts.rs      # Alert management command
+    │   │   ├── health.rs      # Health check command
+    │   │   ├── performance.rs # Performance monitoring command
+    │   │   ├── dashboard.rs   # Dashboard command
+    │   │   ├── reports.rs     # Report generation command
+    │   │   ├── export.rs      # Data export command
+    │   │   └── analytics.rs   # Analytics command
+    │   ├── admin/             # Administrative commands
+    │   │   ├── mod.rs         # Admin command coordination
+    │   │   ├── system/        # System administration commands
+    │   │   │   ├── mod.rs     # System admin coordination
+    │   │   │   ├── status.rs  # System status command
+    │   │   │   ├── maintenance.rs # System maintenance command
+    │   │   │   ├── upgrade.rs # System upgrade command
+    │   │   │   ├── backup.rs  # System backup command
+    │   │   │   ├── restore.rs # System restore command
+    │   │   │   ├── cleanup.rs # System cleanup command
+    │   │   │   ├── optimize.rs # System optimization command
+    │   │   │   └── diagnostics.rs # System diagnostics command
+    │   │   ├── user/          # User management commands
+    │   │   │   ├── mod.rs     # User admin coordination
+    │   │   │   ├── create.rs  # User creation command
+    │   │   │   ├── update.rs  # User update command
+    │   │   │   ├── delete.rs  # User deletion command
+    │   │   │   ├── list.rs    # User listing command
+    │   │   │   ├── permissions.rs # Permission management command
+    │   │   │   └── analytics.rs # User analytics command
+    │   │   ├── network/       # Network administration commands
+    │   │   │   ├── mod.rs     # Network admin coordination
+    │   │   │   ├── configure.rs # Network configuration command
+    │   │   │   ├── maintenance.rs # Network maintenance command
+    │   │   │   ├── upgrade.rs # Network upgrade command
+    │   │   │   ├── emergency.rs # Emergency procedures command
+    │   │   │   └── analytics.rs # Network analytics command
+    │   │   ├── security/      # Security administration commands
+    │   │   │   ├── mod.rs     # Security admin coordination
+    │   │   │   ├── policies.rs # Security policy management
+    │   │   │   ├── incidents.rs # Incident response command
+    │   │   │   ├── compliance.rs # Compliance management command
+    │   │   │   ├── audit.rs   # Security audit command
+    │   │   │   └── monitoring.rs # Security monitoring command
+    │   │   └── database/      # Database administration commands
+    │   │       ├── mod.rs     # Database admin coordination
+    │   │       ├── backup.rs  # Database backup command
+    │   │       ├── restore.rs # Database restore command
+    │   │       ├── optimize.rs # Database optimization command
+    │   │       ├── migrate.rs # Database migration command
+    │   │       ├── cleanup.rs # Database cleanup command
+    │   │       └── analytics.rs # Database analytics command
+    │   └── utilities/         # Utility commands
+    │       ├── mod.rs         # Utility command coordination
+    │       ├── config.rs      # Configuration utilities command
+    │       ├── keys.rs        # Key management utilities command
+    │       ├── conversion.rs  # Data conversion utilities command
+    │       ├── validation.rs  # Validation utilities command
+    │       ├── formatting.rs  # Formatting utilities command
+    │       ├── encoding.rs    # Encoding utilities command
+    │       ├── hashing.rs     # Hashing utilities command
+    │       ├── compression.rs # Compression utilities command
+    │       ├── networking.rs  # Network utilities command
+    │       ├── filesystem.rs  # File system utilities command
+    │       └── debugging.rs   # Debugging utilities command
+    ├── interactive/           # Interactive command modes
+    │   ├── mod.rs             # Interactive mode coordination
+    │   ├── shell/             # Interactive shell implementation
+    │   │   ├── mod.rs         # Shell coordination
+    │   │   ├── repl.rs        # Read-eval-print loop implementation
+    │   │   ├── command_line.rs # Command line editor
+    │   │   ├── history.rs     # Shell history management
+    │   │   ├── completion.rs  # Shell completion system
+    │   │   ├── scripting.rs   # Shell scripting support
+    │   │   ├── variables.rs   # Shell variable management
+    │   │   ├── functions.rs   # Shell function definitions
+    │   │   └── customization.rs # Shell customization
+    │   ├── wizards/           # Setup and configuration wizards
+    │   │   ├── mod.rs         # Wizard coordination
+    │   │   ├── setup_wizard.rs # Initial setup wizard
+    │   │   ├── node_wizard.rs # Node setup wizard
+    │   │   ├── wallet_wizard.rs # Wallet setup wizard
+    │   │   ├── validator_wizard.rs # Validator setup wizard
+    │   │   ├── developer_wizard.rs # Developer setup wizard
+    │   │   ├── network_wizard.rs # Network configuration wizard
+    │   │   └── security_wizard.rs # Security configuration wizard
+    │   ├── dashboards/        # Interactive dashboard interfaces
+    │   │   ├── mod.rs         # Dashboard coordination
+    │   │   ├── node_dashboard.rs # Node monitoring dashboard
+    │   │   ├── network_dashboard.rs # Network monitoring dashboard
+    │   │   ├── validator_dashboard.rs # Validator dashboard
+    │   │   ├── wallet_dashboard.rs # Wallet management dashboard
+    │   │   ├── governance_dashboard.rs # Governance dashboard
+    │   │   ├── developer_dashboard.rs # Developer dashboard
+    │   │   └── system_dashboard.rs # System administration dashboard
+    │   ├── browsers/          # Data browsing interfaces
+    │   │   ├── mod.rs         # Browser coordination
+    │   │   ├── block_browser.rs # Block browser interface
+    │   │   ├── transaction_browser.rs # Transaction browser
+    │   │   ├── account_browser.rs # Account browser
+    │   │   ├── contract_browser.rs # Contract browser
+    │   │   ├── event_browser.rs # Event browser
+    │   │   └── log_browser.rs # Log browser interface
+    │   ├── editors/           # Interactive editors
+    │   │   ├── mod.rs         # Editor coordination
+    │   │   ├── config_editor.rs # Configuration editor
+    │   │   ├── transaction_editor.rs # Transaction editor
+    │   │   ├── contract_editor.rs # Contract editor
+    │   │   ├── proposal_editor.rs # Governance proposal editor
+    │   │   └── script_editor.rs # Script editor
+    │   └── utilities/         # Interactive utilities
+    │       ├── mod.rs         # Interactive utility coordination
+    │       ├── terminal.rs    # Terminal utility functions
+    │       ├── keyboard.rs    # Keyboard input handling
+    │       ├── mouse.rs       # Mouse input handling
+    │       ├── layout.rs      # Layout management
+    │       ├── widgets.rs     # UI widget implementations
+    │       └── themes.rs      # Theme management
+    ├── automation/            # Automation and scripting support
+    │   ├── mod.rs             # Automation coordination
+    │   ├── scripts/           # Script execution and management
+    │   │   ├── mod.rs         # Script coordination
+    │   │   ├── runner.rs      # Script execution engine
+    │   │   ├── scheduler.rs   # Script scheduling system
+    │   │   ├── templates.rs   # Script templates
+    │   │   ├── validation.rs  # Script validation
+    │   │   ├── debugging.rs   # Script debugging tools
+    │   │   ├── profiling.rs   # Script profiling tools
+    │   │   └── libraries.rs   # Script library management
+    │   ├── workflows/         # Workflow automation
+    │   │   ├── mod.rs         # Workflow coordination
+    │   │   ├── definition.rs  # Workflow definition language
+    │   │   ├── execution.rs   # Workflow execution engine
+    │   │   ├── monitoring.rs  # Workflow monitoring
+    │   │   ├── triggers.rs    # Workflow trigger system
+    │   │   ├── conditions.rs  # Workflow conditions
+    │   │   ├── actions.rs     # Workflow actions
+    │   │   └── templates.rs   # Workflow templates
+    │   ├── tasks/             # Task automation
+    │   │   ├── mod.rs         # Task coordination
+    │   │   ├── scheduler.rs   # Task scheduling system
+    │   │   ├── execution.rs   # Task execution engine
+    │   │   ├── monitoring.rs  # Task monitoring
+    │   │   ├── dependencies.rs # Task dependency management
+    │   │   ├── retry.rs       # Task retry logic
+    │   │   └── reporting.rs   # Task reporting
+    │   ├── monitoring/        # Automation monitoring
+    │   │   ├── mod.rs         # Monitoring coordination
+    │   │   ├── execution_monitoring.rs # Execution monitoring
+    │   │   ├── performance_monitoring.rs # Performance monitoring
+    │   │   ├── error_monitoring.rs # Error monitoring
+    │   │   ├── resource_monitoring.rs # Resource monitoring
+    │   │   └── alerting.rs    # Automation alerting
+    │   └── integration/       # External system integration
+    │       ├── mod.rs         # Integration coordination
+    │       ├── ci_cd.rs       # CI/CD integration
+    │       ├── monitoring_systems.rs # Monitoring system integration
+    │       ├── notification_systems.rs # Notification integration
+    │       ├── databases.rs   # Database integration
+    │       ├── apis.rs        # External API integration
+    │       └── webhooks.rs    # Webhook integration
+    ├── testing/               # CLI testing framework
+    │   ├── mod.rs             # Testing coordination
+    │   ├── unit/              # Unit testing for CLI components
+    │   │   ├── mod.rs         # Unit test coordination
+    │   │   ├── command_tests.rs # Individual command testing
+    │   │   ├── parser_tests.rs # Parser testing
+    │   │   ├── formatter_tests.rs # Output formatter testing
+    │   │   ├── validation_tests.rs # Validation testing
+    │   │   └── utility_tests.rs # Utility function testing
+    │   ├── integration/       # Integration testing
+    │   │   ├── mod.rs         # Integration test coordination
+    │   │   ├── end_to_end.rs  # End-to-end CLI testing
+    │   │   ├── workflow_tests.rs # Workflow testing
+    │   │   ├── automation_tests.rs # Automation testing
+    │   │   ├── interactive_tests.rs # Interactive mode testing
+    │   │   └── cross_platform.rs # Cross-platform testing
+    │   ├── performance/       # Performance testing
+    │   │   ├── mod.rs         # Performance test coordination
+    │   │   ├── command_performance.rs # Command performance testing
+    │   │   ├── output_performance.rs # Output performance testing
+    │   │   ├── memory_usage.rs # Memory usage testing
+    │   │   ├── startup_time.rs # Startup time testing
+    │   │   └── scalability.rs # Scalability testing
+    │   ├── usability/         # Usability testing
+    │   │   ├── mod.rs         # Usability test coordination
+    │   │   ├── user_experience.rs # User experience testing
+    │   │   ├── accessibility.rs # Accessibility testing
+    │   │   ├── documentation.rs # Documentation testing
+    │   │   ├── error_handling.rs # Error handling testing
+    │   │   └── help_system.rs # Help system testing
+    │   └── utilities/         # Testing utilities
+    │       ├── mod.rs         # Testing utility coordination
+    │       ├── mock_client.rs # Mock client implementation
+    │       ├── test_networks.rs # Test network setup
+    │       ├── fixtures.rs    # Test fixtures
+    │       ├── assertions.rs  # Custom assertions
+    │       └── helpers.rs     # Test helper functions
+    ├── documentation/         # CLI documentation system
+    │   ├── mod.rs             # Documentation coordination
+    │   ├── generation/        # Documentation generation
+    │   │   ├── mod.rs         # Documentation generation coordination
+    │   │   ├── help_generation.rs # Help text generation
+    │   │   ├── manual_generation.rs # Manual page generation
+    │   │   ├── completion_generation.rs # Completion script generation
+    │   │   ├── example_generation.rs # Example generation
+    │   │   └── tutorial_generation.rs # Tutorial generation
+    │   ├── help/              # Help system implementation
+    │   │   ├── mod.rs         # Help system coordination
+    │   │   ├── command_help.rs # Command-specific help
+    │   │   ├── topic_help.rs  # Topic-based help
+    │   │   ├── example_help.rs # Example-based help
+    │   │   ├── interactive_help.rs # Interactive help system
+    │   │   ├── context_help.rs # Context-sensitive help
+    │   │   └── search_help.rs # Help search functionality
+    │   ├── examples/          # Documentation examples
+    │   │   ├── mod.rs         # Example coordination
+    │   │   ├── basic_examples.rs # Basic usage examples
+    │   │   ├── advanced_examples.rs # Advanced usage examples
+    │   │   ├── workflow_examples.rs # Workflow examples
+    │   │   ├── automation_examples.rs # Automation examples
+    │   │   └── integration_examples.rs # Integration examples
+    │   ├── tutorials/         # Interactive tutorials
+    │   │   ├── mod.rs         # Tutorial coordination
+    │   │   ├── getting_started.rs # Getting started tutorial
+    │   │   ├── node_setup.rs  # Node setup tutorial
+    │   │   ├── wallet_tutorial.rs # Wallet tutorial
+    │   │   ├── developer_tutorial.rs # Developer tutorial
+    │   │   └── admin_tutorial.rs # Administrator tutorial
+    │   └── reference/         # Reference documentation
+    │       ├── mod.rs         # Reference coordination
+    │       ├── command_reference.rs # Complete command reference
+    │       ├── configuration_reference.rs # Configuration reference
+    │       ├── scripting_reference.rs # Scripting reference
+    │       ├── api_reference.rs # API reference
+    │       └── troubleshooting.rs # Troubleshooting guide
+    ├── localization/          # Internationalization and localization
+    │   ├── mod.rs             # Localization coordination
+    │   ├── languages/         # Language support
+    │   │   ├── mod.rs         # Language coordination
+    │   │   ├── english.rs     # English localization
+    │   │   ├── spanish.rs     # Spanish localization
+    │   │   ├── french.rs      # French localization
+    │   │   ├── german.rs      # German localization
+    │   │   ├── chinese.rs     # Chinese localization
+    │   │   ├── japanese.rs    # Japanese localization
+    │   │   └── korean.rs      # Korean localization
+    │   ├── formatting/        # Locale-specific formatting
+    │   │   ├── mod.rs         # Formatting coordination
+    │   │   ├── numbers.rs     # Number formatting
+    │   │   ├── dates.rs       # Date formatting
+    │   │   ├── currencies.rs  # Currency formatting
+    │   │   └── addresses.rs   # Address formatting
+    │   ├── resources/         # Localization resources
+    │   │   ├── mod.rs         # Resource coordination
+    │   │   ├── strings.rs     # String resources
+    │   │   ├── messages.rs    # Message resources
+    │   │   ├── errors.rs      # Error message resources
+    │   │   └── help.rs        # Help text resources
+    │   └── utilities/         # Localization utilities
+    │       ├── mod.rs         # Localization utility coordination
+    │       ├── detection.rs   # Locale detection
+    │       ├── fallback.rs    # Fallback language handling
+    │       ├── pluralization.rs # Pluralization rules
+    │       └── formatting.rs  # Locale-aware formatting
+    ├── security/              # CLI security features
+    │   ├── mod.rs             # Security coordination
+    │   ├── authentication/    # CLI authentication
+    │   │   ├── mod.rs         # Authentication coordination
+    │   │   ├── credential_management.rs # Credential management
+    │   │   ├── session_management.rs # Session management
+    │   │   ├── multi_factor.rs # Multi-factor authentication
+    │   │   ├── biometric.rs   # Biometric authentication
+    │   │   └── hardware_tokens.rs # Hardware token support
+    │   ├── authorization/     # CLI authorization
+    │   │   ├── mod.rs         # Authorization coordination
+    │   │   ├── permission_checking.rs # Permission verification
+    │   │   ├── role_management.rs # Role-based access control
+    │   │   ├── context_authorization.rs # Context-based authorization
+    │   │   └── audit_logging.rs # Authorization audit logging
+    │   ├── encryption/        # Data encryption
+    │   │   ├── mod.rs         # Encryption coordination
+    │   │   ├── credential_encryption.rs # Credential encryption
+    │   │   ├── config_encryption.rs # Configuration encryption
+    │   │   ├── key_management.rs # Encryption key management
+    │   │   └── secure_storage.rs # Secure data storage
+    │   ├── sandboxing/        # Command sandboxing
+    │   │   ├── mod.rs         # Sandboxing coordination
+    │   │   ├── command_isolation.rs # Command execution isolation
+    │   │   ├── resource_limits.rs # Resource limitation
+    │   │   ├── filesystem_isolation.rs # File system isolation
+    │   │   └── network_isolation.rs # Network isolation
+    │   └── monitoring/        # Security monitoring
+    │       ├── mod.rs         # Security monitoring coordination
+    │       ├── access_monitoring.rs # Access monitoring
+    │       ├── command_monitoring.rs # Command execution monitoring
+    │       ├── anomaly_detection.rs # Anomaly detection
+    │       ├── threat_detection.rs # Threat detection
+    │       └── incident_response.rs # Security incident response
+    ├── platform/              # Platform-specific implementations
+    │   ├── mod.rs             # Platform coordination
+    │   ├── unix/              # Unix/Linux platform support
+    │   │   ├── mod.rs         # Unix platform coordination
+    │   │   ├── process_management.rs # Process management
+    │   │   ├── signal_handling.rs # Signal handling
+    │   │   ├── file_permissions.rs # File permission management
+    │   │   ├── system_integration.rs # System integration
+    │   │   └── security.rs    # Unix security features
+    │   ├── windows/           # Windows platform support
+    │   │   ├── mod.rs         # Windows platform coordination
+    │   │   ├── process_management.rs # Windows process management
+    │   │   ├── service_integration.rs # Windows service integration
+    │   │   ├── registry.rs    # Windows registry integration
+    │   │   ├── security.rs    # Windows security features
+    │   │   └── utilities.rs   # Windows-specific utilities
+    │   ├── macos/             # macOS platform support
+    │   │   ├── mod.rs         # macOS platform coordination
+    │   │   ├── keychain.rs    # macOS Keychain integration
+    │   │   ├── app_sandbox.rs # App sandboxing support
+    │   │   ├── notifications.rs # macOS notification integration
+    │   │   ├── security.rs    # macOS security features
+    │   │   └── utilities.rs   # macOS-specific utilities
+    │   └── mobile/            # Mobile platform support
+    │       ├── mod.rs         # Mobile platform coordination
+    │       ├── ios.rs         # iOS platform integration
+    │       ├── android.rs     # Android platform integration
+    │       ├── secure_storage.rs # Mobile secure storage
+    │       ├── biometric.rs   # Mobile biometric authentication
+    │       └── utilities.rs   # Mobile-specific utilities
+    └── utilities/             # CLI utility functions
+        ├── mod.rs             # Utility coordination
+        ├── system/            # System utilities
+        │   ├── mod.rs         # System utility coordination
+        │   ├── process.rs     # Process management utilities
+        │   ├── filesystem.rs  # File system utilities
+        │   ├── network.rs     # Network utilities
+        │   ├── hardware.rs    # Hardware detection utilities
+        │   ├── environment.rs # Environment variable utilities
+        │   └── diagnostics.rs # System diagnostic utilities
+        ├── formatting/        # Formatting utilities
+        │   ├── mod.rs         # Formatting coordination
+        │   ├── tables.rs      # Table formatting utilities
+        │   ├── trees.rs       # Tree formatting utilities
+        │   ├── progress.rs    # Progress indicator utilities
+        │   ├── colors.rs      # Color formatting utilities
+        │   ├── unicode.rs     # Unicode handling utilities
+        │   └── terminal.rs    # Terminal formatting utilities
+        ├── validation/        # Validation utilities
+        │   ├── mod.rs         # Validation coordination
+        │   ├── input.rs       # Input validation utilities
+        │   ├── format.rs      # Format validation utilities
+        │   ├── constraint.rs  # Constraint validation utilities
+        │   ├── business.rs    # Business rule validation
+        │   └── security.rs    # Security validation utilities
+        ├── conversion/        # Conversion utilities
+        │   ├── mod.rs         # Conversion coordination
+        │   ├── data_types.rs  # Data type conversion
+        │   ├── formats.rs     # Format conversion utilities
+        │   ├── encodings.rs   # Encoding conversion utilities
+        │   ├── units.rs       # Unit conversion utilities
+        │   └── addresses.rs   # Address conversion utilities
+        ├── networking/        # Network utilities
+        │   ├── mod.rs         # Network utility coordination
+        │   ├── connectivity.rs # Connectivity testing
+        │   ├── performance.rs # Network performance testing
+        │   ├── discovery.rs   # Network discovery utilities
+        │   ├── proxy.rs       # Proxy configuration utilities
+        │   └── dns.rs         # DNS utilities
+        ├── cryptography/      # Cryptographic utilities
+        │   ├── mod.rs         # Cryptography coordination
+        │   ├── keys.rs        # Key management utilities
+        │   ├── signatures.rs  # Signature utilities
+        │   ├── hashing.rs     # Hashing utilities
+        │   ├── encryption.rs  # Encryption utilities
+        │   └── verification.rs # Verification utilities
+        └── debugging/         # Debugging utilities
+            ├── mod.rs         # Debugging coordination
+            ├── logging.rs     # Logging utilities
+            ├── tracing.rs     # Tracing utilities
+            ├── profiling.rs   # Profiling utilities
+            ├── diagnostics.rs # Diagnostic utilities
+            └── troubleshooting.rs # Troubleshooting utilities
+```
+
+## Educational Deep Dive: Command-Line Interface Excellence
+
+This CLI architecture demonstrates how sophisticated blockchain systems can provide comprehensive command-line interfaces that serve multiple audiences while maintaining usability and power. Let me walk you through the key architectural insights that make this approach both comprehensive and intuitive.
+
+### Multi-Audience Command Design
+
+The structure shows how effective CLIs serve different user types through thoughtful command organization. The `node/` commands provide system administration capabilities for operators. The `wallet/` commands offer user-friendly interfaces for end users. The `developer/` commands provide specialized tools for application developers. The `admin/` commands enable system administration tasks. Each command group uses appropriate terminology, output formats, and interaction patterns for its target audience.
+
+This multi-audience approach recognizes that different users have different mental models and workflow requirements. A blockchain developer needs commands that integrate with development workflows, while a system operator needs commands that integrate with monitoring and administration tools.
+
+### Interactive Mode Architecture
+
+The interactive modules demonstrate how modern CLIs transcend simple command execution to provide rich, interactive experiences. The shell implementation provides a full interactive environment with history, completion, and scripting capabilities. The dashboard interfaces enable real-time monitoring through terminal-based user interfaces. The wizard systems guide users through complex setup processes.
+
+This interactive architecture transforms CLI tools from simple command processors into comprehensive user interfaces that can handle complex workflows and provide immediate feedback.
+
+### Automation and Scripting Integration
+
+The automation modules show how production CLIs enable operational excellence through comprehensive scripting and automation capabilities. The workflow system enables complex multi-step processes to be automated and monitored. The task scheduler enables routine operations to be automated. The integration capabilities enable CLI tools to work seamlessly with existing operational toolchains.
+
+This automation architecture enables CLI tools to serve not just as interactive interfaces, but as building blocks for larger operational systems.
+
+### Output Formatting Excellence
+
+The output formatting system demonstrates how modern CLIs provide flexible, user-configurable output that adapts to different use cases and environments. The multiple formatter implementations enable output in formats ranging from human-readable tables to machine-parseable JSON. The styling system provides visually appealing output while maintaining accessibility.
+
+The paging and export capabilities ensure that CLI tools can handle large datasets and integrate with other tools in data processing pipelines.
+
+### Cross-Platform Compatibility
+
+The platform modules show how comprehensive CLI tools adapt to different operating system environments while maintaining consistent functionality. Unix/Linux platforms provide rich terminal capabilities and system integration. Windows platforms require different approaches to process management and system integration. macOS platforms offer unique security and integration features.
+
+This cross-platform approach ensures that CLI tools provide consistent experiences across different development and deployment environments.
+
+### Security Integration
+
+The security modules demonstrate how CLI tools can provide enterprise-grade security features without compromising usability. Multi-factor authentication supports secure access to sensitive operations. Command sandboxing prevents accidentally destructive operations. Audit logging provides compliance and security monitoring capabilities.
+
+### Comprehensive Help and Documentation
+
+The documentation system shows how effective CLI tools provide comprehensive help that enables users to become productive quickly. The help system provides contextual assistance that adapts to user needs. The tutorial system guides users through complex workflows. The example system provides practical guidance for common tasks.
+
+This CLI architecture represents the operational interface to the entire Aevor ecosystem, providing comprehensive command-line access to all the sophisticated capabilities we've built while maintaining the usability and reliability that make command-line tools effective for both interactive use and automation.
