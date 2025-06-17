@@ -508,17 +508,66 @@ AEVOR delivers performance characteristics that genuinely transcend traditional 
 - **Resource Allocation**: Intelligent distribution based on hardware capabilities
 - **Performance Monitoring**: Continuous analysis and optimization of network performance
 
-### Comparative Analysis
+### Comparative Analysis: Genuine Trilemma Transcendence vs Architectural Compromises
 
-| Metric | AEVOR | Ethereum 2.0 | Solana | Sui |
-|--------|--------|---------------|---------|-----|
-| **Peak TPS** | 1,000,000+ | ~100,000 | ~65,000 | ~120,000 |
-| **Sustained TPS** | 200,000+ | ~10,000 | ~3,000 | ~8,000 |
-| **Finality Time** | 20ms-1s (tiered) | 12 minutes | 2.5 seconds | ~3 seconds |
-| **Security Model** | Mathematical Certainty | Probabilistic | Probabilistic | Probabilistic |
-| **Privacy Support** | Object-level policies | Limited | None | Limited |
-| **TEE Integration** | Native multi-platform | None | None | None |
-| **Cross-Chain** | Native with privacy | Through bridges | Limited | Planned |
+Understanding how AEVOR compares to other advanced blockchain systems reveals the fundamental differences between genuine trilemma transcendence and traditional trade-offs disguised as innovation.
+
+| Metric | AEVOR | Ethereum 2.0 | Solana | Sui | **Mysticeti v2** |
+|--------|--------|---------------|---------|-----|------------------|
+| **Peak TPS** | 1,000,000+ | ~100,000 | ~65,000 | ~120,000 | **~300,000 (1s burst)** |
+| **Sustained TPS** | 200,000+ | ~10,000 | ~3,000 | ~8,000 | **~200,000** |
+| **Finality Time** | 20ms-1s (tiered) | 12 minutes | 2.5 seconds | ~3 seconds | **250ms-500ms (fixed)** |
+| **Security Model** | Mathematical Certainty | Probabilistic | Probabilistic | Probabilistic | **Probabilistic** |
+| **Decentralization** | ✪ **Full** | ✪ Full | ◐ Reduced | ✪ Full | **◐ Reduced** |
+| **Progressive Security** | ✪ **4-Level (2-3% to >67%)** | ◯ Single Level | ◯ Single Level | ◯ Single Level | **◯ Fixed Validator Set** |
+| **Privacy Support** | ✪ **Object-level policies** | Limited | None | Limited | **Limited (planned)** |
+| **TEE Integration** | ✪ **Native multi-platform** | None | None | None | **None** |
+| **Cross-Chain** | ✪ **Native with privacy** | Through bridges | Limited | Planned | **Limited** |
+
+### Critical Analysis: Why Mysticeti v2 Compromises Decentralization
+
+**The False Security Finality Problem:**
+Mysticeti v2's approach demonstrates a fundamental misunderstanding of security versus performance optimization. While Mysticeti v2 achieves impressive raw performance numbers, it does so by compromising on decentralization principles that make blockchain systems valuable:
+
+**Fixed Validator Set Limitations:**
+- **Mysticeti v2**: Relies on a fixed validator set without progressive thresholds, reducing decentralization
+- **AEVOR**: Maintains full decentralization while providing progressive security guarantees through increasing validator participation
+
+**Single-Level Security Model:**
+- **Mysticeti v2**: Offers only fixed ~250ms fast-path and ~500ms WAN commit with no security level choice
+- **AEVOR**: Provides four distinct security levels (20ms to <1s) with mathematical guarantees at each level
+
+**Probabilistic vs Mathematical Security:**
+- **Mysticeti v2**: Still relies on probabilistic consensus with statistical confidence about validator agreement
+- **AEVOR**: Provides mathematical certainty through TEE attestation and quantum-like deterministic verification
+
+### AEVOR's Progressive Security vs Mysticeti's Fixed Approach
+
+**AEVOR's Multi-Level Finality Architecture:**
+AEVOR's Security Level Accelerator engages increasing validator subsets from 2-3% to >67% to deliver clear security guarantees at each stage, resulting in both faster subjective finality AND robust objective finality.
+
+**Progressive Security Guarantees:**
+- **Minimal Security (20-50ms)**: 2-3% validators with mathematical TEE verification
+- **Basic Security (100-200ms)**: 10-20% validators with enhanced coordination
+- **Strong Security (500-800ms)**: >33% validators with Byzantine fault tolerance
+- **Full Security (<1s)**: >67% validators with maximum mathematical certainty
+
+**Mysticeti v2's Fixed Limitations:**
+Mysticeti v2's ~250ms fast-path (P50) and ~500ms WAN commit rely on a fixed validator set without progressive thresholds, offering no tiered security guarantees and compromising decentralization for performance.
+
+### The Decentralization Trade-Off: Why It Matters
+
+**True Decentralization Preservation:**
+AEVOR maintains full decentralization while achieving superior performance through architectural innovation rather than validator set reduction. This ensures that performance improvements enhance rather than compromise the fundamental values that make blockchain technology valuable.
+
+**Economic Accessibility:**
+AEVOR's approach enables broad validator participation while Mysticeti v2's fixed validator approach could create barriers to participation that centralize control among well-resourced participants.
+
+**Attack Resistance:**
+AEVOR's progressive security model provides stronger attack resistance through diverse validator participation at each security level, while Mysticeti v2's fixed approach could create central points of failure.
+
+**Future Scalability:**
+AEVOR's architecture scales democratically with validator participation, while fixed validator set approaches eventually hit scaling limitations that require further centralization compromises.
 
 ---
 
