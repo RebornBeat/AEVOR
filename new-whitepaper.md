@@ -61,6 +61,8 @@ Aevor is designed for mission-critical enterprise applications, sophisticated de
    - Conflict Detection and Resolution Across Privacy Levels
    - Parallel Execution Pathways with Mixed Privacy Support
    - Speculative Transaction Processing with Privacy Preservation
+   - Advanced Dependency Analysis and Graph Algorithms
+   - Multi-Version Concurrency Control with Privacy Isolation
 
 5. Macro-DAG: Concurrent Block Production with Integrity Verification
    - Multi-Parent Block References with Attestation Coordination
