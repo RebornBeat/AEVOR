@@ -621,15 +621,36 @@ AEVOR's parallel execution architecture enables throughput that scales with comp
 
 ### Comparative Performance Analysis
 
-**Blockchain System Performance Comparison:**
-| System | Max TPS | Finality Time | Energy Efficiency | Decentralization Score | Privacy Support |
-|--------|---------|---------------|-------------------|------------------------|-----------------|
-| **Bitcoin** | 7 TPS | 10-60 minutes | 150+ TWh/year | High | Pseudonymous |
-| **Ethereum** | 15 TPS | 6-13 minutes | 25+ TWh/year | High | Pseudonymous |
-| **Solana** | 2,000 TPS | 2-4 seconds | 0.5 TWh/year | Medium | Pseudonymous |
-| **Avalanche** | 4,500 TPS | 1-3 seconds | 0.2 TWh/year | Medium | Limited privacy |
-| **Traditional Sharding** | 10,000 TPS | 5-30 seconds | Variable | Reduced | Complex privacy |
-| **AEVOR** | **200,000+ TPS** | **20ms-1s** | **Minimal** | **Enhanced** | **Mixed privacy** |
+Understanding how AEVOR compares to other advanced blockchain systems reveals the fundamental differences between genuine trilemma transcendence and traditional trade-offs disguised as innovation.
+
+| Metric | AEVOR | Ethereum 2.0 | Solana | Sui | **Mysticeti v2** |
+|--------|--------|---------------|---------|-----|------------------|
+| **Peak TPS** | 1,000,000+ | ~100,000 | ~65,000 | ~120,000 | **~300,000 (1s burst)** |
+| **Sustained TPS** | 200,000+ | ~10,000 | ~3,000 | ~8,000 | **~200,000** |
+| **Finality Time** | 20ms-1s (tiered) | 12 minutes | 2.5 seconds | ~3 seconds | **250ms-500ms (fixed)** |
+| **Security Model** | Mathematical Certainty | Probabilistic | Probabilistic | Probabilistic | **Probabilistic** |
+| **Decentralization** | ✪ **Full** | ✪ Full | ◐ Reduced | ✪ Full | **◐ Reduced** |
+| **Progressive Security** | ✪ **4-Level (2-3% to >67%)** | ◯ Single Level | ◯ Single Level | ◯ Single Level | **◯ Fixed Validator Set** |
+| **Privacy Support** | ✪ **Object-level policies** | Limited | None | Limited | **Limited (planned)** |
+| **TEE Integration** | ✪ **Native multi-platform** | None | None | None | **None** |
+| **Cross-Chain** | ✪ **Native with privacy** | Through bridges | Limited | Planned | **Limited** |
+
+### Critical Analysis: Why Mysticeti v2 Compromises Decentralization
+
+**The False Security Finality Problem:**
+Mysticeti v2's approach demonstrates a fundamental misunderstanding of security versus performance optimization. While Mysticeti v2 achieves impressive raw performance numbers, it does so by compromising on decentralization principles that make blockchain systems valuable:
+
+**Fixed Validator Set Limitations:**
+- **Mysticeti v2**: Relies on a fixed validator set without progressive thresholds, reducing decentralization
+- **AEVOR**: Maintains full decentralization while providing progressive security guarantees through increasing validator participation
+
+**Single-Level Security Model:**
+- **Mysticeti v2**: Offers only fixed ~250ms fast-path and ~500ms WAN commit with no security level choice
+- **AEVOR**: Provides four distinct security levels (20ms to <1s) with mathematical guarantees at each level
+
+**Probabilistic vs Mathematical Security:**
+- **Mysticeti v2**: Still relies on probabilistic consensus with statistical confidence about validator agreement
+- **AEVOR**: Provides mathematical certainty through TEE attestation and quantum-like deterministic verification
 
 ### Security-Performance Integration
 
@@ -643,6 +664,9 @@ AEVOR eliminates traditional security-performance trade-offs through mathematica
 | **Basic** | 10-20% validators | 100-200ms | 95% baseline | Enhanced verification |
 | **Strong** | >33% validators | 500-800ms | 85% baseline | Comprehensive verification |
 | **Full** | >67% validators | <1000ms | 75% baseline | Maximum mathematical certainty |
+
+**Mysticeti v2's Fixed Limitations:**
+Mysticeti v2's ~250ms fast-path (P50) and ~500ms WAN commit rely on a fixed validator set without progressive thresholds, offering no tiered security guarantees and compromising decentralization for performance.
 
 **Hardware Acceleration Impact:**
 - **TEE Integration**: 20-40% performance improvement through hardware security acceleration
