@@ -629,13 +629,13 @@ Understanding how AEVOR compares to other advanced blockchain systems reveals th
 | **Sustained TPS** | 200,000+ | ~10,000 | ~3,000 | ~8,000 | **~200,000** |
 | **Finality Time** | 20ms-1s (tiered) | 12 minutes | 2.5 seconds | ~3 seconds | **250ms-500ms (fixed)** |
 | **Security Model** | Mathematical Certainty | Probabilistic | Probabilistic | Probabilistic | **Probabilistic** |
-| **Decentralization** | ✪ **Full** | ✪ Full | ◐ Reduced | ✪ Full | **◐ Reduced** |
-| **Progressive Security** | ✪ **4-Level (2-3% to >67%)** | ◯ Single Level | ◯ Single Level | ◯ Single Level | **◯ Fixed Validator Set** |
+| **Decentralization** | ✪ **Full** | ✪ Full | ◐ Reduced | ◐ Reduced (Limited) | **◐ Reduced (Limited)** |
+| **Progressive Security** | ✪ **4-Level (2-3% to >67%)** | ◯ Single Level | ◯ Single Level | ◯ Fixed Validator Set | **◯ Fixed Validator Set** |
 | **Privacy Support** | ✪ **Object-level policies** | Limited | None | Limited | **Limited (planned)** |
 | **TEE Integration** | ✪ **Native multi-platform** | None | None | None | **None** |
 | **Cross-Chain** | ✪ **Native with privacy** | Through bridges | Limited | Planned | **Limited** |
 
-### Critical Analysis: Why Mysticeti v2 Compromises Decentralization
+#### Critical Analysis: Why Mysticeti v2 Compromises Decentralization
 
 **The False Security Finality Problem:**
 Mysticeti v2's approach demonstrates a fundamental misunderstanding of security versus performance optimization. While Mysticeti v2 achieves impressive raw performance numbers, it does so by compromising on decentralization principles that make blockchain systems valuable:
