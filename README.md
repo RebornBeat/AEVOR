@@ -21,14 +21,15 @@ AEVOR represents a fundamental breakthrough in blockchain technology that transc
 5. [Security Level Accelerator](#security-level-accelerator)
 6. [TEE-as-a-Service Infrastructure](#tee-as-a-service-infrastructure)
 7. [Mixed Privacy Architecture](#mixed-privacy-architecture)
-8. [Multi-Network Deployment](#multi-network-deployment)
-9. [Performance Specifications](#performance-specifications)
-10. [Security Analysis](#security-analysis)
-11. [Economic Model](#economic-model)
-12. [Getting Started](#getting-started)
-13. [Development Environment](#development-environment)
-14. [Contributing](#contributing)
-15. [Resources](#resources)
+8. [DNS and Naming Infrastructure](#dns-and-naming-infrastructure)
+9. [Multi-Network Deployment](#multi-network-deployment)
+10. [Performance Specifications](#performance-specifications)
+11. [Security Analysis](#security-analysis)
+12. [Economic Model](#economic-model)
+13. [Getting Started](#getting-started)
+14. [Development Environment](#development-environment)
+15. [Contributing](#contributing)
+16. [Resources](#resources)
 
 ---
 
@@ -370,29 +371,23 @@ Stack0X operates as core infrastructure integrated within AEVOR's TEE coordinati
 - **Cross-Platform Consistency**: Identical storage behavior across diverse deployment environments
 - **Mathematical Integrity**: Cryptographic proof of data integrity and availability
 
+### TEE Deployment Architecture Patterns
+
+**Single TEE Per Application Deployment:**
+Complete application stacks (NGINX, React applications, backend services, databases) run together in one isolated TEE environment, providing maximum security isolation and simplified development patterns. This approach mirrors containerization but with hardware security guarantees, making it ideal for tightly coupled applications, development environments, and applications requiring atomic operations with guaranteed low-latency communication.
+
+**Distributed TEE Service Mesh:**
+Applications span multiple specialized TEE instances that coordinate to provide complete services. Different components (web servers, application logic, databases, storage) run in separate TEE instances that communicate through the secure service mesh. This approach enables better resource utilization, granular fault tolerance, independent component scaling, and sophisticated service architectures.
+
+**Deployment Pattern Selection:**
+- **Single TEE Approach**: Choose for applications with tight component coupling, simplified security models, development familiarity requirements, or atomic application logic that should scale as a complete system
+- **Distributed Approach**: Choose for applications benefiting from component specialization, shared infrastructure efficiency, independent component scaling, or complex service architectures requiring sophisticated coordination patterns
+- **Hybrid Patterns**: Applications can use mixed approaches where some components are grouped in single TEE instances while others operate as distributed services, enabling evolution from single to distributed deployments as applications grow
+
 ### Service Discovery and Coordination
 
-**Decentralized Service Registry:**
-```rust
-// Example: TEE service discovery and allocation
-use aevor_tee::{ServiceDiscovery, TeeCapabilities, GeographicPreference};
-
-let discovery = ServiceDiscovery::new()
-    .require_capabilities(TeeCapabilities::CONFIDENTIAL_COMPUTING)
-    .prefer_region(GeographicPreference::LowLatency)
-    .security_level(SecurityLevel::Strong);
-
-let service = discovery
-    .find_service("compute", &service_requirements)
-    .await?
-    .allocate_with_attestation()
-    .await?;
-
-let result = service
-    .execute_confidential(computation_data)
-    .with_proof_of_execution()
-    .await?;
-```
+**Decentralized Service Registry with DNS Integration:**
+TEE service discovery integrates with aevor-ns DNS infrastructure to provide both blockchain-native service coordination and internet-compatible service location. Applications can discover TEE services through standard DNS SRV records for internet compatibility while leveraging advanced service mesh capabilities for sophisticated allocation, quality assessment, and privacy-preserving coordination.
 
 **Quality of Service Management:**
 - **Performance Guarantees**: SLA enforcement through mathematical verification
@@ -511,6 +506,36 @@ AEVOR's privacy architecture prioritizes performance optimization to ensure priv
 | **Proof Generation** | N/A | 5,000 proofs/sec | 100 proofs/sec | 8,000 proofs/sec |
 | **Verification** | 50,000 ops/sec | 75,000 ops/sec | 20,000 ops/sec | 85,000 ops/sec |
 | **Cross-Privacy Coordination** | N/A | 15,000 ops/sec | 500 ops/sec | 12,000 ops/sec |
+
+---
+
+## DNS and Naming Infrastructure
+
+AEVOR's naming infrastructure provides comprehensive DNS capabilities that enable seamless internet integration while supporting revolutionary blockchain-specific features through the aevor-ns crate.
+
+### Internet-Compatible DNS Infrastructure
+
+**Standard DNS Protocol Support:**
+- **Complete Record Type Support**: A, AAAA, MX, TXT, CNAME, NS, PTR, SRV records with full internet compatibility
+- **DNSSEC Security Integration**: Cryptographic verification of DNS responses with existing security infrastructure
+- **Recursive Resolution**: Bidirectional integration enabling AEVOR domains to reference external resources while being accessible from standard internet infrastructure
+- **Performance Optimization**: Intelligent caching, geographic distribution, and sub-100ms resolution times for production applications
+
+### Enhanced DNS Capabilities Through TEE Services
+
+**Revolutionary DNS Features:**
+- **Privacy-Preserving Resolution**: Confidential DNS queries protecting user browsing patterns and service discovery
+- **TEE Service Discovery Integration**: Automatic discovery and allocation of TEE services through DNS-compatible mechanisms
+- **Multi-Network Domain Management**: Consistent domain management across permissionless, permissioned, and hybrid networks
+- **Anti-Surveillance Protection**: DNS resolution without creating surveillance capabilities or metadata collection
+
+### Application Integration Examples
+
+**AevorMail DNS Integration:**
+AevorMail demonstrates proper architectural layering by leveraging aevor-ns infrastructure for standard email DNS operations (MX records, SPF/DKIM/DMARC validation, reverse DNS verification) while implementing email-specific logic through dedicated TEE services for intelligent routing, anti-spam coordination, and privacy-preserving email delivery.
+
+**Enterprise DNS Management:**
+Organizations can implement sophisticated DNS policies through TEE services while maintaining internet compatibility through aevor-ns infrastructure, enabling custom domain management, compliance coordination, and business process integration without compromising standard internet DNS functionality.
 
 ---
 
@@ -783,6 +808,17 @@ AEVOR's economic security mechanisms align validator incentives with network sec
 | **Economic Manipulation** | Mathematical verification | Cannot manipulate proofs | 0% | Immediate |
 | **Service Disruption** | Redundant provision | Massive infrastructure cost | <1% | <1 second |
 | **Privacy Compromise** | Hardware isolation | Cannot break cryptography | 0% | N/A |
+
+### DNS Resolution Performance
+
+**Standard DNS Operations:**
+- **Resolution Time**: Sub-100ms for standard DNS queries with intelligent caching and geographic optimization
+- **Recursive Resolution**: Full bidirectional DNS integration with existing internet infrastructure
+- **Enhanced Privacy Resolution**: Privacy-preserving DNS queries with minimal performance impact through TEE coordination
+- **Service Discovery Performance**: TEE service discovery through DNS-compatible mechanisms with automatic allocation and quality assessment
+
+**Cross-Platform DNS Consistency:**
+DNS operations maintain identical behavior across all deployment environments while enabling platform-specific optimization that enhances resolution performance without compromising internet compatibility or creating platform dependencies.
 
 ---
 
