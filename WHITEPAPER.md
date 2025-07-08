@@ -3449,7 +3449,7 @@ Move's resource-oriented programming model provides the foundation that makes AE
 
 AEVOR extends Move's resource safety guarantees to encompass the privacy and security coordination required for sophisticated blockchain applications while maintaining compatibility with existing Move development tools and verification systems. These extensions enable developers to create applications that leverage hardware security, coordinate across privacy boundaries, and achieve performance characteristics that exceed traditional blockchain limitations while maintaining the safety guarantees that make blockchain technology trustworthy for high-value applications.
 
-### Privacy Extension Architecture Without Computational Overhead
+### Privacy Extension Architecture Through TEE Integration
 
 AEVOR's privacy extensions to Move eliminate the computational overhead that makes traditional privacy-preserving blockchain systems impractical for high-throughput applications. Traditional approaches often implement homomorphic encryption or other computationally expensive cryptographic techniques that create 1000x to 1,000,000x computational overhead while providing weaker privacy guarantees than AEVOR achieves through TEE-based confidential computation.
 
@@ -3594,9 +3594,9 @@ AEVOR's parallel execution architecture eliminates these artificial constraints 
 
 The dependency analysis system operates through sophisticated algorithms that examine smart contract object access patterns to identify logical dependencies while maintaining privacy boundaries that prevent contracts from observing each other's access patterns. Dependency analysis creates directed acyclic graphs that represent the logical relationships between different contract operations while enabling parallel execution of independent operations.
 
-Object-level dependency tracking operates through Move's resource system to identify precisely which blockchain objects each contract operation reads or modifies. This precise tracking enables the execution system to identify operations that can execute simultaneously without creating conflicts while ensuring that operations with dependencies execute in appropriate logical order rather than arbitrary temporal sequence.
+Object-level dependency tracking operates through Move's resource system to identify precisely which blockchain objects each contract operation reads or modifies. This precise tracking enables the execution system to identify operations that can execute simultaneously without creating conflicts while ensuring that operations with dependencies execute in appropriate logical order based on mathematical verification rather than arbitrary temporal sequence.
 
-Logical ordering coordination ensures that contracts with dependencies execute in correct sequence while enabling maximum parallelism for independent operations. The coordination system maintains mathematical guarantees about execution ordering while enabling parallel execution that scales with available computational resources rather than being constrained by artificial sequencing requirements.
+Logical ordering coordination ensures that contracts with dependencies execute in correct sequence while enabling maximum parallelism for independent operations. The coordination system maintains mathematical guarantees about execution ordering through blockchain consensus time authority while enabling parallel execution that scales with available computational resources rather than being constrained by artificial sequencing requirements.
 
 Cross-privacy dependency analysis enables contracts operating at different privacy levels to coordinate appropriately while maintaining privacy boundaries that prevent information leakage between privacy domains. The analysis system identifies logical dependencies that span privacy boundaries while ensuring that dependency coordination doesn't reveal sensitive information about private contract behavior or data.
 
