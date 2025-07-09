@@ -1512,13 +1512,6 @@ AEVOR development focuses on continuous advancement of revolutionary capabilitie
 
 AEVOR is open-source software licensed under the [MIT License](LICENSE), enabling broad adoption and contribution while maintaining intellectual property clarity and community coordination.
 
-**Open Source Commitment:**
-- **Comprehensive Access**: Complete protocol implementation and development tools available under permissive licensing
-- **Community Ownership**: Democratic governance ensuring community control over protocol evolution
-- **Innovation Enablement**: Licensing structure supporting unlimited innovation while maintaining attribution
-- **Enterprise Compatibility**: License structure enabling enterprise adoption without proprietary constraint
-- **Research Collaboration**: Academic and research use encouraged with proper attribution and collaboration opportunities
-
 **Contribution Recognition:**
 All contributors to AEVOR development receive recognition for advancing blockchain technology toward comprehensive digital infrastructure that enables applications impossible with traditional systems while preserving the autonomy, security, and democratic participation characteristics that make decentralized systems uniquely valuable for creating trustless coordination mechanisms.
 
