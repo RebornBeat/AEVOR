@@ -1510,7 +1510,7 @@ AEVOR development focuses on continuous advancement of revolutionary capabilitie
 
 ## License and Contribution Guidelines
 
-AEVOR is open-source software licensed under the [Apache License 2.0](LICENSE), enabling broad adoption and contribution while maintaining intellectual property clarity and community coordination.
+AEVOR is open-source software licensed under the [MIT License](LICENSE), enabling broad adoption and contribution while maintaining intellectual property clarity and community coordination.
 
 **Open Source Commitment:**
 - **Comprehensive Access**: Complete protocol implementation and development tools available under permissive licensing
