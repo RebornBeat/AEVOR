@@ -139,16 +139,139 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::cargo)]
 
-// External dependencies optimized for performance and security
+// External dependencies optimized for performance and security - ALL EXPLICIT IMPORTS
 use aevor_core::{
-    types::primitives::*,
-    types::privacy::*,
-    types::consensus::*,
-    traits::verification::*,
-    traits::performance::*,
-    errors::*,
-    AevorResult,
+    // Primitive types for cryptographic foundation
+    types::primitives::{
+        CryptographicHash, HashAlgorithm, HashInput, HashOutput, HashMetadata,
+        Blake3Hash, Sha256Hash, Sha512Hash, ConsensusHash, PrivacyHash,
+        CrossPlatformHash, PerformanceHash, VerificationHash, SecurityHash,
+        DigitalSignature, SignatureAlgorithm, SignatureMetadata, SignatureVerification,
+        Ed25519Signature, BlsSignature, ConsensusSignature, PrivacySignature,
+        TeeAttestedSignature, MultiSignature, AggregateSignature, ThresholdSignature,
+        CryptographicKey, CryptographicKeyPair, KeyAlgorithm, KeyMetadata,
+        Ed25519KeyPair, BlsKeyPair, ConsensusKey, TeeKey, PrivacyKey,
+        KeyGenerationParameters, KeyDerivation, KeyRotation, KeyAttestation,
+        BlockchainAddress, AddressType, AddressMetadata, AddressValidation,
+        ValidatorAddress, ObjectAddress, CrossChainAddress, ContractAddress,
+        ConsensusTimestamp, LogicalSequence, BlockReference, EpochReference,
+        TemporalOrdering, TimeAuthority, ConsensusTime, SequentialTime,
+        PrecisionDecimal, OverflowProtectedInteger, MathematicalAmount,
+        SecureArithmetic, CrossPlatformNumeric, FinancialPrecision,
+        SecureByteArray, ProtectedMemory, ConstantTimeBytes, ZeroizingBytes,
+        ObjectIdentifier, ValidatorIdentifier, ServiceIdentifier, NetworkIdentifier,
+    },
+    // Privacy types for cryptographic privacy coordination
+    types::privacy::{
+        PrivacyLevel, ConfidentialityLevel, PrivacyClassification, AccessLevel,
+        PublicLevel, ProtectedLevel, PrivateLevel, ConfidentialLevel,
+        PrivacyPolicy, ObjectPrivacyPolicy, PolicyInheritance, PolicyEnforcement,
+        SelectiveDisclosure, DisclosureRule, DisclosureCondition, DisclosureVerification,
+        ConfidentialityGuarantee, ConfidentialityMetadata, ConfidentialityVerification,
+        AccessControlPolicy, PermissionModel, RoleBasedAccess, AttributeBasedAccess,
+        PrivacyMetadata, PolicyMetadata, DisclosureMetadata, ConfidentialityMetadata,
+        CrossPrivacyInteraction, PrivacyBoundary, BoundaryEnforcement, BoundaryVerification,
+        PrivacyProof, ConfidentialityProof, DisclosureProof, AccessProof,
+    },
+    // Consensus types for cryptographic consensus integration
+    types::consensus::{
+        ValidatorInfo, ValidatorCapabilities, ValidatorPerformance, ValidatorReputation,
+        ProgressiveValidator, TeeValidator, ConsensusValidator, ServiceValidator,
+        BlockHeader, BlockBody, BlockMetadata, BlockVerification,
+        TransactionHeader, TransactionBody, TransactionMetadata, TransactionExecution,
+        UncorruptedFrontier, FrontierAdvancement, FrontierVerification, FrontierMetadata,
+        MathematicalVerification, CryptographicVerification, AttestationVerification,
+        ProgressiveSecurityLevel, SecurityLevelMetadata, SecurityLevelVerification,
+        TeeAttestation, AttestationProof, AttestationMetadata, AttestationVerification as ConsensusAttestationVerification,
+        SlashingCondition, SlashingEvidence, SlashingPenalty, SlashingRecovery,
+    },
+    // Execution types for cryptographic execution integration
+    types::execution::{
+        VirtualMachine, VmConfiguration, VmMetadata, VmExecution,
+        SmartContract, ContractMetadata, ContractExecution, ContractVerification,
+        ExecutionContext, ExecutionEnvironment, ExecutionMetadata, ExecutionVerification,
+        ResourceAllocation, ResourceMetadata, ResourceTracking, ResourceOptimization,
+        ParallelExecution, ParallelCoordination, ParallelVerification, ParallelOptimization,
+        TeeService, TeeServiceMetadata, TeeServiceAllocation, TeeServiceCoordination,
+        MultiTeeCoordination, CoordinationMetadata, CoordinationVerification, CoordinationOptimization,
+        VerificationContext, VerificationEnvironment, VerificationResult,
+    },
+    // Network types for cryptographic network integration
+    types::network::{
+        NetworkNode, NodeCapabilities, NodeMetadata, NodePerformance,
+        NetworkCommunication, CommunicationProtocol, CommunicationMetadata, CommunicationSecurity,
+        NetworkTopology, TopologyOptimization, TopologyMetadata, TopologyVerification,
+        IntelligentRouting, RoutingOptimization, RoutingMetadata, RoutingVerification,
+        CrossChainBridge, BridgeCoordination, BridgeVerification, BridgeOptimization,
+        ServiceDiscovery, ServiceRegistration, ServiceLocation, ServiceVerification,
+        NetworkPerformance, PerformanceMetrics, PerformanceOptimization, PerformanceAnalysis,
+    },
+    // Storage types for cryptographic storage integration
+    types::storage::{
+        StorageObject, ObjectMetadata, ObjectLifecycle, ObjectVerification,
+        BlockchainState, StateRepresentation, StateMetadata, StateVerification,
+        PrivacyPreservingIndex, IndexMetadata, IndexOptimization, IndexVerification,
+        DataReplication, ReplicationStrategy, ReplicationMetadata, ReplicationVerification,
+        ConsistencyGuarantee, ConsistencyLevel, ConsistencyMetadata, ConsistencyVerification,
+        StorageEncryption, EncryptionMetadata, EncryptionKeys, EncryptionVerification,
+        BackupCoordination, BackupStrategy, BackupMetadata, BackupVerification,
+        StorageIntegration, IntegrationMetadata, IntegrationSecurity, IntegrationVerification,
+    },
+    // Economic types for cryptographic economic integration
+    types::economics::{
+        BlockchainAccount, AccountMetadata, AccountOwnership, AccountDelegation,
+        PrecisionBalance, BalanceMetadata, BalanceVerification, BalancePrivacy,
+        TransferOperation, TransferMetadata, TransferVerification, TransferCoordination,
+        StakingOperation, StakingMetadata, StakingDelegation, StakingVerification,
+        FeeStructure, FeeCalculation, FeeMetadata, FeeVerification,
+        RewardDistribution, RewardCalculation, RewardMetadata, RewardVerification,
+        DelegationOperation, DelegationMetadata, DelegationVerification, DelegationCoordination,
+    },
+    // Verification traits for cryptographic verification integration
+    traits::verification::{
+        MathematicalVerification as MathematicalVerificationTrait,
+        CryptographicVerification as CryptographicVerificationTrait,
+        AttestationVerification as AttestationVerificationTrait,
+        PrivacyVerification as PrivacyVerificationTrait,
+        ConsistencyVerification as ConsistencyVerificationTrait,
+        FrontierVerification as FrontierVerificationTrait,
+    },
+    // Performance traits for cryptographic performance integration
+    traits::performance::{
+        OptimizationTraits, CachingTraits, ParallelizationTraits,
+        ResourceManagementTraits, MeasurementTraits,
+    },
+    // Platform traits for cryptographic platform integration
+    traits::platform::{
+        ConsistencyTraits, AbstractionTraits, CapabilityTraits,
+        OptimizationTraits as PlatformOptimizationTraits, IntegrationTraits,
+    },
+    // Privacy traits for cryptographic privacy integration
+    traits::privacy::{
+        PolicyTraits, DisclosureTraits, AccessControlTraits,
+        BoundaryTraits, VerificationTraits as PrivacyVerificationTraits,
+    },
+    // Coordination traits for cryptographic coordination integration
+    traits::coordination::{
+        ConsensusCoordination as ConsensusCoordinationTrait,
+        ExecutionCoordination as ExecutionCoordinationTrait,
+        StorageCoordination as StorageCoordinationTrait,
+        NetworkCoordination as NetworkCoordinationTrait,
+        PrivacyCoordination as PrivacyCoordinationTrait,
+        TeeCoordination as TeeCoordinationTrait,
+    },
+    // Error types for comprehensive cryptographic error handling
+    errors::{
+        AevorError, ErrorCategory, ErrorCode, ErrorMetadata,
+        SystemError, InfrastructureError, CoordinationError, ValidationError,
+        PrivacyError, ConsensusError, ExecutionError, NetworkError,
+        StorageError, TeeError, EconomicError, VerificationError,
+    },
+    // Result types for cryptographic operations
+    AevorResult, ConsensusResult, ExecutionResult, PrivacyResult,
+    NetworkResult, StorageResult, TeeResult, VerificationResult,
 };
+
 
 // ================================================================================================
 // MODULE DECLARATIONS - COMPLETE HIERARCHICAL STRUCTURE
