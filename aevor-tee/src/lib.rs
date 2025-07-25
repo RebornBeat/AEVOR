@@ -180,8 +180,326 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::cargo)]
 
-// Essential dependencies from AEVOR ecosystem
-use aevor_core::prelude::*;
+// ================================================================================================
+// EXPLICIT DEPENDENCIES FROM AEVOR ECOSYSTEM - NO WILDCARDS
+// ================================================================================================
+
+// Essential Core Primitive Types from aevor-core
+use aevor_core::{
+    // Cryptographic Primitive Types - Essential for TEE security coordination
+    types::primitives::{
+        CryptographicHash, HashAlgorithm, Blake3Hash, Sha256Hash, ConsensusHash, PrivacyHash,
+        DigitalSignature, SignatureAlgorithm, Ed25519Signature, BlsSignature, TeeAttestedSignature,
+        CryptographicKey, CryptographicKeyPair, KeyAlgorithm, Ed25519KeyPair, BlsKeyPair, TeeKey,
+        BlockchainAddress, AddressType, ValidatorAddress, ServiceAddress, NetworkAddress,
+        ConsensusTimestamp, LogicalSequence, BlockReference, TemporalOrdering, ConsensusTime,
+        ObjectIdentifier, ValidatorIdentifier, ServiceIdentifier, NetworkIdentifier,
+        SecureByteArray, ProtectedMemory, ConstantTimeBytes, ZeroizingBytes, PrivacyBytes,
+        PrecisionDecimal, OverflowProtectedInteger, MathematicalAmount, SecureArithmetic,
+    },
+    
+    // Privacy and Access Control Types - Critical for TEE confidentiality coordination
+    types::privacy::{
+        PrivacyLevel, ConfidentialityLevel, PrivacyClassification, AccessLevel,
+        PublicLevel, ProtectedLevel, PrivateLevel, ConfidentialLevel, DynamicPrivacyLevel,
+        PrivacyPolicy, ObjectPrivacyPolicy, PolicyInheritance, PolicyEnforcement,
+        MixedPrivacyPolicy, HierarchicalPrivacyPolicy, ConditionalPrivacyPolicy,
+        SelectiveDisclosure, DisclosureRule, DisclosureCondition, ConditionalDisclosure,
+        ConfidentialityGuarantee, ConfidentialityMetadata, ConfidentialityBoundary,
+        AccessControlPolicy, PermissionModel, RoleBasedAccess, AttributeBasedAccess,
+        PrivacyMetadata, PolicyMetadata, DisclosureMetadata, ConfidentialityMetadata,
+        CrossPrivacyInteraction, PrivacyBoundary, BoundaryEnforcement, BoundaryVerification,
+        PrivacyProof, ConfidentialityProof, DisclosureProof, AccessProof, BoundaryProof,
+    },
+    
+    // Consensus and Validation Types - Essential for TEE-consensus integration
+    types::consensus::{
+        ValidatorInfo, ValidatorCapabilities, ValidatorPerformance, ValidatorMetadata,
+        ProgressiveValidator, TeeValidator, ConsensusValidator, ServiceValidator,
+        BlockHeader, BlockBody, BlockMetadata, BlockVerification, VerifiedBlock, AttestedBlock,
+        UncorruptedFrontier, FrontierAdvancement, FrontierVerification, FrontierProgression,
+        MathematicalVerification, CryptographicVerification, AttestationVerification,
+        VerificationProof, VerificationMetadata, VerificationContext, VerificationResult,
+        ProgressiveSecurityLevel, SecurityLevelMetadata, SecurityLevelVerification,
+        MinimalSecurity, BasicSecurity, StrongSecurity, FullSecurity, DynamicSecurity,
+        TeeAttestation, AttestationProof, AttestationMetadata, CrossPlatformAttestation,
+        SlashingCondition, SlashingEvidence, SlashingPenalty, ProgressiveSlashing,
+    },
+    
+    // Execution and TEE Service Types - Core for TEE service coordination
+    types::execution::{
+        VirtualMachine, VmConfiguration, VmMetadata, TeeIntegratedVm, CrossPlatformVm,
+        SmartContract, ContractMetadata, TeeContract, PrivacyContract, CrossPlatformContract,
+        ExecutionContext, ExecutionEnvironment, TeeExecutionContext, PrivacyExecutionContext,
+        ResourceAllocation, ResourceMetadata, TeeResource, ComputeResource, MemoryResource,
+        ParallelExecution, ParallelCoordination, ConcurrentExecution, DistributedExecution,
+        TeeService, TeeServiceMetadata, TeeServiceAllocation, TeeServiceCoordination,
+        ServiceCapability, ServiceQuality, DistributedTeeService, SecureTeeService,
+        MultiTeeCoordination, CoordinationMetadata, StateSynchronization, StateConsistency,
+        VerificationContext, ExecutionVerification, StateVerification, PerformanceVerification,
+    },
+    
+    // Network and Communication Types - Essential for TEE network coordination
+    types::network::{
+        NetworkNode, NodeCapabilities, NodeMetadata, ValidatorNode, ServiceNode,
+        NetworkCommunication, CommunicationProtocol, PrivacyPreservingCommunication,
+        NetworkTopology, TopologyOptimization, GeographicTopology, PerformanceTopology,
+        IntelligentRouting, RoutingOptimization, PrivacyPreservingRouting, AdaptiveRouting,
+        MultiNetworkCoordination, NetworkInteroperability, CrossNetworkCommunication,
+        CrossChainBridge, BridgeCoordination, PrivacyPreservingBridge, InteroperabilityBridge,
+        ServiceDiscovery, ServiceRegistration, PrivacyPreservingDiscovery, SecureDiscovery,
+        NetworkPerformance, PerformanceMetrics, LatencyOptimization, ThroughputOptimization,
+    },
+    
+    // Storage and State Management Types - Required for TEE state coordination
+    types::storage::{
+        StorageObject, ObjectMetadata, PrivacyObject, EncryptedObject, DistributedObject,
+        BlockchainState, StateRepresentation, DistributedState, EncryptedState, PrivacyState,
+        PrivacyPreservingIndex, IndexMetadata, SearchableIndex, EncryptedIndex,
+        DataReplication, ReplicationStrategy, GeographicReplication, PrivacyReplication,
+        ConsistencyGuarantee, ConsistencyLevel, MathematicalConsistency, DistributedConsistency,
+        StorageEncryption, EncryptionMetadata, MultiLevelEncryption, HardwareEncryption,
+        BackupCoordination, BackupStrategy, DistributedBackup, EncryptedBackup,
+        StorageIntegration, IntegrationMetadata, DistributedStorageIntegration,
+    },
+    
+    // Economic Primitive Types - Needed for TEE service economics
+    types::economics::{
+        BlockchainAccount, AccountMetadata, ValidatorAccount, ServiceAccount,
+        PrecisionBalance, BalanceMetadata, EncryptedBalance, ConfidentialBalance,
+        TransferOperation, TransferMetadata, PrivacyTransfer, AtomicTransfer,
+        StakingOperation, StakingMetadata, ValidatorStaking, ServiceStaking,
+        FeeStructure, FeeCalculation, DynamicFee, ServiceFee, PerformanceFee,
+        RewardDistribution, RewardCalculation, ValidatorReward, ServiceReward,
+        DelegationOperation, DelegationMetadata, ValidatorDelegation, ServiceDelegation,
+    },
+};
+
+// Essential Interface Definitions from aevor-core
+use aevor_core::{
+    // Consensus Coordination Interfaces
+    interfaces::consensus::{
+        ValidatorInterface, VerificationInterface, FrontierInterface, SecurityInterface,
+        AttestationInterface, SlashingInterface, ConsensusCoordination, ConsensusVerification,
+        ProgressiveSecurityInterface, MathematicalVerificationInterface, TeeAttestationInterface,
+    },
+    
+    // Execution Environment Interfaces
+    interfaces::execution::{
+        VmInterface, ContractInterface, TeeServiceInterface, PrivacyInterface,
+        ParallelExecutionInterface, CoordinationInterface, ExecutionCoordination,
+        CrossPlatformExecutionInterface, PerformanceExecutionInterface, SecurityExecutionInterface,
+    },
+    
+    // Storage Coordination Interfaces
+    interfaces::storage::{
+        ObjectInterface, StateInterface, IndexingInterface, ReplicationInterface,
+        EncryptionInterface, BackupInterface, StorageCoordination, StorageVerification,
+        PrivacyStorageInterface, DistributedStorageInterface, PerformanceStorageInterface,
+    },
+    
+    // Network Communication Interfaces
+    interfaces::network::{
+        CommunicationInterface, RoutingInterface, TopologyInterface, BridgeInterface,
+        ServiceDiscoveryInterface, MultiNetworkInterface, NetworkCoordination,
+        PrivacyNetworkInterface, PerformanceNetworkInterface, SecurityNetworkInterface,
+    },
+    
+    // Privacy Management Interfaces
+    interfaces::privacy::{
+        PolicyInterface, DisclosureInterface, AccessControlInterface, CrossPrivacyInterface,
+        ConfidentialityInterface, PrivacyVerificationInterface, PrivacyCoordination,
+        BoundaryEnforcementInterface, SelectiveDisclosureInterface, PrivacyProofInterface,
+    },
+    
+    // TEE Coordination Interfaces
+    interfaces::tee::{
+        ServiceInterface as TeeServiceInterface, TeeAttestationInterface, TeeCoordinationInterface,
+        PlatformInterface, IsolationInterface, TeeVerificationInterface, TeeCoordination,
+        MultiPlatformInterface, SecurityTeeInterface, PerformanceTeeInterface,
+    },
+};
+
+// Essential Trait Definitions from aevor-core
+use aevor_core::{
+    // Mathematical and Cryptographic Verification Traits
+    traits::verification::{
+        MathematicalVerification, CryptographicVerification, AttestationVerification,
+        PrivacyVerification, ConsistencyVerification, FrontierVerification,
+        VerificationFramework, VerificationCoordination, VerificationOptimization,
+    },
+    
+    // System Coordination Traits
+    traits::coordination::{
+        ConsensusCoordination as ConsensusCoordinationTrait,
+        ExecutionCoordination as ExecutionCoordinationTrait,
+        StorageCoordination as StorageCoordinationTrait,
+        NetworkCoordination as NetworkCoordinationTrait,
+        PrivacyCoordination as PrivacyCoordinationTrait,
+        TeeCoordination as TeeCoordinationTrait,
+        CoordinationFramework, DistributedCoordination, SystemCoordination,
+    },
+    
+    // Privacy Management Traits
+    traits::privacy::{
+        PolicyTraits, DisclosureTraits, AccessControlTraits, BoundaryTraits,
+        PrivacyVerificationTraits, PrivacyFramework, ConfidentialityTraits,
+        PrivacyCoordinationTraits,
+    },
+    
+    // Performance Optimization Traits
+    traits::performance::{
+        OptimizationTraits, CachingTraits, ParallelizationTraits, ResourceManagementTraits,
+        MeasurementTraits, PerformanceFramework, EfficiencyCoordination, OptimizationCoordination,
+    },
+    
+    // Cross-Platform Consistency Traits
+    traits::platform::{
+        ConsistencyTraits, AbstractionTraits, CapabilityTraits,
+        PlatformOptimizationTraits, IntegrationTraits, PlatformFramework,
+        CrossPlatformConsistency, PlatformCoordination,
+    },
+};
+
+// Comprehensive Error Handling from aevor-core
+use aevor_core::{
+    errors::{
+        AevorError, ErrorCategory, ErrorCode, ErrorMetadata, SystemError,
+        InfrastructureError, CoordinationError, ValidationError, PrivacyError,
+        ConsensusError, ExecutionError, NetworkError, StorageError, TeeError,
+        EconomicError, VerificationError, RecoveryError, ErrorRecovery,
+        ErrorCoordination, ErrorVerification, ErrorOptimization, RecoveryStrategies,
+    },
+    
+    // Standard Result Types for AEVOR Operations
+    AevorResult, ConsensusResult, ExecutionResult, PrivacyResult, NetworkResult,
+    StorageResult, TeeResult, VerificationResult, CoordinationResult,
+};
+
+// Essential Constants from aevor-core
+use aevor_core::{
+    constants::{
+        MATHEMATICAL_PRECISION, VERIFICATION_THRESHOLDS, CONSISTENCY_PARAMETERS,
+        CRYPTOGRAPHIC_STRENGTH, SIGNATURE_ALGORITHMS, HASH_ALGORITHMS,
+        PERFORMANCE_TARGETS, LATENCY_REQUIREMENTS, OPTIMIZATION_PARAMETERS,
+        VERIFICATION_REQUIREMENTS, SECURITY_LEVELS, FINALITY_GUARANTEES,
+        CONFIDENTIALITY_LEVELS, POLICY_FRAMEWORKS, DISCLOSURE_PARAMETERS,
+        PLATFORM_CONSISTENCY, COORDINATION_PARAMETERS, ALLOCATION_STANDARDS,
+        PRIMITIVE_PARAMETERS, SUSTAINABILITY_THRESHOLDS, FAIRNESS_REQUIREMENTS,
+    },
+};
+
+// Essential Utility Functions from aevor-core
+use aevor_core::{
+    utils::{
+        serialization::{BinarySerialization, JsonSerialization, PrivacySerialization,
+                       CrossPlatformSerialization, VerificationSerialization},
+        validation::{TypeValidation, PrivacyValidation, ConsensusValidation,
+                    SecurityValidation, CrossPlatformValidation},
+        conversion::{SafeConversions, PrivacyConversions, CrossPlatformConversions},
+        hashing::{SecureHashing, PerformanceHashing, PrivacyHashing, CrossPlatformHashing},
+        formatting::{DisplayFormatting, DebugFormatting, PrivacyFormatting},
+    },
+};
+
+// Configuration and Platform Abstractions from aevor-core
+use aevor_core::{
+    config::{DeploymentConfig, NetworkConfig, PrivacyConfig, SecurityConfig,
+            PerformanceConfig, TeeConfig, ConfigurationFramework},
+    platform::{
+        capabilities::{HardwareCapabilities, TeeCapabilities, NetworkCapabilities,
+                      CryptographicCapabilities, PerformanceCapabilities},
+        abstractions::{HardwareAbstractions, OperatingSystemAbstractions, NetworkAbstractions,
+                      StorageAbstractions, TeeAbstractions as CoreTeeAbstractions},
+        optimization::{CpuOptimization, MemoryOptimization, NetworkOptimization,
+                      StorageOptimization, TeeOptimization as CoreTeeOptimization},
+        integration::{SystemIntegration, HardwareIntegration, NetworkIntegration, SecurityIntegration},
+    },
+};
+
+// ================================================================================================
+// CONFIGURATION DEPENDENCIES FROM AEVOR-CONFIG
+// ================================================================================================
+
+use aevor_config::{
+    // Multi-Network Configuration Types
+    types::{
+        MultiNetworkConfig, NetworkDeploymentConfig, HybridNetworkConfig,
+        PermissionedSubnetConfig, CrossNetworkConfig, NetworkPolicyConfig,
+        TeeNetworkConfig, ServiceNetworkConfig, BridgeNetworkConfig,
+        NetworkSecurityConfig, NetworkPerformanceConfig, NetworkPrivacyConfig,
+    },
+    
+    // TEE Configuration Types
+    configuration::tee::{
+        TeeDeploymentConfig, TeePlatformConfig, TeeServiceConfig, TeeSecurityConfig,
+        TeePerformanceConfig, TeeCoordinationConfig, TeeAllocationConfig,
+        TeeAttestationConfig, TeeIsolationConfig, TeeOptimizationConfig,
+    },
+    
+    // Configuration Management Interfaces
+    interfaces::{
+        ConfigurationInterface, ValidationInterface, MergingInterface,
+        ConversionInterface, TemplateInterface, DeploymentInterface,
+        NetworkConfigInterface, TeeConfigInterface, SecurityConfigInterface,
+    },
+    
+    // Configuration Validation and Management
+    validation::{
+        ConfigurationValidation, NetworkValidation, TeeValidation, SecurityValidation,
+        PerformanceValidation, PrivacyValidation, ComplianceValidation,
+        ConsistencyValidation, IntegrationValidation, DeploymentValidation,
+    },
+};
+
+// ================================================================================================
+// CRYPTOGRAPHIC DEPENDENCIES FROM AEVOR-CRYPTO
+// ================================================================================================
+
+use aevor_crypto::{
+    // TEE-Optimized Cryptographic Primitives
+    primitives::{
+        TeeOptimizedHash, TeeOptimizedSignature, TeeOptimizedKey, TeeOptimizedEncryption,
+        HardwareAcceleratedHash, HardwareAcceleratedSignature, HardwareAcceleratedKey,
+        CrossPlatformCryptography, PerformanceCryptography, PrivacyCryptography,
+        AttestationCryptography, VerificationCryptography, CoordinationCryptography,
+    },
+    
+    // TEE Attestation Cryptography
+    attestation::{
+        AttestationCryptography, EvidenceCryptography, MeasurementCryptography,
+        SignatureCryptography, VerificationCryptography, CompositionCryptography,
+        PlatformCryptography, CrossPlatformAttestationCrypto, PolicyCryptography,
+    },
+    
+    // Privacy-Preserving Cryptography
+    privacy::{
+        PrivacyPreservingCryptography, ConfidentialityPrimitives, SelectiveDisclosureCrypto,
+        AccessControlCryptography, BoundaryEnforcementCrypto, CrossPrivacyCryptography,
+        PrivacyProofCryptography, AnonymityCryptography, ObfuscationCryptography,
+    },
+    
+    // Performance-Optimized Cryptography
+    performance::{
+        OptimizedHashFunctions, OptimizedSignatureSchemes, OptimizedKeyManagement,
+        OptimizedEncryptionSchemes, ParallelCryptography, ConcurrentCryptography,
+        DistributedCryptography, ScalableCryptography, EfficientCryptography,
+    },
+    
+    // Cross-Platform Cryptographic Consistency
+    platform::{
+        PlatformCryptography, ConsistentCryptography, AbstractedCryptography,
+        NormalizedCryptography, StandardizedCryptography, UnifiedCryptography,
+        PortableCryptography, OptimizedPlatformCrypto, BehavioralCryptography,
+    },
+    
+    // Cryptographic Verification and Validation
+    verification::{
+        CryptographicVerification, SecurityVerification, IntegrityVerification,
+        AuthenticityVerification, CorrectnessVerification, ConsistencyVerification,
+        PerformanceVerification, CrossPlatformVerification, ComplianceVerification,
+    },
+};
 
 // ================================================================================================
 // MODULE DECLARATIONS - COMPLETE HIERARCHICAL TEE INFRASTRUCTURE
