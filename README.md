@@ -350,8 +350,8 @@ AEVOR's TEE-as-a-Service infrastructure provides complete serverless Web3 capabi
 
 ### Complete Serverless Web3 Platform
 
-**Stack0X Integrated Service Architecture:**
-Stack0X operates as core infrastructure integrated within AEVOR's TEE coordination system, providing comprehensive serverless capabilities with unified security boundaries and anti-snooping protection.
+**Aevors Integrated Service Architecture:**
+Operates as core infrastructure integrated within AEVOR's TEE coordination system, providing comprehensive serverless capabilities with unified security boundaries and anti-snooping protection.
 
 **Compute Services:**
 - **Serverless Functions**: TEE-secured function execution with mathematical verification
