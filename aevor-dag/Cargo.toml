@@ -1,0 +1,17 @@
+[package]
+name = "aevor-dag"
+description = "AEVOR Dual-DAG: Micro-DAG for transaction parallelism and Macro-DAG for concurrent block production"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core      = { workspace = true }
+aevor-crypto    = { workspace = true }
+aevor-consensus = { workspace = true }
+serde           = { workspace = true }
+thiserror       = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,19 @@
+[package]
+name = "aevor-storage"
+description = "AEVOR state storage: object store, Merkle trees, versioned state, encrypted storage, indexing, caching, RocksDB backend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core   = { workspace = true }
+aevor-crypto = { workspace = true }
+aevor-tee    = { workspace = true }
+serde        = { workspace = true }
+thiserror    = { workspace = true }
+bincode      = { workspace = true }
+hex          = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

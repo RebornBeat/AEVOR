@@ -1,0 +1,113 @@
+============================================================
+  AEVOR Blockchain — Verification Suite
+  Thu Mar 26 07:51:13 AM AST 2026
+============================================================
+
+[0;34m[STEP 1] Environment Check[0m
+------------------------------------------------------------
+OS:    Linux RebornBeat 6.8.0-51-generic #52-Ubuntu SMP PREEMPT_DYNAMIC Thu Dec  5 13:09:44 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux
+Rust:  rustc 1.86.0 (05f9846f8 2025-03-31)
+Cargo: cargo 1.86.0 (adf9b6ad1 2025-02-28)
+RAM:   15868MB
+  [0;32m✓ Rust version OK (rustc 1.86.0 (05f9846f8 2025-03-31))[0m
+
+[0;34m[STEP 2] Workspace Structure (22 crates)[0m
+------------------------------------------------------------
+  [0;32m✓[0m aevor-core
+  [0;32m✓[0m aevor-config
+  [0;32m✓[0m aevor-crypto
+  [0;32m✓[0m aevor-tee
+  [0;32m✓[0m aevor-consensus
+  [0;32m✓[0m aevor-dag
+  [0;32m✓[0m aevor-storage
+  [0;32m✓[0m aevor-vm
+  [0;32m✓[0m aevor-execution
+  [0;32m✓[0m aevor-network
+  [0;32m✓[0m aevor-security
+  [0;32m✓[0m aevor-move
+  [0;32m✓[0m aevor-zk
+  [0;32m✓[0m aevor-bridge
+  [0;32m✓[0m aevor-governance
+  [0;32m✓[0m aevor-ns
+  [0;32m✓[0m aevor-metrics
+  [0;32m✓[0m aevor-api
+  [0;32m✓[0m aevor-client
+  [0;32m✓[0m aevor-cli
+  [0;32m✓[0m aevor-faucet
+  [0;32m✓[0m node
+  [0;32m✓ All 22 crates present[0m
+
+[0;34m[STEP 3] File Count Check[0m
+------------------------------------------------------------
+  .rs files:    272   (expected ≥ 270)
+  Cargo.toml:   23   (expected  23)
+  Test fns:     331  (expected ≥ 270)
+  [0;32m✓ .rs count OK[0m
+  [0;32m✓ Cargo.toml count OK[0m
+  [0;32m✓ Test count OK[0m
+
+[0;34m[STEP 4] Workspace Type Check (cargo check)[0m
+------------------------------------------------------------
+First run: 30-120s. Subsequent: <10s (cached).
+    Checking aevor-vm v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-vm)
+    Checking aevor-dag v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-dag)
+    Checking aevor-zk v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-zk)
+    Checking aevor-client v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-client)
+warning: unused import: `crate::ClientResult`
+ --> aevor-client/src/multi_network/mod.rs:4:5
+  |
+4 | use crate::ClientResult;
+  |     ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+error[E0599]: no method named `verify_against` found for struct `MerkleProof` in the current scope
+  --> aevor-client/src/light_client/mod.rs:75:27
+   |
+75 |         self.merkle_proof.verify_against(trusted_root, &self.header_hash.0)
+   |                           ^^^^^^^^^^^^^^ method not found in `MerkleProof`
+
+error[E0609]: no field `public_input_count` on type `&VerifyingKey`
+  --> aevor-zk/src/verification/mod.rs:18:70
+   |
+18 |         let valid = !proof.is_empty() && inputs.values.len() <= vkey.public_input_count;
+   |                                                                      ^^^^^^^^^^^^^^^^^^ unknown field
+   |
+   = note: available fields are: `system`, `circuit_hash`, `key_bytes`, `is_universal`
+
+error[E0599]: no method named `verify_against` found for reference `&MerkleProof` in the current scope
+  --> aevor-client/src/verification/mod.rs:45:15
+   |
+45 |         proof.verify_against(root, leaf)
+   |               ^^^^^^^^^^^^^^ method not found in `&MerkleProof`
+
+error[E0599]: no method named `verify_against` found for struct `MerkleProof` in the current scope
+  --> aevor-client/src/verification/mod.rs:83:34
+   |
+83 |                 let verified = p.verify_against(r, &leaf_bytes);
+   |                                  ^^^^^^^^^^^^^^ method not found in `MerkleProof`
+
+error[E0063]: missing field `aggregate` in initializer of `AggregatedProof`
+  --> aevor-zk/src/recursive/mod.rs:35:19
+   |
+35 |         let agg = AggregatedProof {
+   |                   ^^^^^^^^^^^^^^^ missing `aggregate`
+
+For more information about this error, try `rustc --explain E0599`.
+warning: `aevor-client` (lib) generated 1 warning
+error: could not compile `aevor-client` (lib) due to 3 previous errors; 1 warning emitted
+warning: build failed, waiting for other jobs to finish...
+Some errors have detailed explanations: E0063, E0609.
+For more information about an error, try `rustc --explain E0063`.
+error: could not compile `aevor-zk` (lib) due to 2 previous errors
+  [0;31m✗ cargo check --workspace FAILED[0m
+
+First 20 errors:
+error: could not compile `aevor-client` (lib) due to 3 previous errors; 1 warning emitted
+error: could not compile `aevor-execution` (lib) due to 1 previous error; 3 warnings emitted
+error: could not compile `aevor-zk` (lib) due to 2 previous errors
+error[E0063]: missing field `aggregate` in initializer of `AggregatedProof`
+error[E0599]: no method named `verify_against` found for reference `&MerkleProof` in the current scope
+error[E0599]: no method named `verify_against` found for struct `MerkleProof` in the current scope
+error[E0599]: no variant or associated item named `InvalidInput` found for enum `ExecutionError` in the current scope
+error[E0609]: no field `public_input_count` on type `&VerifyingKey`

@@ -1,0 +1,133 @@
+//! Deployment mode and subnet configuration.
+
+use serde::{Deserialize, Serialize};
+
+/// Deployment mode and subnet configuration.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DeploymentConfig {
+    /// Deployment mode.
+    pub mode: DeploymentMode,
+    /// Subnet deployment configuration (if applicable).
+    pub subnet: Option<SubnetDeploymentConfig>,
+    /// Hybrid deployment configuration (public + private).
+    pub hybrid: Option<HybridDeploymentConfig>,
+    /// Enterprise subnet configuration.
+    pub enterprise: Option<EnterpriseSubnetConfig>,
+    /// Data directory path.
+    pub data_dir: std::path::PathBuf,
+    /// Log directory path.
+    pub log_dir: std::path::PathBuf,
+}
+
+impl Default for DeploymentConfig {
+    fn default() -> Self {
+        Self {
+            mode: DeploymentMode::PublicMainnet,
+            subnet: None,
+            hybrid: None,
+            enterprise: None,
+            data_dir: default_data_dir(),
+            log_dir: default_log_dir(),
+        }
+    }
+}
+
+fn default_data_dir() -> std::path::PathBuf {
+    let mut p = dirs::home_dir().unwrap_or_default();
+    p.push(".aevor");
+    p.push("data");
+    p
+}
+
+fn default_log_dir() -> std::path::PathBuf {
+    let mut p = dirs::home_dir().unwrap_or_default();
+    p.push(".aevor");
+    p.push("logs");
+    p
+}
+
+/// Node deployment mode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum DeploymentMode {
+    /// Public mainnet (open participation, fees enabled).
+    #[default]
+    PublicMainnet,
+    /// Public testnet (open participation, no real value).
+    PublicTestnet,
+    /// Public devnet (development and testing).
+    PublicDevnet,
+    /// Permissioned enterprise subnet.
+    EnterpriseSubnet,
+    /// Hybrid (partially public, partially private).
+    Hybrid,
+    /// Standalone research node (isolated from all networks).
+    Research,
+}
+
+impl DeploymentMode {
+    /// Returns `true` if this mode connects to a public network.
+    pub fn is_public(&self) -> bool {
+        matches!(self, Self::PublicMainnet | Self::PublicTestnet | Self::PublicDevnet | Self::Hybrid)
+    }
+
+    /// Returns `true` if this is a production deployment.
+    pub fn is_production(&self) -> bool {
+        matches!(self, Self::PublicMainnet | Self::EnterpriseSubnet)
+    }
+
+    /// Returns `true` if faucet should be enabled.
+    pub fn enables_faucet(&self) -> bool {
+        matches!(self, Self::PublicTestnet | Self::PublicDevnet)
+    }
+}
+
+/// Configuration for subnet deployments.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SubnetDeploymentConfig {
+    /// Subnet identifier (hex hash or name).
+    pub subnet_id: String,
+    /// Human-readable name.
+    pub name: String,
+    /// Whether this subnet is permissioned.
+    pub permissioned: bool,
+    /// Permitted participant addresses.
+    pub permitted_participants: Vec<String>,
+    /// Whether fees are enabled on this subnet.
+    pub fees_enabled: bool,
+    /// Custom fee policy for this subnet.
+    pub fee_policy: Option<String>,
+    /// Privacy level enforced on this subnet.
+    pub enforced_privacy_level: Option<String>,
+}
+
+/// Configuration for hybrid deployments (public + private components).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HybridDeploymentConfig {
+    /// Public network participation configuration.
+    pub public_participation: bool,
+    /// Private component subnet ID.
+    pub private_subnet_id: String,
+    /// Data partition policy (what stays private).
+    pub partition_policy: String,
+    /// Whether to bridge public and private components.
+    pub enable_bridge: bool,
+}
+
+/// Configuration for enterprise subnet deployments.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EnterpriseSubnetConfig {
+    /// Organization identifier.
+    pub organization_id: String,
+    /// Organization name.
+    pub organization_name: String,
+    /// Compliance requirements.
+    pub compliance_requirements: Vec<String>,
+    /// Permitted jurisdictions (for compliance).
+    pub permitted_jurisdictions: Vec<String>,
+    /// Whether audit logging is required.
+    pub require_audit_log: bool,
+    /// Whether all validators must be KYC'd.
+    pub require_kyc_validators: bool,
+    /// Data retention policy in days (0 = indefinite).
+    pub data_retention_days: u32,
+}

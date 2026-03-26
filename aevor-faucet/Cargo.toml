@@ -1,0 +1,28 @@
+[package]
+name = "aevor-faucet"
+description = "AEVOR testnet faucet: decentralized token distribution with validator-coordinated rate limiting, no identity verification"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "aevor-faucet"
+path = "src/main.rs"
+
+[dependencies]
+aevor-core      = { workspace = true }
+aevor-crypto    = { workspace = true }
+aevor-consensus = { workspace = true }
+serde           = { workspace = true }
+serde_json      = { workspace = true }
+thiserror       = { workspace = true }
+tokio           = { workspace = true }
+clap            = { workspace = true }
+getrandom       = { workspace = true }
+hex             = { workspace = true }
+tracing         = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

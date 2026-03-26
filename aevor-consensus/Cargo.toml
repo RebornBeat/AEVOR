@@ -1,0 +1,18 @@
+[package]
+name = "aevor-consensus"
+description = "AEVOR Proof of Uncorruption consensus: validator sets, security levels, frontier management, Byzantine detection"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core   = { workspace = true }
+aevor-crypto = { workspace = true }
+aevor-tee    = { workspace = true }
+serde        = { workspace = true }
+thiserror    = { workspace = true }
+getrandom    = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,18 @@
+[package]
+name = "aevor-ns"
+description = "AEVOR name service: standard DNS (A/AAAA/MX/TXT/CNAME/NS/PTR/SRV), DNSSEC, TEE service discovery, privacy-preserving resolution"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core   = { workspace = true }
+aevor-crypto = { workspace = true }
+aevor-tee    = { workspace = true }
+serde        = { workspace = true }
+thiserror    = { workspace = true }
+hex          = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

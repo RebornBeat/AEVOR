@@ -1,0 +1,18 @@
+[package]
+name = "aevor-move"
+description = "AEVOR Move language: compiler, runtime, AEVOR-extended stdlib, TEE/privacy annotations, module registry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core    = { workspace = true }
+aevor-crypto  = { workspace = true }
+aevor-tee     = { workspace = true }
+aevor-storage = { workspace = true }
+serde         = { workspace = true }
+thiserror     = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

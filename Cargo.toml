@@ -1,0 +1,141 @@
+[workspace]
+resolver = "2"
+
+members = [
+    # PATH 0: Foundation
+    "aevor-core",
+    "aevor-config",
+    "aevor-crypto",
+    "aevor-tee",
+    # PATH 1: Core Blockchain
+    "aevor-consensus",
+    "aevor-dag",
+    "aevor-storage",
+    "aevor-vm",
+    "aevor-execution",
+    # PATH 2: Network + Security
+    "aevor-network",
+    "aevor-security",
+    # PATH 3: Language + Cross-Chain
+    "aevor-move",
+    "aevor-zk",
+    "aevor-bridge",
+    # PATH 4: Governance + Naming
+    "aevor-governance",
+    "aevor-ns",
+    # PATH 5: External Interface
+    "aevor-metrics",
+    "aevor-api",
+    "aevor-client",
+    "aevor-cli",
+    # PATH 6: Final
+    "aevor-faucet",
+    "node",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/aevor/aevor"
+authors = ["AEVOR Contributors"]
+
+# ============================================================
+# SHARED DEPENDENCY VERSIONS — all crates use these versions
+# ============================================================
+
+[workspace.dependencies]
+# Internal crates
+aevor-core      = { path = "aevor-core" }
+aevor-config    = { path = "aevor-config" }
+aevor-crypto    = { path = "aevor-crypto" }
+aevor-tee       = { path = "aevor-tee" }
+aevor-consensus = { path = "aevor-consensus" }
+aevor-dag       = { path = "aevor-dag" }
+aevor-storage   = { path = "aevor-storage" }
+aevor-vm        = { path = "aevor-vm" }
+aevor-execution = { path = "aevor-execution" }
+aevor-network   = { path = "aevor-network" }
+aevor-security  = { path = "aevor-security" }
+aevor-move      = { path = "aevor-move" }
+aevor-zk        = { path = "aevor-zk" }
+aevor-bridge    = { path = "aevor-bridge" }
+aevor-governance = { path = "aevor-governance" }
+aevor-ns        = { path = "aevor-ns" }
+aevor-metrics   = { path = "aevor-metrics" }
+aevor-api       = { path = "aevor-api" }
+aevor-client    = { path = "aevor-client" }
+aevor-cli       = { path = "aevor-cli" }
+aevor-faucet    = { path = "aevor-faucet" }
+
+# Serialization
+serde         = { version = "1", features = ["derive"] }
+serde_json    = { version = "1" }
+bincode       = { version = "1" }
+toml          = { version = "0.5" }
+hex           = { version = "0.4" }
+
+# Error handling
+thiserror     = { version = "1" }
+anyhow        = { version = "1" }
+
+# Async runtime
+tokio         = { version = "1", features = ["full"] }
+tokio-stream  = { version = "0.1" }
+futures       = { version = "0.3" }
+
+# Cryptography
+blake3          = { version = "1" }
+sha2          = { version = "0.10" }
+sha3          = { version = "0.10" }
+ed25519-dalek   = { version = "2", features = ["rand_core"] }
+x25519-dalek    = { version = "2" }
+blst          = { version = "0.3" }
+hkdf          = { version = "0.12" }
+chacha20poly1305 = { version = "0.10", features = ["stream"] }
+aes-gcm       = { version = "0.10" }
+getrandom     = { version = "0.2" }
+zeroize       = { version = "1", features = ["derive"] }
+rand          = { version = "0.8" }
+rand_core     = { version = "0.6" }
+
+# CLI
+clap          = { version = "4", features = ["derive", "env"] }
+dirs          = { version = "5" }
+
+# Logging / tracing
+tracing            = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# HTTP / network
+axum          = { version = "0.7" }
+tower         = { version = "0.4" }
+tower-http    = { version = "0.5", features = ["cors", "trace"] }
+tonic         = { version = "0.11" }
+prost         = { version = "0.12" }
+hyper         = { version = "1" }
+reqwest       = { version = "0.12", features = ["json"] }
+tokio-tungstenite = { version = "0.21" }
+
+# Data structures
+dashmap       = { version = "5" }
+parking_lot   = { version = "0.12" }
+bytes         = { version = "1" }
+
+# Time
+chrono        = { version = "0.4", features = ["serde"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.test]
+opt-level = 1

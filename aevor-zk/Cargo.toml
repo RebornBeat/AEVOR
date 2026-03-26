@@ -1,0 +1,18 @@
+[package]
+name = "aevor-zk"
+description = "AEVOR ZK proof infrastructure: Groth16, PLONK, Halo2, STARK, Bulletproofs, MPC, recursive composition, TEE-accelerated proving"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core   = { workspace = true }
+aevor-crypto = { workspace = true }
+aevor-tee    = { workspace = true }
+serde        = { workspace = true }
+thiserror    = { workspace = true }
+getrandom    = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

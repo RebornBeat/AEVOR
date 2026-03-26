@@ -1,0 +1,22 @@
+[package]
+name = "aevor-client"
+description = "AEVOR client connection primitives: REST/gRPC/WebSocket connections, auth, request signing, light client verification"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core   = { workspace = true }
+aevor-crypto = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+thiserror    = { workspace = true }
+tokio        = { workspace = true }
+bincode      = { workspace = true }
+getrandom    = { workspace = true }
+hex          = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio      = { workspace = true, features = ["test-util"] }

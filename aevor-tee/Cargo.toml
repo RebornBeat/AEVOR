@@ -1,0 +1,18 @@
+[package]
+name = "aevor-tee"
+description = "AEVOR TEE-as-a-Service: unified multi-platform TEE coordination across Intel SGX, AMD SEV, ARM TrustZone, RISC-V Keystone, AWS Nitro"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core   = { workspace = true }
+aevor-crypto = { workspace = true }
+serde        = { workspace = true }
+thiserror    = { workspace = true }
+getrandom    = { workspace = true }
+hex          = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,21 @@
+[package]
+name = "aevor-execution"
+description = "AEVOR execution pipeline: parallel scheduling, multi-TEE coordination, privacy boundaries, speculative execution, rollback"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core      = { workspace = true }
+aevor-crypto    = { workspace = true }
+aevor-tee       = { workspace = true }
+aevor-storage   = { workspace = true }
+aevor-vm        = { workspace = true }
+aevor-dag       = { workspace = true }
+aevor-consensus = { workspace = true }
+serde           = { workspace = true }
+thiserror       = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

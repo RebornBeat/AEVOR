@@ -1,0 +1,21 @@
+[package]
+name = "aevor-network"
+description = "AEVOR P2P networking: QUIC/TCP/WS transport, topology-aware routing, privacy layers, erasure coding, geographic optimization"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core   = { workspace = true }
+aevor-crypto = { workspace = true }
+aevor-tee    = { workspace = true }
+serde        = { workspace = true }
+thiserror    = { workspace = true }
+tokio        = { workspace = true }
+bytes        = { workspace = true }
+getrandom    = { workspace = true }
+
+[dev-dependencies]
+serde_json   = { workspace = true }
+tokio        = { workspace = true, features = ["test-util"] }

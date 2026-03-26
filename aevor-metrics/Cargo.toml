@@ -1,0 +1,17 @@
+[package]
+name = "aevor-metrics"
+description = "AEVOR privacy-first metrics: infrastructure monitoring with differential privacy, anomaly detection, no user surveillance"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core      = { workspace = true }
+aevor-tee       = { workspace = true }
+aevor-consensus = { workspace = true }
+serde           = { workspace = true }
+thiserror       = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

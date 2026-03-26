@@ -1,0 +1,21 @@
+# Ignore Rust build output
+/target/
+
+# Ignore Cargo lock for libraries (keep it if this is a binary project)
+# Cargo.lock
+
+# Backup files
+**/*.rs.bk
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# IDEs
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp

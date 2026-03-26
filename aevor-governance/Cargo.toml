@@ -1,0 +1,20 @@
+[package]
+name = "aevor-governance"
+description = "AEVOR governance: privacy-preserving voting, delegation, parameter changes, protocol upgrades, treasury management"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aevor-core      = { workspace = true }
+aevor-crypto    = { workspace = true }
+aevor-tee       = { workspace = true }
+aevor-consensus = { workspace = true }
+aevor-zk        = { workspace = true }
+serde           = { workspace = true }
+thiserror       = { workspace = true }
+hex             = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

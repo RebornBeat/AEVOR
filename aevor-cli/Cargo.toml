@@ -1,0 +1,28 @@
+[package]
+name = "aevor-cli"
+description = "AEVOR CLI: infrastructure administration tool for node operators and validators"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "aevor"
+path = "src/main.rs"
+
+[dependencies]
+aevor-core   = { workspace = true }
+aevor-crypto = { workspace = true }
+aevor-client = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+thiserror    = { workspace = true }
+tokio        = { workspace = true }
+clap         = { workspace = true }
+dirs         = { workspace = true }
+tracing      = { workspace = true }
+tracing-subscriber = { workspace = true }
+hex          = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
