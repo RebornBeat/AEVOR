@@ -91,3 +91,79 @@ pub fn enterprise_subnet_defaults() -> AevorConfig {
     config.deployment.mode = DeploymentMode::EnterpriseSubnet;
     config
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::ChainId;
+    use crate::deployment::DeploymentMode;
+    use crate::network::NetworkType;
+    use crate::tee::AttestationMode;
+
+    #[test]
+    fn mainnet_defaults_chain_id_and_mode() {
+        let cfg = mainnet_defaults();
+        assert_eq!(cfg.network.chain_id, ChainId::MAINNET);
+        assert_eq!(cfg.network.network_type, NetworkType::Mainnet);
+        assert_eq!(cfg.deployment.mode, DeploymentMode::PublicMainnet);
+    }
+
+    #[test]
+    fn mainnet_defaults_requires_production_attestation() {
+        let cfg = mainnet_defaults();
+        assert!(cfg.tee.attestation.require_production);
+        assert_eq!(cfg.tee.attestation.mode, AttestationMode::Local);
+        assert!(cfg.tee.required_for_validator);
+    }
+
+    #[test]
+    fn mainnet_defaults_validator_stake_is_nonzero() {
+        let cfg = mainnet_defaults();
+        assert!(cfg.consensus.min_validator_stake > 0);
+        assert_eq!(cfg.consensus.max_validators, 256);
+        assert_eq!(cfg.consensus.blocks_per_epoch, 10_000);
+    }
+
+    #[test]
+    fn testnet_defaults_chain_id_and_mode() {
+        let cfg = testnet_defaults();
+        assert_eq!(cfg.network.chain_id, ChainId::TESTNET);
+        assert_eq!(cfg.network.network_type, NetworkType::Testnet);
+        assert_eq!(cfg.deployment.mode, DeploymentMode::PublicTestnet);
+    }
+
+    #[test]
+    fn testnet_defaults_simulation_attestation_not_production() {
+        let cfg = testnet_defaults();
+        assert!(!cfg.tee.attestation.require_production);
+        assert_eq!(cfg.tee.attestation.mode, AttestationMode::Simulation);
+    }
+
+    #[test]
+    fn testnet_defaults_lower_stake_than_mainnet() {
+        let mainnet = mainnet_defaults();
+        let testnet = testnet_defaults();
+        assert!(testnet.consensus.min_validator_stake < mainnet.consensus.min_validator_stake);
+        assert!(testnet.consensus.max_validators < mainnet.consensus.max_validators);
+    }
+
+    #[test]
+    fn devnet_defaults_lowest_stake_and_smallest_epoch() {
+        let testnet = testnet_defaults();
+        let devnet = devnet_defaults();
+        assert_eq!(devnet.network.chain_id, ChainId::DEVNET);
+        assert_eq!(devnet.deployment.mode, DeploymentMode::PublicDevnet);
+        assert!(devnet.consensus.min_validator_stake < testnet.consensus.min_validator_stake);
+        assert_eq!(devnet.consensus.max_validators, 4);
+        assert_eq!(devnet.consensus.blocks_per_epoch, 100);
+    }
+
+    #[test]
+    fn enterprise_defaults_no_fees_no_stake_requirement() {
+        let cfg = enterprise_subnet_defaults();
+        assert_eq!(cfg.network.network_type, NetworkType::EnterpriseSubnet);
+        assert_eq!(cfg.deployment.mode, DeploymentMode::EnterpriseSubnet);
+        assert_eq!(cfg.consensus.min_validator_stake, 0);
+        assert!(!cfg.economics.fee.enabled);
+    }
+}

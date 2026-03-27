@@ -91,14 +91,74 @@ impl SlashingMechanism {
     /// Compute the slash amount for a double-sign infraction.
     pub fn double_sign_slash(&self, stake: aevor_core::primitives::Amount) -> aevor_core::primitives::Amount {
         aevor_core::primitives::Amount::from_nano(
-            stake.as_nano() * self.double_sign_pct as u128 / 10_000
+            stake.as_nano() * u128::from(self.double_sign_pct) / 10_000
         )
     }
 
     /// Compute the slash amount for `epochs_missed` consecutive missed epochs.
     pub fn liveness_slash(&self, stake: aevor_core::primitives::Amount, epochs_missed: u64) -> aevor_core::primitives::Amount {
         aevor_core::primitives::Amount::from_nano(
-            stake.as_nano() * self.liveness_pct_per_epoch as u128 * epochs_missed as u128 / 10_000
+            stake.as_nano() * u128::from(self.liveness_pct_per_epoch) * u128::from(epochs_missed) / 10_000
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Amount;
+
+    #[test]
+    fn double_sign_slash_is_percentage_of_stake() {
+        let m = SlashingMechanism::new(500, 10); // 5% double-sign, 0.1% liveness
+        let stake = Amount::from_nano(1_000_000_000_000); // 1000 AEVOR
+        let slash = m.double_sign_slash(stake);
+        // 5% of 1000 = 50 AEVOR = 50_000_000_000 nAVR
+        assert_eq!(slash.as_nano(), 50_000_000_000);
+    }
+
+    #[test]
+    fn liveness_slash_scales_with_epochs_missed() {
+        let m = SlashingMechanism::new(500, 100); // 1% per epoch
+        let stake = Amount::from_nano(1_000_000_000_000);
+        let slash_1 = m.liveness_slash(stake, 1);
+        let slash_3 = m.liveness_slash(stake, 3);
+        assert_eq!(slash_3.as_nano(), slash_1.as_nano() * 3);
+    }
+
+    #[test]
+    fn penalty_accessors_match_constructor() {
+        let m = SlashingMechanism::new(250, 50);
+        assert_eq!(m.double_sign_penalty_bps(), 250);
+        assert_eq!(m.liveness_penalty_bps(), 50);
+    }
+
+    #[test]
+    fn zero_stake_slash_is_zero() {
+        let m = SlashingMechanism::new(500, 100);
+        assert_eq!(m.double_sign_slash(Amount::ZERO).as_nano(), 0);
+        assert_eq!(m.liveness_slash(Amount::ZERO, 5).as_nano(), 0);
+    }
+
+    #[test]
+    fn attestation_collector_reaches_required_count() {
+        use aevor_core::consensus::AttestationEvidence;
+        use aevor_core::primitives::Hash256;
+        let target = Hash256([1u8; 32]);
+        let mut collector = super::super::attestation::AttestationCollector::new(target, 2);
+        assert!(!collector.is_complete());
+        let ev = AttestationEvidence {
+            platform: aevor_core::consensus::TeeAttestationPlatform::IntelSgx,
+            raw_report: vec![1],
+            code_measurement: Hash256([1u8; 32]),
+            nonce: [0u8; 32],
+            is_production: false,
+            svn: 0,
+        };
+        collector.add(ev.clone());
+        assert!(!collector.is_complete());
+        collector.add(ev);
+        assert!(collector.is_complete());
+        assert_eq!(collector.count(), 2);
     }
 }

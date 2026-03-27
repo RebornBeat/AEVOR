@@ -29,7 +29,7 @@
 //!
 //! ## Cross-Platform Consistency
 //!
-//! Every type behaves identically across Intel SGX, AMD SEV, ARM TrustZone,
+//! Every type behaves identically across Intel SGX, AMD SEV, ARM `TrustZone`,
 //! RISC-V Keystone, and AWS Nitro Enclaves while enabling platform-specific optimization
 //! that enhances performance without compromising behavioral consistency.
 

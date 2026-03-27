@@ -246,6 +246,13 @@ pub const ERASURE_PARITY_SHARDS: usize = 8;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::routing::{Router, RoutePath};
+    use crate::propagation::{PropagationPolicy, PropagationAnnouncement};
+    use crate::discovery::PrivacyPreservingDiscovery;
+    use crate::availability::{DataAvailability, ErasureConfig};
+    use crate::bandwidth::{RateLimiterConfig, BandwidthUtilization};
+    use aevor_core::network::NodeId;
+    use aevor_core::primitives::Hash256;
 
     #[test]
     fn ports_are_distinct() {
@@ -265,5 +272,73 @@ mod tests {
     fn bandwidth_target_is_reasonable() {
         assert!(TARGET_BANDWIDTH_UTILIZATION > 0.5);
         assert!(TARGET_BANDWIDTH_UTILIZATION < 1.0);
+    }
+
+    #[test]
+    fn network_error_display_connection_failed() {
+        let e = NetworkError::ConnectionFailed {
+            peer: "peer-abc".into(), reason: "timeout".into()
+        };
+        assert!(e.to_string().contains("peer-abc"));
+        assert!(e.to_string().contains("timeout"));
+    }
+
+    #[test]
+    fn router_add_and_lookup_route() {
+        let mut router = Router::new();
+        let dest = NodeId(Hash256([1u8; 32]));
+        let path = RoutePath { hops: vec![], latency_ms: 10 };
+        router.add_route(dest, path);
+        assert!(router.route(&dest).is_some());
+        assert_eq!(router.route_count(), 1);
+    }
+
+    #[test]
+    fn router_unknown_dest_returns_none() {
+        let router = Router::new();
+        let dest = NodeId(Hash256([9u8; 32]));
+        assert!(router.route(&dest).is_none());
+    }
+
+    #[test]
+    fn privacy_discovery_uses_dht_flag() {
+        let dht = PrivacyPreservingDiscovery::new(true);
+        assert!(dht.uses_dht());
+        assert!(dht.is_anonymous());
+        let no_dht = PrivacyPreservingDiscovery::new(false);
+        assert!(!no_dht.uses_dht());
+        assert!(!no_dht.is_anonymous());
+    }
+
+    #[test]
+    fn propagation_announcement_block() {
+        // BlockHash is a type alias for Hash256 — construct directly
+        let policy = PropagationPolicy::default();
+        let propagator = crate::propagation::BlockPropagator::new(policy);
+        let bh = Hash256([1u8; 32]);
+        let ann = propagator.announce(bh);
+        assert!(matches!(ann, PropagationAnnouncement::Block(_)));
+    }
+
+    #[test]
+    fn erasure_encode_produces_shards() {
+        let da = DataAvailability::new(ErasureConfig::default());
+        let data = vec![1u8; 64];
+        let shards = da.encode(&data);
+        assert!(!shards.is_empty());
+    }
+
+    #[test]
+    fn rate_limiter_default_max_bps() {
+        let cfg = RateLimiterConfig::default();
+        assert!(cfg.max_bps > 0);
+        assert!(cfg.burst_bytes > 0);
+    }
+
+    #[test]
+    fn bandwidth_utilization_default_is_zero() {
+        let util = BandwidthUtilization::default();
+        assert_eq!(util.out_bps, 0);
+        assert_eq!(util.in_bps, 0);
     }
 }

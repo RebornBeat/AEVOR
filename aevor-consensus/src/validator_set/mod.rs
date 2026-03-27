@@ -34,6 +34,11 @@ impl WeightedValidatorSelection {
         Self { validators }
     }
 
+    /// Pseudorandomly select a validator weighted by stake.
+    ///
+    /// # Panics
+    /// Never panics in practice — the `try_into().unwrap()` on `seed[..8]` always
+    /// succeeds because the slice is exactly 8 bytes.
     pub fn select(&self, seed: &[u8; 32]) -> Option<ValidatorId> {
         if self.validators.is_empty() { return None; }
         let total: u64 = self.validators.iter().map(|(_, w)| w.as_u64()).sum();

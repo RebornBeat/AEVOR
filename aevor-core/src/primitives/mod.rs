@@ -39,6 +39,9 @@ impl Hash256 {
     }
 
     /// Parse from a hex string (with or without 0x prefix).
+    ///
+    /// # Errors
+    /// Returns `ValidationError::InvalidFormat` if the string is not exactly 64 hex digits.
     pub fn from_hex(s: &str) -> Result<Self, crate::error::ValidationError> {
         let s = s.strip_prefix("0x").unwrap_or(s);
         if s.len() != 64 {
@@ -100,7 +103,7 @@ impl serde::Serialize for Hash512 {
 impl<'de> serde::Deserialize<'de> for Hash512 {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         struct V;
-        impl<'de> serde::de::Visitor<'de> for V {
+        impl serde::de::Visitor<'_> for V {
             type Value = Hash512;
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 write!(f, "64 bytes")
@@ -149,7 +152,7 @@ pub type CryptoHash = Hash256;
 
 /// A 32-byte canonical AEVOR address.
 ///
-/// Derived from the holder's public key via BLAKE3(public_key_bytes).
+/// Derived from the holder's public key via `BLAKE3(public_key_bytes)`.
 /// Addresses are deterministic: the same key always produces the same address.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Address(pub [u8; 32]);
@@ -169,6 +172,9 @@ impl Address {
     }
 
     /// Parse from hex string (with or without 0x prefix).
+    ///
+    /// # Errors
+    /// Returns `ValidationError::InvalidFormat` if the string is not exactly 64 hex digits.
     pub fn from_hex(s: &str) -> Result<Self, crate::error::ValidationError> {
         let s = s.strip_prefix("0x").unwrap_or(s);
         if s.len() != 64 {
@@ -277,11 +283,13 @@ impl Amount {
     }
 
     /// Saturating addition (clamps to `u128::MAX`).
+    #[must_use]
     pub fn saturating_add(self, rhs: Self) -> Self {
         Self(self.0.saturating_add(rhs.0))
     }
 
     /// Saturating subtraction (clamps to 0).
+    #[must_use]
     pub fn saturating_sub(self, rhs: Self) -> Self {
         Self(self.0.saturating_sub(rhs.0))
     }
@@ -305,7 +313,7 @@ impl fmt::Display for Amount {
         if frac == 0 {
             write!(f, "{aevor} AEVOR")
         } else {
-            write!(f, "{}.{:09} AEVOR", aevor, frac)
+            write!(f, "{aevor}.{frac:09} AEVOR")
         }
     }
 }
@@ -370,8 +378,8 @@ impl GasPrice {
 
     /// Compute the total fee for a given gas amount.
     pub fn total_fee(&self, gas: GasAmount) -> Option<Amount> {
-        (self.0 as u128)
-            .checked_mul(gas.0 as u128)
+        u128::from(self.0)
+            .checked_mul(u128::from(gas.0))
             .map(Amount)
     }
 }
@@ -405,6 +413,7 @@ impl BlockHeight {
     }
 
     /// Increment by one.
+    #[must_use]
     pub fn next(&self) -> Self {
         Self(self.0.saturating_add(1))
     }
@@ -454,6 +463,7 @@ impl EpochNumber {
     }
 
     /// Next epoch.
+    #[must_use]
     pub fn next(&self) -> Self {
         Self(self.0.saturating_add(1))
     }
@@ -488,6 +498,7 @@ impl Nonce {
     }
 
     /// Next nonce.
+    #[must_use]
     pub fn increment(&self) -> Self {
         Self(self.0.saturating_add(1))
     }
@@ -610,7 +621,7 @@ impl PublicKey {
 
     /// Derive the address corresponding to this public key.
     ///
-    /// Address = BLAKE3(public_key_bytes)
+    /// Address = `BLAKE3(public_key_bytes)`
     pub fn to_address(&self) -> Address {
         let hash = blake3::hash(&self.0);
         Address(*hash.as_bytes())
@@ -661,7 +672,7 @@ impl serde::Serialize for Signature {
 impl<'de> serde::Deserialize<'de> for Signature {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         struct V;
-        impl<'de> serde::de::Visitor<'de> for V {
+        impl serde::de::Visitor<'_> for V {
             type Value = Signature;
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 write!(f, "64 bytes")

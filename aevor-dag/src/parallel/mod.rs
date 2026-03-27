@@ -21,15 +21,15 @@ pub struct WorkloadDistributor;
 
 impl WorkloadDistributor {
     pub fn distribute(
-        transactions: Vec<TransactionHash>,
+        transactions: &[TransactionHash],
         lane_count: usize,
     ) -> Vec<ParallelLane> {
-        let per_lane = (transactions.len() + lane_count - 1) / lane_count;
+        let per_lane = transactions.len().div_ceil(lane_count);
         transactions
             .chunks(per_lane.max(1))
             .enumerate()
             .map(|(i, chunk)| ParallelLane {
-                lane: ExecutionLane::new(i as u32),
+                lane: ExecutionLane(u32::try_from(i).unwrap_or(u32::MAX)),
                 transactions: chunk.to_vec(),
                 dependencies_on_lanes: Vec::new(),
             })
@@ -45,6 +45,7 @@ pub struct ParallelismFactor {
 }
 
 impl ParallelismFactor {
+    #[allow(clippy::cast_precision_loss)] // parallelism ratio: precision loss acceptable
     pub fn compute(total: usize, serial: usize) -> Self {
         let parallel = total.saturating_sub(serial);
         let factor = if total == 0 { 1.0 } else { 1.0 + parallel as f64 / total as f64 };

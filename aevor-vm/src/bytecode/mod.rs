@@ -29,6 +29,10 @@ pub struct Bytecode {
 pub struct BytecodeVerifier;
 
 impl BytecodeVerifier {
+    /// Verify that bytecode is structurally valid.
+    ///
+    /// # Errors
+    /// Returns an error if the bytecode is empty or fails structural validation.
     pub fn verify(bytecode: &Bytecode) -> crate::VmResult<()> {
         if bytecode.module.bytes.is_empty() {
             return Err(crate::VmError::BytecodeVerificationFailed("empty bytecode".into()));

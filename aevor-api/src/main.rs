@@ -108,6 +108,10 @@ struct Cli {
     /// Enable structured JSON logging.
     #[arg(long)]
     json_logs: bool,
+
+    /// API version to serve (v1).
+    #[arg(long, default_value = "v1", value_name = "VERSION")]
+    api_version: String,
 }
 
 // ============================================================
@@ -155,6 +159,16 @@ fn run_api_server(cli: Cli) -> ApiResult<()> {
 }
 
 async fn async_run_api_server(cli: Cli) -> ApiResult<()> {
+    // Determine API version from CLI argument.
+    let _api_version = match cli.api_version.as_str() {
+        "v1" | "V1" => ApiVersion::V1,
+        other => {
+            return Err(aevor_api::ApiError::InternalError(
+                format!("unsupported API version: {other}; supported: v1")
+            ));
+        }
+    };
+
     // Build shared rate limiter.
     let rate_limit_policy = RateLimitPolicy {
         unauthenticated_rpm: cli.rate_limit_unauth,
@@ -183,7 +197,7 @@ async fn async_run_api_server(cli: Cli) -> ApiResult<()> {
         };
         let rest_server = RestServer::new(rest_config, middleware.clone(), network_router.clone());
         let handle = tokio::spawn(async move {
-            if let Err(e) = rest_server.serve().await {
+            if let Err(e) = rest_server.serve() {
                 error!("REST server error: {e}");
             }
         });
@@ -200,7 +214,7 @@ async fn async_run_api_server(cli: Cli) -> ApiResult<()> {
         };
         let grpc_server = GrpcServer::new(grpc_config, network_router.clone());
         let handle = tokio::spawn(async move {
-            if let Err(e) = grpc_server.serve().await {
+            if let Err(e) = grpc_server.serve() {
                 error!("gRPC server error: {e}");
             }
         });
@@ -216,7 +230,7 @@ async fn async_run_api_server(cli: Cli) -> ApiResult<()> {
         };
         let ws_server = WsServer::new(ws_config, middleware.clone(), network_router.clone());
         let handle = tokio::spawn(async move {
-            if let Err(e) = ws_server.serve().await {
+            if let Err(e) = ws_server.serve() {
                 error!("WebSocket server error: {e}");
             }
         });

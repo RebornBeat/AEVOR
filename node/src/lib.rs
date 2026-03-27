@@ -128,11 +128,11 @@ pub mod prelude {
     };
     pub use crate::validator::{
         ValidatorNode, ValidatorOrchestrator, ConsensusHandle,
-        TeeServiceHandle as ValidatorTeeHandle, ValidatorState,
+        ValidatorTeeHandle, ValidatorState,
     };
     pub use crate::full_node::{
         FullNode, FullNodeOrchestrator, StorageHandle,
-        ApiHandle, NetworkHandle as FullNodeNetworkHandle,
+        ApiHandle, FullNodeNetworkHandle,
     };
     pub use crate::metrics::{
         NodeMetrics, SystemMetrics, SubsystemMetrics, MetricsDashboard,

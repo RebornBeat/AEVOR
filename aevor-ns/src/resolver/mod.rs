@@ -15,6 +15,12 @@ pub struct ResolveResult { pub name: String, pub records: DnsRecordSet, pub auth
 pub struct RecursiveResolver { config: ResolverConfig }
 impl RecursiveResolver {
     pub fn new(config: ResolverConfig) -> Self { Self { config } }
+    pub fn config(&self) -> &ResolverConfig { &self.config }
+    pub fn upstream_servers(&self) -> &[String] { &self.config.upstream }
+    /// Resolve a DNS name recursively.
+    ///
+    /// # Errors
+    /// Returns an error if the name is invalid or all upstream resolvers fail.
     pub fn resolve(&self, name: &str) -> crate::NsResult<ResolveResult> {
         Ok(ResolveResult { name: name.to_string(), records: DnsRecordSet::new(), authenticated: false })
     }
@@ -43,6 +49,10 @@ impl DnsResolver {
     pub fn new(config: ResolverConfig) -> Self {
         Self { recursive: RecursiveResolver::new(config), caching: CachingResolver::new() }
     }
+    /// Resolve a DNS name, returning a cached result if available.
+    ///
+    /// # Errors
+    /// Returns an error if the name is invalid or the recursive resolver fails.
     pub fn resolve(&mut self, name: &str) -> crate::NsResult<ResolveResult> {
         if let Some(cached) = self.caching.get(name) { return Ok(cached.clone()); }
         let result = self.recursive.resolve(name)?;

@@ -54,6 +54,10 @@ pub struct IsolationBoundary {
 
 impl IsolationBoundary {
     /// Establish an isolation boundary on the given platform.
+    ///
+    /// # Errors
+    /// Returns an error if the platform cannot satisfy the requested isolation
+    /// level or the requested memory size exceeds available enclave memory.
     pub fn establish(
         platform: TeePlatform,
         level: IsolationLevel,
@@ -130,6 +134,9 @@ pub struct SecureChannel {
 
 impl SecureChannel {
     /// Establish a new encrypted channel between two TEE instances.
+    ///
+    /// # Errors
+    /// Returns an error if OS entropy generation fails for the session key.
     pub fn establish(local: TeePlatform, remote: TeePlatform) -> TeeResult<Self> {
         let mut session_key = [0u8; 32];
         getrandom::getrandom(&mut session_key)

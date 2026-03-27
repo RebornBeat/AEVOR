@@ -48,6 +48,9 @@ impl EncryptedObjectStore {
     }
 
     /// Retrieve or return `NotFound` error.
+    ///
+    /// # Errors
+    /// Returns `StorageError::NotFound` if no record exists for the given key.
     pub fn get_required(&self, key: &StorageKey) -> StorageResult<&EncryptedRecord> {
         self.records.get(&key.0).ok_or_else(|| StorageError::NotFound {
             key: hex::encode(&key.0),
@@ -55,6 +58,9 @@ impl EncryptedObjectStore {
     }
 
     /// Delete an encrypted record.
+    ///
+    /// # Errors
+    /// Returns `StorageError::NotFound` if no record exists for the given key.
     pub fn delete(&mut self, key: &StorageKey) -> StorageResult<()> {
         if self.records.remove(&key.0).is_none() {
             return Err(StorageError::NotFound { key: hex::encode(&key.0) });
@@ -85,4 +91,102 @@ impl EncryptedObjectStore {
 
 impl Default for EncryptedObjectStore {
     fn default() -> Self { Self::new() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::storage::{EncryptedState, EncryptionKeyReference, StorageKey};
+    use aevor_core::primitives::Hash256;
+    use aevor_core::tee::TeePlatform;
+
+    fn key(n: u8) -> StorageKey { StorageKey(vec![n]) }
+
+    fn key_ref() -> EncryptionKeyReference {
+        EncryptionKeyReference {
+            platform: TeePlatform::IntelSgx,
+            key_id: Hash256::ZERO,
+            key_version: 1,
+        }
+    }
+
+    fn make_record(key_byte: u8, version: u64) -> EncryptedRecord {
+        EncryptedRecord {
+            key: key(key_byte),
+            state: EncryptedState {
+                ciphertext: vec![0xDE, 0xAD, key_byte],
+                auth_tag: [0u8; 16],
+                nonce: [0u8; 12],
+                key_reference: key_ref(),
+                plaintext_hash: Hash256::ZERO,
+            },
+            version,
+        }
+    }
+
+    #[test]
+    fn put_and_get() {
+        let mut store = EncryptedObjectStore::new();
+        store.put(make_record(1, 1));
+        let rec = store.get(&key(1)).unwrap();
+        assert_eq!(rec.version, 1);
+        assert_eq!(rec.state.ciphertext, vec![0xDE, 0xAD, 1]);
+    }
+
+    #[test]
+    fn get_missing_returns_none() {
+        let store = EncryptedObjectStore::default();
+        assert!(store.get(&key(99)).is_none());
+    }
+
+    #[test]
+    fn get_required_missing_returns_error() {
+        let store = EncryptedObjectStore::new();
+        assert!(store.get_required(&key(5)).is_err());
+    }
+
+    #[test]
+    fn delete_removes_record() {
+        let mut store = EncryptedObjectStore::new();
+        store.put(make_record(2, 1));
+        assert!(store.delete(&key(2)).is_ok());
+        assert_eq!(store.record_count(), 0);
+    }
+
+    #[test]
+    fn delete_missing_returns_error() {
+        let mut store = EncryptedObjectStore::new();
+        assert!(store.delete(&key(99)).is_err());
+    }
+
+    #[test]
+    fn record_count_tracks_puts() {
+        let mut store = EncryptedObjectStore::new();
+        assert_eq!(store.record_count(), 0);
+        store.put(make_record(1, 1));
+        store.put(make_record(2, 1));
+        assert_eq!(store.record_count(), 2);
+    }
+
+    #[test]
+    fn encrypted_commitment_zero_when_empty() {
+        let store = EncryptedObjectStore::new();
+        assert_eq!(store.encrypted_commitment(), Hash256::ZERO);
+    }
+
+    #[test]
+    fn encrypted_commitment_non_zero_when_records_present() {
+        let mut store = EncryptedObjectStore::new();
+        store.put(make_record(5, 42));
+        assert_ne!(store.encrypted_commitment(), Hash256::ZERO);
+    }
+
+    #[test]
+    fn encrypted_commitment_changes_with_version() {
+        let mut s1 = EncryptedObjectStore::new();
+        let mut s2 = EncryptedObjectStore::new();
+        s1.put(make_record(1, 1));
+        s2.put(make_record(1, 2)); // same key, different version
+        assert_ne!(s1.encrypted_commitment(), s2.encrypted_commitment());
+    }
 }

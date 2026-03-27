@@ -121,7 +121,7 @@ pub enum FaucetError {
     /// Proof of work solution is invalid or insufficient.
     #[error("invalid proof of work: {reason}")]
     InvalidProofOfWork {
-        /// Reason the PoW is invalid.
+        /// Reason the `PoW` is invalid.
         reason: String,
     },
 
@@ -165,10 +165,10 @@ pub const DEFAULT_COOLDOWN_SECONDS: u64 = 86_400;
 /// Default proof-of-work difficulty (leading zero bits in hash).
 pub const DEFAULT_POW_DIFFICULTY: u32 = 16;
 
-/// Maximum PoW solution attempts before challenge expires.
+/// Maximum `PoW` solution attempts before challenge expires.
 pub const MAX_POW_ATTEMPTS: u64 = 1_000_000;
 
-/// PoW challenge expiry in seconds.
+/// `PoW` challenge expiry in seconds.
 pub const POW_CHALLENGE_EXPIRY_SECONDS: u64 = 300;
 
 /// Number of validators required to confirm a rate limit record.

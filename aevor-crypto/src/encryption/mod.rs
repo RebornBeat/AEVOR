@@ -10,6 +10,9 @@ pub struct Nonce(pub [u8; 12]);
 
 impl Nonce {
     /// Generate a random nonce.
+    ///
+    /// # Errors
+    /// Returns an error if the OS random number generator fails.
     pub fn generate() -> crate::CryptoResult<Self> {
         let mut bytes = [0u8; 12];
         getrandom::getrandom(&mut bytes)
@@ -31,6 +34,9 @@ pub struct EncryptionKey(pub [u8; 32]);
 
 impl EncryptionKey {
     /// Generate a random 32-byte key.
+    ///
+    /// # Errors
+    /// Returns an error if the OS random number generator fails.
     pub fn generate() -> crate::CryptoResult<Self> {
         let mut bytes = [0u8; 32];
         getrandom::getrandom(&mut bytes)
@@ -67,6 +73,9 @@ pub struct ChaCha20Poly1305Cipher;
 
 impl ChaCha20Poly1305Cipher {
     /// Encrypt `plaintext` with authenticated data `aad`.
+    ///
+    /// # Errors
+    /// Returns an error if nonce generation fails or the cipher rejects the inputs.
     pub fn encrypt(
         key: &EncryptionKey,
         plaintext: &[u8],
@@ -91,6 +100,9 @@ impl ChaCha20Poly1305Cipher {
     }
 
     /// Decrypt ciphertext and verify authentication tag.
+    ///
+    /// # Errors
+    /// Returns an error if authentication fails (tampered ciphertext, wrong key, or wrong AAD).
     pub fn decrypt(
         key: &DecryptionKey,
         data: &EncryptedData,
@@ -116,11 +128,14 @@ impl ChaCha20Poly1305Cipher {
 
 /// AES-256-GCM AEAD cipher.
 ///
-/// Used when hardware AES-NI acceleration is available; otherwise prefer ChaCha20.
+/// Used when hardware AES-NI acceleration is available; otherwise prefer `ChaCha20`.
 pub struct AesGcmCipher;
 
 impl AesGcmCipher {
     /// Encrypt `plaintext` with authenticated data `aad`.
+    ///
+    /// # Errors
+    /// Returns an error if nonce generation fails or the cipher rejects the inputs.
     pub fn encrypt(
         key: &EncryptionKey,
         plaintext: &[u8],
@@ -145,6 +160,9 @@ impl AesGcmCipher {
     }
 
     /// Decrypt ciphertext and verify authentication tag.
+    ///
+    /// # Errors
+    /// Returns an error if authentication fails (tampered ciphertext, wrong key, or wrong AAD).
     pub fn decrypt(
         key: &DecryptionKey,
         data: &EncryptedData,

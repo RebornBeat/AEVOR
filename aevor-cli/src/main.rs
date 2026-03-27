@@ -85,29 +85,54 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Node lifecycle: start, stop, restart, status, upgrade.
-    Node(NodeCommand),
-
+    Node {
+        /// Node subcommand.
+        #[command(subcommand)]
+        cmd: NodeCommand,
+    },
     /// Validator operations: register, stake, monitor, report.
-    Validator(ValidatorCommand),
-
+    Validator {
+        /// Validator subcommand.
+        #[command(subcommand)]
+        cmd: ValidatorCommand,
+    },
     /// Network administration: subnets, bridges, peers.
-    Network(NetworkCommand),
-
+    Network {
+        /// Network subcommand.
+        #[command(subcommand)]
+        cmd: NetworkCommand,
+    },
     /// Governance: proposals, voting, delegation.
     #[command(alias = "gov")]
-    Governance(GovernanceCommand),
-
+    Governance {
+        /// Governance subcommand.
+        #[command(subcommand)]
+        cmd: GovernanceCommand,
+    },
     /// TEE management: detect platforms, verify attestation, configure.
-    Tee(TeeCommand),
-
+    Tee {
+        /// TEE subcommand.
+        #[command(subcommand)]
+        cmd: TeeCommand,
+    },
     /// Key management: generate, import, export, backup.
-    Keys(KeysCommand),
-
+    Keys {
+        /// Keys subcommand.
+        #[command(subcommand)]
+        cmd: KeysCommand,
+    },
     /// Configuration management: view, set, validate, export.
-    Config(ConfigCmd),
-
+    Config {
+        /// Config subcommand.
+        #[command(subcommand)]
+        cmd: ConfigCmd,
+    },
     /// Node and network status queries.
-    Status(StatusCommand),
+    Status {
+        /// Status subcommand.
+        #[command(subcommand)]
+        cmd: StatusCommand,
+    },
 }
 
 // ============================================================
@@ -171,14 +196,14 @@ fn dispatch(
 
     runtime.block_on(async move {
         match command {
-            Commands::Node(cmd) => cmd.run(&ctx, &output).await,
-            Commands::Validator(cmd) => cmd.run(&ctx, &output).await,
-            Commands::Network(cmd) => cmd.run(&ctx, &output).await,
-            Commands::Governance(cmd) => cmd.run(&ctx, &output).await,
-            Commands::Tee(cmd) => cmd.run(&ctx, &output).await,
-            Commands::Keys(cmd) => cmd.run(&ctx, &output).await,
-            Commands::Config(cmd) => cmd.run(&ctx, &output).await,
-            Commands::Status(cmd) => cmd.run(&ctx, &output).await,
+            Commands::Node { cmd } => cmd.run(&ctx, &output),
+            Commands::Validator { cmd } => cmd.run(&ctx, &output),
+            Commands::Network { cmd } => cmd.run(&ctx, &output),
+            Commands::Governance { cmd } => cmd.run(&ctx, &output),
+            Commands::Tee { cmd } => cmd.run(&ctx, &output),
+            Commands::Keys { cmd } => cmd.run(&ctx, &output),
+            Commands::Config { cmd } => cmd.run(&ctx, &output),
+            Commands::Status { cmd } => cmd.run(&ctx, &output),
         }
     })
 }
@@ -194,6 +219,14 @@ fn build_context(cli: &Cli) -> CliResult<CliContext> {
         .unwrap_or_else(|| "http://localhost:8731".to_string());
 
     let network_ctx = NetworkContext::new(&cli.network, &endpoint)?;
+
+    // Build a GlobalArgs snapshot that command handlers can use to access
+    // the top-level options (endpoint, network, no-confirm) without the full Cli.
+    let _global_args = GlobalArgs {
+        endpoint: cli.endpoint.clone(),
+        network: cli.network.clone(),
+        no_confirm: cli.no_confirm,
+    };
 
     let config_path = cli
         .config
@@ -213,6 +246,9 @@ fn build_context(cli: &Cli) -> CliResult<CliContext> {
 // ============================================================
 
 fn handle_error(e: &CliError, format: OutputFormat) {
+    // Emit a structured tracing error record so log aggregators capture it.
+    error!(error = %e, "CLI command failed");
+
     match format {
         OutputFormat::Json => {
             eprintln!("{{\"error\": \"{e}\"}}");
@@ -266,14 +302,14 @@ mod tests {
     fn cli_parses_node_status() {
         let args = vec!["aevor", "status"];
         let cli = Cli::parse_from(args);
-        assert!(matches!(cli.command, Commands::Status(_)));
+        assert!(matches!(cli.command, Commands::Status { .. }));
     }
 
     #[test]
     fn cli_parses_validator_command() {
         let args = vec!["aevor", "validator", "status"];
         let cli = Cli::parse_from(args);
-        assert!(matches!(cli.command, Commands::Validator(_)));
+        assert!(matches!(cli.command, Commands::Validator { .. }));
     }
 
     #[test]
@@ -294,6 +330,6 @@ mod tests {
     fn governance_alias_works() {
         let args = vec!["aevor", "gov", "list"];
         let cli = Cli::parse_from(args);
-        assert!(matches!(cli.command, Commands::Governance(_)));
+        assert!(matches!(cli.command, Commands::Governance { .. }));
     }
 }

@@ -17,7 +17,11 @@ pub enum GovernanceCommand {
     Propose(ProposeArgs), Vote(VoteArgs), Delegate(DelegateArgs), List, Status,
 }
 impl GovernanceCommand {
-    pub async fn run(&self, _ctx: &CliContext, _output: &OutputWriter) -> CliResult<()> {
+    /// Execute this governance command.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying governance operation fails.
+    pub fn run(&self, _ctx: &CliContext, _output: &OutputWriter) -> CliResult<()> {
         println!("governance command");
         Ok(())
     }

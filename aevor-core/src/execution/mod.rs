@@ -375,6 +375,11 @@ impl Default for ExecutionLog {
 
 impl ExecutionLog {
     /// Add an event to the log.
+    ///
+    /// # Panics
+    /// Does not panic in practice — the bloom filter arithmetic operates on a
+    /// fixed 32-byte hash where each 8-byte chunk is guaranteed to be the right
+    /// size for `u64::from_be_bytes`.
     pub fn push_event(&mut self, event: ExecutionEvent) {
         // Ensure bloom filter is full size.
         if self.topics_bloom.len() < 256 {
@@ -382,8 +387,10 @@ impl ExecutionLog {
         }
         // Update bloom filter with three hash positions.
         let hash = event.topic.0;
-        for i in 0..3 {
-            let bit = u64::from_be_bytes(hash[i*8..(i+1)*8].try_into().unwrap()) % 2048;
+        for i in 0..3usize {
+            let mut chunk = [0u8; 8];
+            chunk.copy_from_slice(&hash[i * 8..(i + 1) * 8]);
+            let bit = u64::from_be_bytes(chunk) % 2048;
             let byte_idx = (bit / 8) as usize;
             let bit_idx = (bit % 8) as u8;
             self.topics_bloom[byte_idx] |= 1 << bit_idx;
@@ -392,13 +399,18 @@ impl ExecutionLog {
     }
 
     /// Returns `true` if the bloom filter suggests `topic` may be in the log.
+    ///
+    /// # Panics
+    /// Does not panic in practice — same invariant as `push_event`.
     pub fn may_contain_topic(&self, topic: &Hash256) -> bool {
         if self.topics_bloom.len() < 256 {
             return false;
         }
         let hash = topic.0;
-        for i in 0..3 {
-            let bit = u64::from_be_bytes(hash[i*8..(i+1)*8].try_into().unwrap()) % 2048;
+        for i in 0..3usize {
+            let mut chunk = [0u8; 8];
+            chunk.copy_from_slice(&hash[i * 8..(i + 1) * 8]);
+            let bit = u64::from_be_bytes(chunk) % 2048;
             let byte_idx = (bit / 8) as usize;
             let bit_idx = (bit % 8) as u8;
             if self.topics_bloom[byte_idx] & (1 << bit_idx) == 0 {

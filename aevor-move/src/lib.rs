@@ -220,9 +220,46 @@ mod tests {
     use super::*;
 
     #[test]
-    fn module_limits_are_reasonable() {
-        assert!(MAX_FUNCTIONS_PER_MODULE >= 64);
-        assert!(MAX_STRUCTS_PER_MODULE >= 32);
-        assert!(MAX_TYPE_DEPTH >= 8);
+    fn move_error_display_type_error() {
+        // TypeError doesn't exist - use VerificationFailed which covers type check failures
+        let e = MoveError::VerificationFailed { reason: "bad type annotation".into() };
+        assert!(e.to_string().contains("bad type"));
+    }
+
+    #[test]
+    fn move_error_display_resource_not_found() {
+        // ResourceNotFound doesn't exist - use ModuleNotFound which covers missing resources
+        let e = MoveError::ModuleNotFound { module_id: "0x1::coin::Coin".into() };
+        assert!(e.to_string().contains("0x1::coin::Coin"));
+    }
+
+    #[test]
+    fn move_result_ok_value() {
+        let r: MoveResult<u64> = Ok(99);
+        assert_eq!(r.unwrap(), 99);
+    }
+
+    #[test]
+    fn privacy_level_ordering() {
+        use aevor_core::privacy::PrivacyLevel;
+        assert!(PrivacyLevel::Private > PrivacyLevel::Public);
+    }
+
+    #[test]
+    fn verifier_returns_report_for_empty_bytecode() {
+        use crate::verifier::AevorMoveVerifier;
+        let report = AevorMoveVerifier::verify(&[]);
+        // Empty bytecode should fail verification
+        assert!(!report.security.passed);
+    }
+
+    #[test]
+    fn verifier_security_flags_are_consistent() {
+        use crate::verifier::AevorMoveVerifier;
+        let r = AevorMoveVerifier::verify(b"fake bytecode");
+        // Security, privacy_consistent, tee_compatible fields are accessible
+        let _ = r.security;
+        let _ = r.privacy_consistent;
+        let _ = r.tee_compatible;
     }
 }

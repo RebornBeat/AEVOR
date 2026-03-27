@@ -34,6 +34,7 @@ impl RecursiveProver {
         let commitment = Hash256(h);
         let agg = AggregatedProof {
             proofs: proofs.to_vec(),
+            aggregate: Vec::new(), // aggregate signature built by BLS in production
             count: proofs.len(),
         };
         (agg, commitment)

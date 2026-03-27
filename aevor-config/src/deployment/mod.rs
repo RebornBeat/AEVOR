@@ -131,3 +131,87 @@ pub struct EnterpriseSubnetConfig {
     /// Data retention policy in days (0 = indefinite).
     pub data_retention_days: u32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deployment_config_default_is_mainnet() {
+        let cfg = DeploymentConfig::default();
+        assert_eq!(cfg.mode, DeploymentMode::PublicMainnet);
+        assert!(cfg.subnet.is_none());
+        assert!(cfg.hybrid.is_none());
+        assert!(cfg.enterprise.is_none());
+    }
+
+    #[test]
+    fn default_data_dir_contains_aevor() {
+        let cfg = DeploymentConfig::default();
+        assert!(cfg.data_dir.to_string_lossy().contains(".aevor"));
+        assert!(cfg.data_dir.to_string_lossy().contains("data"));
+    }
+
+    #[test]
+    fn default_log_dir_contains_aevor_logs() {
+        let cfg = DeploymentConfig::default();
+        assert!(cfg.log_dir.to_string_lossy().contains(".aevor"));
+        assert!(cfg.log_dir.to_string_lossy().contains("logs"));
+    }
+
+    #[test]
+    fn deployment_mode_is_public() {
+        assert!(DeploymentMode::PublicMainnet.is_public());
+        assert!(DeploymentMode::PublicTestnet.is_public());
+        assert!(DeploymentMode::PublicDevnet.is_public());
+        assert!(DeploymentMode::Hybrid.is_public());
+        assert!(!DeploymentMode::EnterpriseSubnet.is_public());
+        assert!(!DeploymentMode::Research.is_public());
+    }
+
+    #[test]
+    fn deployment_mode_is_production() {
+        assert!(DeploymentMode::PublicMainnet.is_production());
+        assert!(DeploymentMode::EnterpriseSubnet.is_production());
+        assert!(!DeploymentMode::PublicTestnet.is_production());
+        assert!(!DeploymentMode::Research.is_production());
+    }
+
+    #[test]
+    fn deployment_mode_enables_faucet_only_for_test_and_dev() {
+        assert!(DeploymentMode::PublicTestnet.enables_faucet());
+        assert!(DeploymentMode::PublicDevnet.enables_faucet());
+        assert!(!DeploymentMode::PublicMainnet.enables_faucet());
+        assert!(!DeploymentMode::EnterpriseSubnet.enables_faucet());
+    }
+
+    #[test]
+    fn hybrid_deployment_config_fields() {
+        let h = HybridDeploymentConfig {
+            public_participation: true,
+            private_subnet_id: "subnet-abc".into(),
+            partition_policy: "pii-private".into(),
+            enable_bridge: true,
+        };
+        assert!(h.public_participation);
+        assert!(h.enable_bridge);
+        assert_eq!(h.private_subnet_id, "subnet-abc");
+    }
+
+    #[test]
+    fn enterprise_config_audit_and_kyc_defaults() {
+        let e = EnterpriseSubnetConfig {
+            organization_id: "org-1".into(),
+            organization_name: "ACME Corp".into(),
+            compliance_requirements: vec!["SOC2".into()],
+            permitted_jurisdictions: vec!["US".into()],
+            require_audit_log: true,
+            require_kyc_validators: true,
+            data_retention_days: 365,
+        };
+        assert!(e.require_audit_log);
+        assert!(e.require_kyc_validators);
+        assert_eq!(e.data_retention_days, 365);
+        assert_eq!(e.compliance_requirements, vec!["SOC2"]);
+    }
+}

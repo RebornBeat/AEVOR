@@ -19,6 +19,9 @@ pub fn is_available() -> bool {
 ///
 /// Returns an error if Keystone is not available. In production reads
 /// configuration from the Keystone Security Monitor via ioctl.
+///
+/// # Errors
+/// Returns `TeeError::PlatformUnavailable` if the Keystone driver is absent.
 pub fn detect_capabilities() -> TeeResult<PlatformCapabilities> {
     if !is_available() {
         return Err(TeeError::PlatformUnavailable { platform: "keystone".into() });
@@ -42,6 +45,9 @@ pub fn detect_capabilities() -> TeeResult<PlatformCapabilities> {
 /// In production calls the Keystone Security Monitor via the runtime API
 /// (`keystone_create_enclave` + `keystone_run_enclave`) and retrieves the
 /// SM-signed attestation via `keystone_call`.
+///
+/// # Errors
+/// Returns an error if OS entropy generation fails during nonce creation.
 pub fn generate_report(user_data: &[u8]) -> TeeResult<AttestationReport> {
     use aevor_core::primitives::Hash256;
     use aevor_crypto::hash::Blake3Hasher;

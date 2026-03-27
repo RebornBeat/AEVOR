@@ -1,12 +1,12 @@
-//! # AevorVM: Hyper-Performant Double DAG Execution Environment
+//! # `AevorVM`: Hyper-Performant Double DAG Execution Environment
 //!
-//! `aevor-vm` implements AevorVM, AEVOR's revolutionary smart contract execution
+//! `aevor-vm` implements `AevorVM`, AEVOR's revolutionary smart contract execution
 //! environment built on the Double DAG architecture with native TEE integration,
 //! mixed privacy support, and cross-platform behavioral consistency.
 //!
 //! ## Double DAG Execution Architecture
 //!
-//! AevorVM operates on two complementary DAG layers simultaneously:
+//! `AevorVM` operates on two complementary DAG layers simultaneously:
 //!
 //! **Object DAG** — tracks which blockchain objects each contract reads and writes,
 //! enabling the Micro-DAG scheduler to identify independent contracts that can execute
@@ -17,7 +17,7 @@
 //!
 //! ## Move-First Architecture
 //!
-//! AevorVM uses the Move language as its primary smart contract language, extended with
+//! `AevorVM` uses the Move language as its primary smart contract language, extended with
 //! AEVOR-specific capabilities:
 //! - Native TEE service access through type-safe interfaces
 //! - Object-level privacy policy declarations

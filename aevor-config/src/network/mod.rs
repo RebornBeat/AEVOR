@@ -175,3 +175,56 @@ pub struct BridgeConfig {
     /// Whether this bridge uses TEE-secured verification.
     pub tee_secured: bool,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_config_default_is_mainnet() {
+        let cfg = NetworkConfig::default();
+        assert_eq!(cfg.network_type, NetworkType::Mainnet);
+        assert_eq!(cfg.max_peers, 50);
+        assert_eq!(cfg.quic_port, 4001);
+        assert_eq!(cfg.tcp_port, 4002);
+    }
+
+    #[test]
+    fn network_type_is_production_only_for_mainnet() {
+        assert!(NetworkType::Mainnet.is_production());
+        assert!(!NetworkType::Testnet.is_production());
+        assert!(!NetworkType::Devnet.is_production());
+        assert!(!NetworkType::EnterpriseSubnet.is_production());
+        assert!(!NetworkType::ResearchSubnet.is_production());
+    }
+
+    #[test]
+    fn genesis_default_has_supply() {
+        let g = GenesisConfig::default();
+        assert!(g.initial_supply_nano > 0);
+        assert_eq!(g.protocol_version, "1.0.0");
+        assert!(g.genesis_hash.is_none());
+    }
+
+    #[test]
+    fn peer_discovery_default_enables_dht() {
+        let d = PeerDiscoveryConfig::default();
+        assert!(d.enable_dht);
+        assert!(!d.enable_mdns);
+        assert_eq!(d.discovery_interval_s, 30);
+    }
+
+    #[test]
+    fn topology_default_enables_routing() {
+        let t = TopologyConfig::default();
+        assert!(t.enable_topology_aware_routing);
+        assert!(t.min_peers_per_region >= 1);
+    }
+
+    #[test]
+    fn network_config_default_has_listen_address() {
+        let cfg = NetworkConfig::default();
+        assert!(!cfg.listen_addresses.is_empty());
+        assert!(cfg.listen_addresses[0].contains("4001"));
+    }
+}

@@ -5,6 +5,7 @@ use aevor_core::tee::TeePlatform;
 use aevor_core::primitives::Hash256;
 
 /// Standards enforced across all TEE runtimes for behavioral consistency.
+#[allow(clippy::struct_excessive_bools)] // Each bool represents an independent compliance property
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EnvironmentStandards {
     /// All executions must be deterministic: identical inputs produce identical outputs.

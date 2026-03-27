@@ -1,7 +1,7 @@
 //! # AEVOR Execution: Multi-TEE Orchestration and Coordination
 //!
 //! `aevor-execution` orchestrates the complete transaction execution pipeline,
-//! coordinating AevorVM, TEE environments, parallel scheduling, and privacy
+//! coordinating `AevorVM`, TEE environments, parallel scheduling, and privacy
 //! boundary management into a unified execution framework.
 //!
 //! ## Responsibilities
@@ -10,7 +10,7 @@
 //!
 //! 1. **Pre-execution**: dependency analysis, TEE allocation, gas validation
 //! 2. **Parallel scheduling**: lane assignment across available execution resources
-//! 3. **Deterministic execution**: coordinated AevorVM invocations with TEE attestation
+//! 3. **Deterministic execution**: coordinated `AevorVM` invocations with TEE attestation
 //! 4. **Post-execution**: result collection, state commitment, receipt generation
 //!
 //! ## Multi-TEE Coordination
@@ -219,5 +219,85 @@ mod tests {
         assert!(MAX_CONCURRENT_TEE_CONTEXTS > 0);
         assert!(TX_EXECUTION_TIMEOUT_MS > 0);
         assert!(MIN_PARALLELISM_FACTOR > 1.0);
+    }
+
+    #[test]
+    fn vm_failed_error_formats_correctly() {
+        let e = ExecutionError::VmFailed("out of gas".into());
+        assert!(e.to_string().contains("out of gas"));
+    }
+
+    #[test]
+    fn gas_limit_exceeded_contains_values() {
+        let e = ExecutionError::GasLimitExceeded { used: 1000, limit: 500 };
+        let s = e.to_string();
+        assert!(s.contains("1000") && s.contains("500"));
+    }
+
+    #[test]
+    fn privacy_violation_error_formats() {
+        let e = ExecutionError::PrivacyViolation { description: "boundary crossed".into() };
+        assert!(e.to_string().contains("boundary crossed"));
+    }
+
+    #[test]
+    fn tee_allocation_failed_formats() {
+        let e = ExecutionError::TeeAllocationFailed { reason: "no enclave".into() };
+        assert!(e.to_string().contains("no enclave"));
+    }
+
+    #[test]
+    fn execution_result_ok_is_ok() {
+        let r: ExecutionResult<u32> = Ok(42);
+        assert_eq!(r.unwrap(), 42);
+    }
+
+    #[test]
+    fn execution_result_err_is_err() {
+        let r: ExecutionResult<()> = Err(ExecutionError::VmFailed("x".into()));
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn pipeline_config_default_enables_parallel() {
+        let cfg = pipeline::PipelineConfig::default();
+        assert!(cfg.parallel_stages);
+        assert!(cfg.max_pipeline_depth > 0);
+    }
+
+    #[test]
+    fn execution_metrics_default_zero() {
+        let m = metrics::ExecutionMetrics::default();
+        assert_eq!(m.total_executed, 0);
+        assert_eq!(m.success_rate, 0.0);
+    }
+
+    #[test]
+    fn speculative_metrics_default_zero() {
+        let m = speculative::SpeculativeMetrics::default();
+        assert_eq!(m.speculative_count, 0);
+    }
+
+    #[test]
+    fn rollback_reason_variants_exist() {
+        let _ = rollback::RollbackReason::ExecutionFailed;
+        let _ = rollback::RollbackReason::ConflictDetected;
+        let _ = rollback::RollbackReason::PrivacyViolation;
+        let _ = rollback::RollbackReason::OutOfGas;
+    }
+
+    #[test]
+    fn scheduling_decision_lane_assigned() {
+        use crate::scheduler::SchedulingDecision;
+        use aevor_core::primitives::Hash256;
+        use aevor_core::execution::ExecutionLane;
+        // TransactionHash is a type alias for Hash256 — construct directly
+        let d = SchedulingDecision {
+            transaction: Hash256([1u8; 32]),
+            lane: ExecutionLane(3),
+            priority: 10,
+        };
+        assert_eq!(d.lane, ExecutionLane(3));
+        assert_eq!(d.priority, 10);
     }
 }

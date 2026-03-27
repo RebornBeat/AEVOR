@@ -8,7 +8,9 @@ pub struct VmParallelScheduler { lane_count: usize }
 impl VmParallelScheduler {
     pub fn new(lane_count: usize) -> Self { Self { lane_count } }
     pub fn assign_lane(&self, tx: TransactionHash) -> ExecutionLane {
-        ExecutionLane((tx.0[0] as usize % self.lane_count) as u32)
+        #[allow(clippy::cast_possible_truncation)] // lane index is bounded by lane_count which is small
+        let lane = (tx.0[0] as usize % self.lane_count) as u32;
+        ExecutionLane(lane)
     }
 }
 

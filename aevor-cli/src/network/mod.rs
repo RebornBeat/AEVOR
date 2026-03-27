@@ -15,7 +15,11 @@ pub struct NetworkAdminConfig { pub max_peers: usize, pub bootstrap: Vec<String>
 #[derive(Debug, Subcommand)]
 pub enum NetworkCommand { SubnetCreate(SubnetCreateArgs), Bridge(BridgeArgs), Peers(PeerArgs), Status }
 impl NetworkCommand {
-    pub async fn run(&self, _ctx: &CliContext, _output: &OutputWriter) -> CliResult<()> {
+    /// Execute this network command.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying network operation fails.
+    pub fn run(&self, _ctx: &CliContext, _output: &OutputWriter) -> CliResult<()> {
         println!("network command");
         Ok(())
     }

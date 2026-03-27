@@ -127,6 +127,9 @@ impl ProofVerifier {
     ///
     /// Full cryptographic verification is performed in `aevor-zk`.
     /// This structural check validates key/proof hash consistency.
+    ///
+    /// # Errors
+    /// Returns an error if the verifying key is not for the Groth16 system.
     pub fn verify_groth16(
         proof: &GrothProof,
         vkey: &VerifyingKey,
@@ -140,6 +143,9 @@ impl ProofVerifier {
     }
 
     /// Verify a PLONK proof against a verifying key.
+    ///
+    /// # Errors
+    /// Returns an error if the proof or verifying key bytes are malformed.
     pub fn verify_plonk(
         proof: &PlonkProof,
         vkey: &VerifyingKey,

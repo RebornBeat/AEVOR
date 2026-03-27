@@ -69,6 +69,7 @@ impl PrivacyLevel {
     }
 
     /// Returns the more restrictive of two privacy levels.
+    #[must_use]
     pub fn max(self, other: Self) -> Self {
         if (self as u8) >= (other as u8) { self } else { other }
     }
@@ -235,9 +236,9 @@ impl AccessPolicy {
     pub fn allows(&self, address: &Address) -> bool {
         match self {
             Self::Public => true,
-            Self::Owner => false, // Caller must check ownership separately
-            Self::Explicit { allowed } => allowed.contains(address),
-            Self::ProofGated { .. } => false, // Caller must verify proof separately
+            // Owner and ProofGated both return false here: callers must resolve externally.
+            Self::Owner | Self::ProofGated { .. } => false,
+            Self::Explicit { allowed } => allowed.contains(address)
         }
     }
 }
@@ -296,8 +297,7 @@ impl SelectiveDisclosure {
         }
         self.disclosure_grants
             .get(field)
-            .map(|addrs| addrs.contains(address))
-            .unwrap_or(false)
+            .is_some_and(|addrs| addrs.contains(address))
     }
 }
 

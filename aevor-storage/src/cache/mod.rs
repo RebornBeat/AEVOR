@@ -26,6 +26,7 @@ pub struct CacheMetrics {
 }
 
 impl CacheMetrics {
+    #[allow(clippy::cast_precision_loss)] // hit/miss counts: precision loss acceptable for metrics
     pub fn hit_rate(&self) -> f64 {
         let total = self.hits + self.misses;
         if total == 0 { 0.0 } else { self.hits as f64 / total as f64 }
@@ -78,7 +79,7 @@ impl StorageCache {
     }
 }
 
-/// Convenience: look up a cached object by its ObjectId directly.
+/// Convenience: look up a cached object by its `ObjectId` directly.
 pub struct ObjectIdCache {
     inner: HotObjectCache,
 }
@@ -102,5 +103,65 @@ impl ObjectIdCache {
     /// Returns `true` if the given object is cached.
     pub fn contains(&self, id: &ObjectId) -> bool {
         self.get(id).is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{ObjectId, Hash256};
+    use aevor_core::storage::{StorageKey, StorageValue};
+
+    fn obj_id(n: u8) -> ObjectId { ObjectId(Hash256([n; 32])) }
+    fn val(n: u8) -> StorageValue { StorageValue::from_bytes(vec![n]) }
+    fn key(n: u8) -> StorageKey { StorageKey::from_bytes(vec![n]) }
+
+    #[test]
+    fn hot_cache_get_returns_none_before_put() {
+        let cache = HotObjectCache::default();
+        assert!(cache.get(&key(1)).is_none());
+    }
+
+    #[test]
+    fn hot_cache_put_and_get() {
+        let mut cache = HotObjectCache::new(CacheConfig::default());
+        cache.put(key(1), val(42));
+        assert_eq!(cache.get(&key(1)).unwrap().0, vec![42]);
+    }
+
+    #[test]
+    fn hot_cache_respects_max_objects() {
+        let config = CacheConfig { max_objects: 1, ..Default::default() };
+        let mut cache = HotObjectCache::new(config);
+        cache.put(key(1), val(1));
+        // Second put should be silently ignored (at capacity)
+        cache.put(key(2), val(2));
+        assert!(cache.get(&key(1)).is_some());
+        assert!(cache.get(&key(2)).is_none());
+    }
+
+    #[test]
+    fn state_root_cache_put_and_get() {
+        let mut cache = StateRootCache::new();
+        let root = aevor_core::storage::StateRoot::EMPTY;
+        cache.put(100, root);
+        assert!(cache.get(100).is_some());
+        assert!(cache.get(200).is_none());
+    }
+
+    #[test]
+    fn cache_metrics_hit_rate_zero_when_empty() {
+        let m = CacheMetrics::default();
+        assert_eq!(m.hit_rate(), 0.0);
+    }
+
+    #[test]
+    fn object_id_cache_put_contains_get() {
+        let mut cache = ObjectIdCache::new(CacheConfig::default());
+        let id = obj_id(5);
+        assert!(!cache.contains(&id));
+        cache.put(&id, val(99));
+        assert!(cache.contains(&id));
+        assert_eq!(cache.get(&id).unwrap().0, vec![99]);
     }
 }

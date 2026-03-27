@@ -26,7 +26,7 @@ impl MixedPrivacyExecutor {
     pub fn build_plan(objects: &[(ObjectId, PrivacyLevel)]) -> MixedPrivacyExecution {
         let map: std::collections::HashMap<String, PrivacyLevel> = objects
             .iter()
-            .map(|(id, level)| (hex::encode(&id.as_hash().0), *level))
+            .map(|(id, level)| (hex::encode(id.as_hash().0), *level))
             .collect();
         MixedPrivacyExecution::from_objects(map)
     }
@@ -49,6 +49,10 @@ impl PrivacyBoundaryEnforcer {
     pub fn new(strict: bool) -> Self { Self { strict } }
 
     /// Check if crossing from `from` to `to` is allowed.
+    ///
+    /// # Errors
+    /// Returns `VmError::PrivacyViolation` if the enforcer is in strict mode and
+    /// `from` is more private than `to` (lowering the privacy level is rejected).
     pub fn check_crossing(&self, from: PrivacyLevel, to: PrivacyLevel) -> crate::VmResult<()> {
         if self.strict && from > to {
             return Err(crate::VmError::PrivacyViolation {

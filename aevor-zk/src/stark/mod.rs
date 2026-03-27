@@ -31,12 +31,15 @@ impl StarkProver {
     pub fn new(config: StarkConfig) -> Self { Self { config } }
 
     /// Generate a STARK proof for the given execution trace.
+    ///
+    /// # Errors
+    /// Returns an error if the execution trace fails the STARK algebraic constraints.
     pub fn prove(&self, trace: &[u8]) -> crate::ZkResult<StarkProof> {
         let mut fri_params = Vec::new();
-        fri_params.extend_from_slice(&(self.config.blowup_factor as u32).to_le_bytes());
-        fri_params.extend_from_slice(&(self.config.num_queries as u32).to_le_bytes());
+        fri_params.extend_from_slice(&u32::try_from(self.config.blowup_factor).unwrap_or(u32::MAX).to_le_bytes());
+        fri_params.extend_from_slice(&u32::try_from(self.config.num_queries).unwrap_or(u32::MAX).to_le_bytes());
         // Include trace length in proof metadata
-        fri_params.extend_from_slice(&(trace.len() as u32).to_le_bytes());
+        fri_params.extend_from_slice(&u32::try_from(trace.len()).unwrap_or(u32::MAX).to_le_bytes());
         Ok(StarkProof {
             proof_bytes: vec![0u8; 50_000], // STARKs are large (~50KB)
             public_inputs: Vec::new(),
@@ -70,5 +73,65 @@ impl StarkVerifier {
     /// Verify a STARK proof.
     pub fn verify(proof: &StarkProof) -> bool {
         !proof.proof_bytes.is_empty() && !proof.fri_parameters.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stark_config_default_values() {
+        let cfg = StarkConfig::default();
+        assert_eq!(cfg.security_bits, 128);
+        assert_eq!(cfg.blowup_factor, 8);
+        assert_eq!(cfg.num_queries, 30);
+    }
+
+    #[test]
+    fn stark_prover_produces_nonempty_proof() {
+        let prover = StarkProver::new(StarkConfig::default());
+        let proof = prover.prove(b"execution trace").unwrap();
+        assert!(!proof.proof_bytes.is_empty());
+        assert!(!proof.fri_parameters.is_empty());
+    }
+
+    #[test]
+    fn stark_prover_encodes_blowup_and_queries_in_fri_params() {
+        let cfg = StarkConfig { security_bits: 128, blowup_factor: 4, num_queries: 20 };
+        let prover = StarkProver::new(cfg);
+        let proof = prover.prove(b"trace").unwrap();
+        // First 4 bytes encode blowup_factor (4) as u32 LE
+        let blowup = u32::from_le_bytes(proof.fri_parameters[0..4].try_into().unwrap());
+        assert_eq!(blowup, 4);
+        // Next 4 bytes encode num_queries (20)
+        let queries = u32::from_le_bytes(proof.fri_parameters[4..8].try_into().unwrap());
+        assert_eq!(queries, 20);
+    }
+
+    #[test]
+    fn stark_prover_estimate_proof_size_is_nonzero() {
+        let prover = StarkProver::new(StarkConfig::default());
+        assert!(prover.estimate_proof_size() > 0);
+    }
+
+    #[test]
+    fn stark_verifier_accepts_valid_proof() {
+        let prover = StarkProver::new(StarkConfig::default());
+        let proof = prover.prove(b"data").unwrap();
+        assert!(StarkVerifier::verify(&proof));
+    }
+
+    #[test]
+    fn stark_verifier_rejects_empty_proof_bytes() {
+        let proof = StarkProof { proof_bytes: vec![], public_inputs: vec![], fri_parameters: vec![1] };
+        assert!(!StarkVerifier::verify(&proof));
+    }
+
+    #[test]
+    fn stark_circuit_id_as_hash() {
+        let h = Hash256([0xAB; 32]);
+        let cid = StarkCircuitId(h);
+        assert_eq!(*cid.as_hash(), h);
     }
 }

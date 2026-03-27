@@ -59,3 +59,88 @@ impl DependencyAnalyzer {
 }
 
 pub type ObjectDependencyGraph = DependencyGraph;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{Hash256, ObjectId, TransactionHash};
+    use aevor_core::execution::DependencyType;
+
+    fn tx(n: u8) -> TransactionHash { Hash256([n; 32]) }
+    fn obj(n: u8) -> ObjectId { ObjectId(Hash256([n; 32])) }
+
+    fn rw(tx_byte: u8, reads: &[u8], writes: &[u8]) -> ReadWriteSet {
+        ReadWriteSet {
+            transaction: tx(tx_byte),
+            reads: reads.iter().map(|&n| obj(n)).collect(),
+            writes: writes.iter().map(|&n| obj(n)).collect(),
+        }
+    }
+
+    #[test]
+    fn conflict_write_after_write_detected() {
+        let a = rw(1, &[], &[10]);
+        let b = rw(2, &[], &[10]); // both write obj 10
+        assert_eq!(
+            ConflictDetector::conflict_type(&a, &b),
+            Some(DependencyType::WriteAfterWrite)
+        );
+    }
+
+    #[test]
+    fn conflict_read_after_write_detected() {
+        let a = rw(1, &[], &[10]); // a writes obj 10
+        let b = rw(2, &[10], &[]); // b reads obj 10
+        assert_eq!(
+            ConflictDetector::conflict_type(&a, &b),
+            Some(DependencyType::ReadAfterWrite)
+        );
+    }
+
+    #[test]
+    fn conflict_write_after_read_detected() {
+        let a = rw(1, &[10], &[]); // a reads obj 10
+        let b = rw(2, &[], &[10]); // b writes obj 10
+        assert_eq!(
+            ConflictDetector::conflict_type(&a, &b),
+            Some(DependencyType::WriteAfterRead)
+        );
+    }
+
+    #[test]
+    fn no_conflict_for_disjoint_sets() {
+        let a = rw(1, &[1], &[2]);
+        let b = rw(2, &[3], &[4]);
+        assert_eq!(ConflictDetector::conflict_type(&a, &b), None);
+    }
+
+    #[test]
+    fn no_conflict_for_read_read_sharing() {
+        let a = rw(1, &[10], &[]);
+        let b = rw(2, &[10], &[]); // both only read obj 10
+        assert_eq!(ConflictDetector::conflict_type(&a, &b), None);
+    }
+
+    #[test]
+    fn analyzer_produces_graph_with_correct_vertex_count() {
+        let sets = vec![rw(1, &[1], &[2]), rw(2, &[3], &[4])];
+        let graph = DependencyAnalyzer::analyze(&sets);
+        assert_eq!(graph.vertices.len(), 2);
+    }
+
+    #[test]
+    fn analyzer_detects_edge_for_conflicting_transactions() {
+        // tx 1 writes obj 10, tx 2 reads obj 10 → edge from 1 to 2
+        let sets = vec![rw(1, &[], &[10]), rw(2, &[10], &[])];
+        let graph = DependencyAnalyzer::analyze(&sets);
+        // vertex 0 (tx 1) should have an edge to vertex 1 (tx 2)
+        assert!(graph.edges.contains_key(&0));
+    }
+
+    #[test]
+    fn analyzer_no_edges_for_independent_transactions() {
+        let sets = vec![rw(1, &[1], &[2]), rw(2, &[3], &[4])];
+        let graph = DependencyAnalyzer::analyze(&sets);
+        assert!(graph.edges.is_empty());
+    }
+}

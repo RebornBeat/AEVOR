@@ -16,7 +16,7 @@
 //! ## Anomaly Detection vs Surveillance
 //!
 //! The anomaly detection subsystem identifies:
-//! - Infrastructure attacks (DDoS, eclipse attacks, Sybil attacks)
+//! - Infrastructure attacks (`DDoS`, eclipse attacks, Sybil attacks)
 //! - Validator misbehavior (liveness failures, performance degradation)
 //! - TEE integrity issues (attestation failures, anomalous execution times)
 //! - Network partition indicators
@@ -197,5 +197,63 @@ mod tests {
         // 3σ gives 99.7% specificity — practical without too many false positives
         assert!(ANOMALY_DETECTION_SIGMA >= 2.0);
         assert!(ANOMALY_DETECTION_SIGMA <= 5.0);
+    }
+
+    use crate::collector::{CollectorConfig, MetricsCollector, MetricPoint};
+    use crate::differential_privacy::{DpConfig, LaplaceMechanism};
+    use aevor_core::consensus::ConsensusTimestamp;
+
+    #[test]
+    fn metrics_error_display() {
+        let e = MetricsError::CollectionFailed { reason: "no data".into() };
+        assert!(e.to_string().contains("no data"));
+    }
+
+    #[test]
+    fn metrics_result_ok() {
+        let r: MetricsResult<u64> = Ok(42);
+        assert_eq!(r.unwrap(), 42);
+    }
+
+    #[test]
+    fn collector_records_and_counts_series() {
+        let mut collector = MetricsCollector::new(CollectorConfig::default());
+        let point = MetricPoint {
+            name: "tps".into(),
+            value: 200_000.0,
+            timestamp: ConsensusTimestamp::GENESIS,
+            labels: vec![],
+        };
+        collector.record(point);
+        assert_eq!(collector.series_count(), 1);
+    }
+
+    #[test]
+    fn collector_sampling_interval_from_config() {
+        let cfg = CollectorConfig { sampling_interval_ms: 500, ..CollectorConfig::default() };
+        let collector = MetricsCollector::new(cfg);
+        assert_eq!(collector.sampling_interval_ms(), 500);
+    }
+
+    #[test]
+    fn laplace_mechanism_scale_is_sensitivity_over_epsilon() {
+        let dp = DpConfig { epsilon: 2.0, delta: 0.0, sensitivity: 1.0 };
+        let mech = LaplaceMechanism::new(dp);
+        assert!((mech.scale() - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn laplace_mechanism_epsilon_consumed_matches_config() {
+        let dp = DpConfig { epsilon: 0.5, delta: 0.0, sensitivity: 1.0 };
+        let mech = LaplaceMechanism::new(dp);
+        let result = mech.apply(42.0);
+        assert_eq!(result.epsilon_consumed, 0.5);
+    }
+
+    #[test]
+    fn dp_consensus_defaults_are_sane() {
+        let cfg = DpConfig::consensus_defaults();
+        assert!(cfg.epsilon > 0.0);
+        assert!(cfg.sensitivity > 0.0);
     }
 }

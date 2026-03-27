@@ -29,5 +29,21 @@ pub struct PrivacyPreservingRouter;
 pub struct Router { routing_table: RoutingTable }
 impl Router {
     pub fn new() -> Self { Self { routing_table: RoutingTable::new() } }
+
+    /// The underlying routing table mapping node IDs to paths.
+    pub fn routing_table(&self) -> &RoutingTable { &self.routing_table }
+
+    /// Register a route to `dest` via the given path.
+    pub fn add_route(&mut self, dest: NodeId, path: RoutePath) {
+        self.routing_table.add(dest, path);
+    }
+
+    /// Look up the route to `dest`, if one is registered.
+    pub fn route(&self, dest: &NodeId) -> Option<&RoutePath> {
+        self.routing_table.get(dest)
+    }
+
+    /// Number of routes in the routing table.
+    pub fn route_count(&self) -> usize { self.routing_table.entries.len() }
 }
 impl Default for Router { fn default() -> Self { Self::new() } }

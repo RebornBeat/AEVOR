@@ -22,7 +22,11 @@ pub enum NodeCommand {
     Start(StartArgs), Stop(StopArgs), Status(StatusArgs), Restart, Upgrade(UpgradeArgs),
 }
 impl NodeCommand {
-    pub async fn run(&self, _ctx: &CliContext, _output: &OutputWriter) -> CliResult<()> {
+    /// Execute this node command.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying node operation fails.
+    pub fn run(&self, _ctx: &CliContext, _output: &OutputWriter) -> CliResult<()> {
         println!("Node command");
         Ok(())
     }

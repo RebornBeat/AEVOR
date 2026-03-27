@@ -7,7 +7,7 @@
 use aevor_core::tee::{PlatformCapabilities, TeeVersion, TeePlatform};
 use crate::{AttestationReport, TeeError, TeeResult};
 
-/// Returns `true` if ARM TrustZone is available on this platform.
+/// Returns `true` if ARM `TrustZone` is available on this platform.
 ///
 /// Checks for the OP-TEE device (`/dev/tee0`) on Linux, which is present
 /// when the OP-TEE OS is running as the Secure World OS.
@@ -15,10 +15,13 @@ pub fn is_available() -> bool {
     std::path::Path::new("/dev/tee0").exists()
 }
 
-/// Detect ARM TrustZone platform capabilities.
+/// Detect ARM `TrustZone` platform capabilities.
 ///
-/// Returns an error if TrustZone is not available. In production reads
-/// the TrustZone configuration from the device tree and OP-TEE features.
+/// Returns an error if `TrustZone` is not available. In production reads
+/// the `TrustZone` configuration from the device tree and OP-TEE features.
+///
+/// # Errors
+/// Returns `TeeError::PlatformUnavailable` if the OP-TEE device is not present.
 pub fn detect_capabilities() -> TeeResult<PlatformCapabilities> {
     if !is_available() {
         return Err(TeeError::PlatformUnavailable { platform: "trustzone".into() });
@@ -43,10 +46,13 @@ pub fn detect_capabilities() -> TeeResult<PlatformCapabilities> {
     })
 }
 
-/// Generate an ARM TrustZone attestation report via PSA attestation token.
+/// Generate an ARM `TrustZone` attestation report via PSA attestation token.
 ///
 /// In production calls the PSA Attestation API (`psa_initial_attest_get_token`)
 /// which produces a COSE-signed EAT (Entity Attestation Token).
+///
+/// # Errors
+/// Returns an error if OS entropy generation fails during nonce creation.
 pub fn generate_report(user_data: &[u8]) -> TeeResult<AttestationReport> {
     use aevor_core::primitives::Hash256;
     use aevor_crypto::hash::Blake3Hasher;

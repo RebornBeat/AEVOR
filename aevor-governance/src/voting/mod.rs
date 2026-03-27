@@ -10,6 +10,8 @@ pub enum VoteChoice { Yes, No, Abstain, Veto }
 pub struct Vote {
     pub proposal_id: Hash256, pub voter: Address, pub choice: VoteChoice,
     pub weight: aevor_core::primitives::ValidatorWeight,
+    /// The validator identity associated with this vote (for validator-set governance).
+    pub validator_id: Option<ValidatorId>,
 }
 
 pub type VoteWeight = aevor_core::primitives::ValidatorWeight;
@@ -20,11 +22,12 @@ pub struct VoteTally {
     pub total_weight: u64,
 }
 impl VoteTally {
+    #[allow(clippy::cast_precision_loss)] // vote weights: u64→f64 precision loss acceptable for ratios
     pub fn yes_fraction(&self) -> f64 {
         if self.total_weight == 0 { 0.0 } else { self.yes_weight as f64 / self.total_weight as f64 }
     }
     pub fn passed(&self, threshold_pct: u8) -> bool {
-        self.yes_fraction() * 100.0 >= threshold_pct as f64
+        self.yes_fraction() * 100.0 >= f64::from(threshold_pct)
     }
 }
 

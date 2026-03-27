@@ -113,18 +113,10 @@ fn run_faucet(cli: Cli) -> FaucetResult<()> {
         });
     }
 
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .thread_name("aevor-faucet-worker")
-        .build()
-        .map_err(|e| FaucetError::ConsensusFailure {
-            reason: format!("Failed to create async runtime: {e}"),
-        })?;
-
-    runtime.block_on(async_run_faucet(cli))
+    run_faucet_inner(cli)
 }
 
-async fn async_run_faucet(cli: Cli) -> FaucetResult<()> {
+fn run_faucet_inner(cli: Cli) -> FaucetResult<()> {
     // Build faucet configuration.
     let faucet_config = FaucetConfig {
         network: cli.network.clone(),
@@ -137,7 +129,7 @@ async fn async_run_faucet(cli: Cli) -> FaucetResult<()> {
 
     // Initialize the faucet core.
     info!("Initializing faucet core");
-    let faucet = Faucet::new(faucet_config).await?;
+    let faucet = Faucet::new(faucet_config)?;
 
     info!(
         amount_nanoaevor = cli.distribution_amount,
@@ -160,7 +152,7 @@ async fn async_run_faucet(cli: Cli) -> FaucetResult<()> {
     info!("Endpoints: POST /request, GET /status, GET /challenge");
 
     // Run until shutdown signal.
-    server.serve_until_shutdown().await?;
+    server.serve_until_shutdown()?;
 
     Ok(())
 }

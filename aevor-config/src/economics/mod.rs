@@ -148,3 +148,46 @@ impl Default for SlashingConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn economics_default_supply_less_than_max() {
+        let cfg = EconomicsConfig::default();
+        assert!(cfg.initial_supply_nano < cfg.max_supply_nano);
+        assert_eq!(cfg.annual_inflation_bps, 500);
+    }
+
+    #[test]
+    fn fee_config_min_less_than_base() {
+        let cfg = FeeConfig::default();
+        assert!(cfg.min_gas_price_nano < cfg.base_fee_nano);
+        assert!(cfg.block_gas_limit > 0);
+        assert!(cfg.enabled);
+    }
+
+    #[test]
+    fn reward_shares_sum_to_ten_thousand_bps() {
+        let cfg = RewardConfig::default();
+        assert_eq!(
+            cfg.validator_share_bps + cfg.tee_service_share_bps + cfg.treasury_share_bps,
+            10_000
+        );
+    }
+
+    #[test]
+    fn slashing_double_sign_harsher_than_downtime() {
+        let cfg = SlashingConfig::default();
+        assert!(cfg.double_sign_penalty_bps > cfg.downtime_penalty_bps);
+        assert!(cfg.enabled);
+    }
+
+    #[test]
+    fn staking_min_validator_greater_than_delegation() {
+        let cfg = StakingConfig::default();
+        assert!(cfg.min_validator_stake_nano > cfg.min_delegation_nano);
+        assert_eq!(cfg.unbonding_epochs, 14);
+    }
+}

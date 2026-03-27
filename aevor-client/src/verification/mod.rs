@@ -71,6 +71,9 @@ impl ResponseVerifier {
     ///
     /// If `root` is provided and a proof exists, full Merkle verification
     /// is performed. Otherwise the response is returned as unverified.
+    ///
+    /// # Errors
+    /// Returns an error if the data cannot be serialized for leaf hash computation.
     pub fn verify<T: Serialize + Clone + serde::de::DeserializeOwned>(
         data: T,
         proof: Option<MerkleProof>,
@@ -88,5 +91,92 @@ impl ResponseVerifier {
             }
             _ => Ok(VerifiedResponse::trusted(data)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{Hash256, Signature};
+    use aevor_core::storage::{MerkleProof, MerkleRoot, StorageKey, StorageValue};
+    use aevor_core::consensus::{
+        AttestationEvidence, ExecutionAttestation, TeeAttestationPlatform,
+    };
+
+    fn empty_proof() -> MerkleProof {
+        MerkleProof {
+            key: StorageKey(vec![1]),
+            value: StorageValue(vec![]),
+            siblings: vec![],
+            root: MerkleRoot::EMPTY,
+            is_inclusion: false,
+        }
+    }
+
+    fn make_attestation(empty_report: bool) -> ExecutionAttestation {
+        ExecutionAttestation {
+            evidence: AttestationEvidence {
+                platform: TeeAttestationPlatform::IntelSgx,
+                raw_report: if empty_report { vec![] } else { vec![0xDE, 0xAD] },
+                code_measurement: Hash256::ZERO,
+                nonce: [0u8; 32],
+                is_production: false,
+                svn: 0,
+            },
+            input_hash: if empty_report { Hash256::ZERO } else { Hash256([1u8; 32]) },
+            output_hash: Hash256::ZERO,
+            transaction_hash: Hash256::ZERO,
+            validator_id: Hash256::ZERO,
+            validator_signature: Signature([0u8; 64]),
+        }
+    }
+
+    #[test]
+    fn verified_response_is_verified() {
+        let resp = VerifiedResponse::verified(42u32, empty_proof());
+        assert!(resp.is_verified());
+        assert!(resp.proof.is_some());
+        assert_eq!(resp.data, 42u32);
+    }
+
+    #[test]
+    fn trusted_response_is_not_verified() {
+        let resp = VerifiedResponse::trusted("hello");
+        assert!(!resp.is_verified());
+        assert!(resp.proof.is_none());
+    }
+
+    #[test]
+    fn merkle_verifier_empty_siblings_returns_false() {
+        // An empty siblings list always fails structural verification
+        let proof = empty_proof();
+        assert!(!MerkleVerifier::verify(&proof));
+    }
+
+    #[test]
+    fn attestation_verifier_empty_report_returns_false() {
+        let att = make_attestation(true);
+        assert!(!AttestationVerifier::verify(&att));
+    }
+
+    #[test]
+    fn attestation_verifier_non_empty_report_with_non_zero_input_hash() {
+        let att = make_attestation(false);
+        assert!(AttestationVerifier::verify(&att));
+    }
+
+    #[test]
+    fn response_verifier_no_proof_returns_trusted() {
+        let resp = ResponseVerifier::verify(99u32, None, None).unwrap();
+        assert!(!resp.is_verified());
+        assert!(resp.proof.is_none());
+        assert_eq!(resp.data, 99u32);
+    }
+
+    #[test]
+    fn response_verifier_proof_no_root_returns_unverified() {
+        let resp = ResponseVerifier::verify(42u32, Some(empty_proof()), None).unwrap();
+        assert!(!resp.is_verified());
+        assert!(resp.proof.is_some());
     }
 }

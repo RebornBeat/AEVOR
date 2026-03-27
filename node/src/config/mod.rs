@@ -16,6 +16,11 @@ impl Default for NodeConfig {
     }
 }
 impl NodeConfig {
+    /// Load a `NodeConfig` from a TOML file at `path`.
+    ///
+    /// # Errors
+    /// Returns `NodeError::InvalidConfiguration` if the file cannot be read or the
+    /// TOML is malformed.
     pub fn from_file(path: &std::path::Path) -> crate::NodeResult<Self> {
         let content = std::fs::read_to_string(path).map_err(|e| crate::NodeError::InvalidConfiguration {
             node_type: "node".into(), reason: e.to_string(),

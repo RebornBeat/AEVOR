@@ -17,7 +17,7 @@ pub enum TeePlatform {
     IntelSgx,
     /// AMD Secure Encrypted Virtualization (SEV / SEV-SNP).
     AmdSev,
-    /// ARM TrustZone.
+    /// ARM `TrustZone`.
     ArmTrustZone,
     /// RISC-V Keystone enclave framework.
     RiscvKeystone,
@@ -55,10 +55,10 @@ impl TeePlatform {
     /// Returns the maximum enclave memory size in bytes for this platform.
     pub fn max_enclave_memory_bytes(&self) -> usize {
         match self {
-            Self::IntelSgx => 256 * 1024 * 1024,     // 256 MiB (hardware limit)
+            // IntelSgx and RiscvKeystone both support up to 256 MiB enclave memory
+            Self::IntelSgx | Self::RiscvKeystone => 256 * 1024 * 1024,
             Self::AmdSev => 128 * 1024 * 1024 * 1024, // 128 GiB (VM memory)
             Self::ArmTrustZone => 64 * 1024 * 1024,   // 64 MiB (typical)
-            Self::RiscvKeystone => 256 * 1024 * 1024,  // 256 MiB (configurable)
             Self::AwsNitro => 4 * 1024 * 1024 * 1024, // 4 GiB (configurable)
         }
     }
@@ -112,6 +112,7 @@ impl std::fmt::Display for TeeVersion {
 // ============================================================
 
 /// Capabilities of a specific TEE platform instance.
+#[allow(clippy::struct_excessive_bools)] // These are distinct capability flags, not a state machine
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlatformCapabilities {
     /// Platform and version.

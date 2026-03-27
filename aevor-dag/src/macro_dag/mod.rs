@@ -113,3 +113,64 @@ impl DagSnapshot {
     /// Returns `true` if the DAG was canonical (single tip) at snapshot time.
     pub fn was_canonical(&self) -> bool { self.tips.len() == 1 }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{BlockHash, Hash256};
+
+    fn bh(n: u8) -> BlockHash { Hash256([n; 32]) }
+
+    #[test]
+    fn empty_builder_produces_empty_dag() {
+        let dag = MacroDagBuilder::new().build();
+        assert_eq!(dag.block_count(), 0);
+        assert_eq!(dag.tip_count(), 0);
+        assert!(!dag.is_canonical());
+    }
+
+    #[test]
+    fn fork_resolution_picks_lexicographically_smallest() {
+        let tips = vec![bh(5), bh(1), bh(3)];
+        let resolved = ForkResolution::resolve(&tips).unwrap();
+        assert_eq!(resolved, bh(1));
+    }
+
+    #[test]
+    fn fork_resolution_empty_returns_none() {
+        assert!(ForkResolution::resolve(&[]).is_none());
+    }
+
+    #[test]
+    fn macro_dag_single_tip_is_canonical() {
+        let dag = MacroDag {
+            blocks: vec![],
+            height: aevor_core::primitives::BlockHeight(0),
+            tips: vec![bh(1)],
+        };
+        assert!(dag.is_canonical());
+    }
+
+    #[test]
+    fn macro_dag_multiple_tips_not_canonical() {
+        let dag = MacroDag {
+            blocks: vec![],
+            height: aevor_core::primitives::BlockHeight(0),
+            tips: vec![bh(1), bh(2)],
+        };
+        assert!(!dag.is_canonical());
+        assert_eq!(dag.tip_count(), 2);
+    }
+
+    #[test]
+    fn dag_snapshot_canonical_with_one_tip() {
+        let dag = MacroDag {
+            blocks: vec![],
+            height: aevor_core::primitives::BlockHeight(1),
+            tips: vec![bh(7)],
+        };
+        let snap = DagSnapshot::from_dag(&dag, aevor_core::consensus::ConsensusTimestamp::new(1, 0, 1));
+        assert!(snap.was_canonical());
+        assert_eq!(snap.block_count, 0);
+    }
+}

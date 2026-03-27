@@ -41,6 +41,7 @@ impl CoordinationContext {
     }
 
     /// Returns `true` if this coordination meets its security requirements.
+    #[allow(clippy::cast_precision_loss)] // usize->f64 acceptable for security fraction check
     pub fn meets_security_requirements(&self, validators_confirmed: usize) -> bool {
         let fraction = validators_confirmed as f64 / self.participating_validators.len() as f64;
         fraction >= self.security_level.min_participation()
@@ -88,7 +89,7 @@ impl DependencyGraph {
 
     /// Returns the number of dependency edges.
     pub fn edge_count(&self) -> usize {
-        self.edges.values().map(|v| v.len()).sum()
+        self.edges.values().map(Vec::len).sum()
     }
 
     /// Returns `true` if the graph has no edges (all transactions are independent).
@@ -104,8 +105,7 @@ impl DependencyGraph {
             .filter(|(i, _)| {
                 self.reverse_edges
                     .get(i)
-                    .map(|deps| deps.is_empty())
-                    .unwrap_or(true)
+                    .is_none_or(Vec::is_empty)
             })
             .map(|(_, tx)| *tx)
             .collect()
@@ -152,7 +152,8 @@ pub struct ParallelCoordination {
 impl ParallelCoordination {
     /// Create a new parallel coordination for the given dependency graph.
     pub fn new(graph: DependencyGraph, lane_count: usize) -> Self {
-        let lane_status = (0..lane_count as u32)
+        let lane_count_u32 = u32::try_from(lane_count).unwrap_or(u32::MAX);
+        let lane_status = (0..lane_count_u32)
             .map(|i| (ExecutionLane(i), LaneStatus::Pending))
             .collect();
         Self {

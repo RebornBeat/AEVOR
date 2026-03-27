@@ -13,7 +13,7 @@ impl MerkleTree {
     /// Build a complete Merkle tree from a list of leaf hashes.
     ///
     /// The tree is padded to the next power of two with zero leaves.
-    pub fn build(leaves: Vec<Hash256>) -> Self {
+    pub fn build(leaves: &[Hash256]) -> Self {
         if leaves.is_empty() {
             return Self { leaves: vec![], nodes: vec![] };
         }
@@ -29,7 +29,7 @@ impl MerkleTree {
             nodes[i] = Self::hash_pair(&nodes[2 * i], &nodes[2 * i + 1]);
         }
 
-        Self { leaves: leaves.clone(), nodes }
+        Self { leaves: leaves.to_owned(), nodes }
     }
 
     /// The root hash of this tree.
@@ -99,7 +99,7 @@ impl SparseMerkleTree {
     }
 
     /// Insert or update a key-value pair, recomputing the root.
-    pub fn insert(&mut self, key: StorageKey, value: StorageValue) {
+    pub fn insert(&mut self, key: &StorageKey, value: StorageValue) {
         self.entries.insert(key.0.clone(), value);
         self.recompute_root();
     }
@@ -166,6 +166,9 @@ impl IncrementalMerkleTree {
     }
 
     /// Append a leaf and return the new root.
+    ///
+    /// # Errors
+    /// Returns an error if the tree has reached its maximum capacity (2^depth leaves).
     pub fn append(&mut self, leaf: Hash256) -> crate::CryptoResult<MerkleRoot> {
         if self.next_index >= (1 << self.depth) {
             return Err(crate::CryptoError::CommitmentError("tree is full".into()));
@@ -205,22 +208,22 @@ mod tests {
 
     #[test]
     fn merkle_tree_empty_has_empty_root() {
-        let tree = MerkleTree::build(vec![]);
+        let tree = MerkleTree::build(&[]);
         assert!(tree.root().is_empty());
     }
 
     #[test]
     fn merkle_tree_root_changes_with_different_leaves() {
-        let t1 = MerkleTree::build(vec![Hash256([1u8; 32])]);
-        let t2 = MerkleTree::build(vec![Hash256([2u8; 32])]);
+        let t1 = MerkleTree::build(&[Hash256([1u8; 32])]);
+        let t2 = MerkleTree::build(&[Hash256([2u8; 32])]);
         assert_ne!(t1.root(), t2.root());
     }
 
     #[test]
     fn merkle_tree_same_leaves_same_root() {
         let leaves = vec![Hash256([1u8; 32]), Hash256([2u8; 32])];
-        let t1 = MerkleTree::build(leaves.clone());
-        let t2 = MerkleTree::build(leaves);
+        let t1 = MerkleTree::build(&leaves);
+        let t2 = MerkleTree::build(&leaves);
         assert_eq!(t1.root(), t2.root());
     }
 
@@ -229,7 +232,7 @@ mod tests {
         let mut tree = SparseMerkleTree::new();
         let root_before = tree.root();
         tree.insert(
-            StorageKey::from_bytes(vec![1]),
+            &StorageKey::from_bytes(vec![1]),
             StorageValue::from_bytes(vec![42]),
         );
         assert_ne!(tree.root(), root_before);
@@ -240,7 +243,7 @@ mod tests {
         let mut tree = SparseMerkleTree::new();
         let key = StorageKey::from_bytes(vec![1, 2, 3]);
         let value = StorageValue::from_bytes(vec![42, 43]);
-        tree.insert(key.clone(), value.clone());
+        tree.insert(&key, value.clone());
         assert_eq!(tree.get(&key), Some(&value));
     }
 

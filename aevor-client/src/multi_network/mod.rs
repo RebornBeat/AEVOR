@@ -24,7 +24,7 @@ impl std::fmt::Display for NetworkId {
         match self.0 {
             1 => write!(f, "mainnet"),
             2 => write!(f, "testnet"),
-            n => write!(f, "subnet-{}", n),
+            n => write!(f, "subnet-{n}"),
         }
     }
 }
@@ -51,10 +51,10 @@ pub struct NetworkSelector;
 
 impl NetworkSelector {
     /// Select the appropriate network for a given network ID.
-    pub fn select<'a>(
-        handles: &'a [NetworkHandle],
+    pub fn select(
+        handles: &[NetworkHandle],
         id: NetworkId,
-    ) -> Option<&'a NetworkHandle> {
+    ) -> Option<&NetworkHandle> {
         handles.iter().find(|h| h.id == id)
     }
 }
@@ -98,8 +98,134 @@ impl MultiNetworkClient {
     pub fn is_connected_to(&self, id: NetworkId) -> bool {
         self.handles.iter().any(|h| h.id == id)
     }
+
+    /// Connect to a network, returning an error if the endpoint is invalid.
+    ///
+    /// An endpoint is considered invalid if it is empty or does not start
+    /// with a supported scheme (`http://`, `https://`, or `grpc://`).
+    ///
+    /// # Errors
+    /// Returns an error if the endpoint is empty or uses an unsupported scheme.
+    pub fn connect(&mut self, id: NetworkId, endpoint: impl Into<String>) -> ClientResult<()> {
+        let endpoint = endpoint.into();
+        if endpoint.is_empty() {
+            return Err(crate::ClientError::ConnectionFailed {
+                endpoint: endpoint.clone(),
+                reason: "endpoint cannot be empty".into(),
+            });
+        }
+        let valid_scheme = endpoint.starts_with("http://") || endpoint.starts_with("https://") || endpoint.starts_with("grpc://");
+        if !valid_scheme {
+            return Err(crate::ClientError::ConnectionFailed {
+                endpoint: endpoint.clone(),
+                reason: "endpoint must start with http://, https://, or grpc://".into(),
+            });
+        }
+        self.add(NetworkHandle::new(id, endpoint));
+        Ok(())
+    }
+
+    /// Disconnect from a network.
+    ///
+    /// # Errors
+    /// Returns an error if not currently connected to the given network.
+    pub fn disconnect(&mut self, id: NetworkId) -> ClientResult<()> {
+        if !self.is_connected_to(id) {
+            return Err(crate::ClientError::ConnectionFailed {
+                endpoint: id.to_string(),
+                reason: "not connected to this network".into(),
+            });
+        }
+        self.remove(id);
+        Ok(())
+    }
 }
 
 impl Default for MultiNetworkClient {
     fn default() -> Self { Self::new() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_id_constants() {
+        assert!(NetworkId::MAINNET.is_mainnet());
+        assert!(!NetworkId::TESTNET.is_mainnet());
+    }
+
+    #[test]
+    fn network_id_display() {
+        assert_eq!(NetworkId::MAINNET.to_string(), "mainnet");
+        assert_eq!(NetworkId::TESTNET.to_string(), "testnet");
+        assert_eq!(NetworkId(99).to_string(), "subnet-99");
+    }
+
+    #[test]
+    fn network_handle_is_mainnet() {
+        let h = NetworkHandle::new(NetworkId::MAINNET, "http://localhost:8731");
+        assert!(h.is_mainnet());
+        assert_eq!(h.endpoint, "http://localhost:8731");
+    }
+
+    #[test]
+    fn network_selector_finds_correct_handle() {
+        let handles = vec![
+            NetworkHandle::new(NetworkId::MAINNET, "http://mainnet"),
+            NetworkHandle::new(NetworkId::TESTNET, "http://testnet"),
+        ];
+        let h = NetworkSelector::select(&handles, NetworkId::TESTNET).unwrap();
+        assert_eq!(h.endpoint, "http://testnet");
+    }
+
+    #[test]
+    fn network_selector_returns_none_for_missing() {
+        let handles: Vec<NetworkHandle> = vec![];
+        assert!(NetworkSelector::select(&handles, NetworkId::MAINNET).is_none());
+    }
+
+    #[test]
+    fn multi_client_connect_and_get() {
+        let mut client = MultiNetworkClient::new();
+        client.connect(NetworkId::MAINNET, "http://localhost:8731").unwrap();
+        assert!(client.is_connected_to(NetworkId::MAINNET));
+        assert_eq!(client.network_count(), 1);
+        assert_eq!(client.get(NetworkId::MAINNET).unwrap().endpoint, "http://localhost:8731");
+    }
+
+    #[test]
+    fn multi_client_connect_replaces_existing() {
+        let mut client = MultiNetworkClient::new();
+        client.connect(NetworkId::MAINNET, "http://old:8731").unwrap();
+        client.connect(NetworkId::MAINNET, "http://new:8731").unwrap();
+        assert_eq!(client.network_count(), 1);
+        assert_eq!(client.get(NetworkId::MAINNET).unwrap().endpoint, "http://new:8731");
+    }
+
+    #[test]
+    fn multi_client_empty_endpoint_fails() {
+        let mut client = MultiNetworkClient::new();
+        assert!(client.connect(NetworkId::MAINNET, "").is_err());
+    }
+
+    #[test]
+    fn multi_client_bad_scheme_fails() {
+        let mut client = MultiNetworkClient::new();
+        assert!(client.connect(NetworkId::MAINNET, "ftp://node").is_err());
+    }
+
+    #[test]
+    fn multi_client_disconnect_removes_network() {
+        let mut client = MultiNetworkClient::new();
+        client.connect(NetworkId::TESTNET, "http://testnet:8731").unwrap();
+        client.disconnect(NetworkId::TESTNET).unwrap();
+        assert!(!client.is_connected_to(NetworkId::TESTNET));
+    }
+
+    #[test]
+    fn multi_client_disconnect_not_connected_returns_error() {
+        let mut client = MultiNetworkClient::new();
+        assert!(client.disconnect(NetworkId::MAINNET).is_err());
+    }
 }

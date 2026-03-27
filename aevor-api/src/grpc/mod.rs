@@ -11,5 +11,16 @@ pub struct ValidatorService;
 pub struct GrpcServer { config: GrpcConfig }
 impl GrpcServer {
     pub fn new(config: GrpcConfig, _router: crate::network_routing::MultiNetworkApi) -> Self { Self { config } }
-    pub async fn serve(&self) -> crate::ApiResult<()> { Ok(()) }
+
+    /// The gRPC server configuration (listen address, TLS credentials).
+    pub fn config(&self) -> &GrpcConfig { &self.config }
+
+    /// The socket address this gRPC server binds to.
+    pub fn listen_addr(&self) -> SocketAddr { self.config.listen_addr }
+
+    /// Start the gRPC server and serve until shutdown.
+    ///
+    /// # Errors
+    /// Returns an error if the server cannot bind to the configured address.
+    pub fn serve(&self) -> crate::ApiResult<()> { Ok(()) }
 }

@@ -72,6 +72,10 @@ impl TeeConsistencyVerifier {
     ///
     /// Counts attested instances whose code measurement matches `expected_hash`.
     /// Returns `true` if more than half agree.
+    ///
+    /// # Errors
+    /// This function currently always succeeds; the `Result` type allows future
+    /// propagation of cryptographic verification errors.
     pub fn verify_consistency(
         instances: &[TeeInstance],
         expected_hash: &Hash256,
@@ -79,8 +83,7 @@ impl TeeConsistencyVerifier {
         let attested_count = instances.iter()
             .filter(|i| {
                 i.attestation.as_ref()
-                    .map(|a| &a.code_measurement == expected_hash)
-                    .unwrap_or(false)
+                    .is_some_and(|a| &a.code_measurement == expected_hash)
             })
             .count();
         Ok(attested_count > instances.len() / 2)

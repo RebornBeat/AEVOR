@@ -33,6 +33,7 @@ impl Checkpoint {
     }
 
     /// Attach a finality proof and mark as verified.
+    #[must_use]
     pub fn with_proof(mut self, proof: FinalityProof) -> Self {
         self.finality_proof = Some(proof);
         self.is_verified = true;
@@ -88,6 +89,10 @@ impl CheckpointVerifier {
     /// A valid checkpoint must have `Full` security level and a non-empty
     /// finality proof. The finality proof is verified against the validator
     /// set by `aevor-tee` in production.
+    ///
+    /// # Errors
+    /// Returns an error if the checkpoint data cannot be decoded or the
+    /// finality proof format is unrecognized.
     pub fn verify(checkpoint: &Checkpoint) -> crate::ConsensusResult<bool> {
         if checkpoint.info.security_level < SecurityLevel::Full {
             return Ok(false);
@@ -171,4 +176,108 @@ impl LongRangeProtection {
 
 impl Default for LongRangeProtection {
     fn default() -> Self { Self::new() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{BlockHeight, EpochNumber, Hash256};
+    use aevor_core::consensus::SecurityLevel;
+    use aevor_core::storage::StateRoot;
+
+    fn cp_info(height: u64, epoch: u64) -> CheckpointInfo {
+        CheckpointInfo {
+            checkpoint_hash: Hash256([height as u8; 32]),
+            height: BlockHeight(height),
+            epoch: EpochNumber(epoch),
+            state_root: StateRoot::EMPTY,
+            timestamp: aevor_core::consensus::ConsensusTimestamp::new(epoch, 0, height),
+            security_level: SecurityLevel::Full,
+            finality_proof: FinalityProof {
+                signatures: vec![],
+                aggregate_signature: vec![],
+                participant_bitmap: vec![],
+                total_weight: aevor_core::primitives::ValidatorWeight::from_u64(0),
+                security_level: SecurityLevel::Full,
+            },
+            protocol_version: aevor_core::protocol::ProtocolVersion::new(1, 0, 0),
+        }
+    }
+
+    fn make_checkpoint(content_hash_byte: u8) -> Checkpoint {
+        Checkpoint::new(cp_info(100, 1), Hash256([content_hash_byte; 32]))
+    }
+
+    fn make_proof() -> FinalityProof {
+        FinalityProof {
+            signatures: vec![],
+            aggregate_signature: vec![1, 2, 3],
+            participant_bitmap: vec![0xFF],
+            total_weight: aevor_core::primitives::ValidatorWeight::from_u64(100),
+            security_level: SecurityLevel::Full,
+        }
+    }
+
+    #[test]
+    fn new_checkpoint_is_unverified() {
+        let cp = make_checkpoint(1);
+        assert!(!cp.is_verified);
+        assert!(cp.finality_proof.is_none());
+    }
+
+    #[test]
+    fn with_proof_marks_verified() {
+        let cp = make_checkpoint(1);
+        let cp = cp.with_proof(make_proof());
+        assert!(cp.is_verified);
+        assert!(cp.finality_proof.is_some());
+    }
+
+    #[test]
+    fn verifier_rejects_without_finality_proof() {
+        let cp = make_checkpoint(1);
+        assert!(!CheckpointVerifier::verify(&cp).unwrap());
+    }
+
+    #[test]
+    fn verifier_rejects_zero_content_hash() {
+        let mut cp = make_checkpoint(0); // Hash256([0;32]) == ZERO
+        cp.is_verified = true;
+        cp.finality_proof = Some(make_proof());
+        assert!(!CheckpointVerifier::verify(&cp).unwrap());
+    }
+
+    #[test]
+    fn checkpoint_creator_should_checkpoint_at_interval() {
+        let creator = CheckpointCreator::new(100);
+        assert!(creator.should_checkpoint(EpochNumber(100)));
+        assert!(!creator.should_checkpoint(EpochNumber(50)));
+        assert!(creator.should_checkpoint(EpochNumber(200)));
+    }
+
+    #[test]
+    fn long_range_protection_starts_empty() {
+        let lrp = LongRangeProtection::new();
+        assert_eq!(lrp.trusted_count(), 0);
+        assert!(lrp.latest_checkpoint().is_none());
+    }
+
+    #[test]
+    fn long_range_protection_latest_is_highest() {
+        let mut lrp = LongRangeProtection::new();
+        lrp.add_trusted(cp_info(100, 1));
+        lrp.add_trusted(cp_info(200, 2));
+        lrp.add_trusted(cp_info(50, 0));
+        assert_eq!(lrp.latest_checkpoint().unwrap().height.0, 200);
+        assert_eq!(lrp.trusted_count(), 3);
+    }
+
+    #[test]
+    fn long_range_protection_verify_chain() {
+        let mut lrp = LongRangeProtection::new();
+        lrp.add_trusted(cp_info(1000, 10));
+        assert!(lrp.verify_chain_from_checkpoint(BlockHeight(1000)));
+        assert!(lrp.verify_chain_from_checkpoint(BlockHeight(2000)));
+        assert!(!lrp.verify_chain_from_checkpoint(BlockHeight(500)));
+    }
 }

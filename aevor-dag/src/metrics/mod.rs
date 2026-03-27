@@ -32,6 +32,7 @@ pub struct ThroughputMeasurement {
 }
 
 impl ThroughputMeasurement {
+    #[allow(clippy::cast_precision_loss)] // TPS calculation: u64→f64 precision loss acceptable
     pub fn compute(transactions: u64, period_ms: u64) -> Self {
         let tps = if period_ms == 0 { 0.0 } else { transactions as f64 / (period_ms as f64 / 1000.0) };
         Self { period_ms, transactions, tps }

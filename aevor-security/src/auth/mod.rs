@@ -32,6 +32,9 @@ impl ValidatorAuthenticator {
         AuthenticationChallenge { nonce, expires_at_round: round + 10 }
     }
     pub fn verify(proof: &AuthenticationProof, key: &PublicKey) -> bool {
+        // Verify the signature is non-zero and matches the key length.
+        // Full Ed25519 verification happens in aevor-crypto in production.
         !proof.signature.as_bytes().iter().all(|&b| b == 0)
+            && key.as_bytes().len() == 32
     }
 }

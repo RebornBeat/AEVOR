@@ -22,6 +22,9 @@ pub struct X25519KeyPair {
 
 impl X25519KeyPair {
     /// Generate a new random X25519 key pair.
+    ///
+    /// # Errors
+    /// Returns an error if the OS random number generator fails.
     pub fn generate() -> crate::CryptoResult<Self> {
         let mut secret = [0u8; 32];
         getrandom::getrandom(&mut secret)
@@ -43,6 +46,10 @@ impl X25519KeyPair {
     }
 
     /// Perform ECDH with a remote public key, returning the 32-byte shared secret.
+    ///
+    /// # Errors
+    /// This function currently always succeeds; the `Result` type allows future
+    /// validation of the remote public key (e.g. rejecting low-order points).
     pub fn diffie_hellman(&self, remote_public: &[u8; 32]) -> crate::CryptoResult<[u8; 32]> {
         Ok(x25519_dalek::x25519(self.secret, *remote_public))
     }
@@ -111,6 +118,9 @@ pub struct Hkdf;
 
 impl Hkdf {
     /// Extract and expand `out_len` bytes from input key material.
+    ///
+    /// # Errors
+    /// Returns an error if `out_len` exceeds the HKDF maximum output length (255 × `hash_len`).
     pub fn derive(
         ikm: &[u8],
         salt: Option<&[u8]>,
@@ -130,6 +140,9 @@ impl Hkdf {
     }
 
     /// Derive a 32-byte key for a specific domain label.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying HKDF expand step fails (extremely rare).
     pub fn derive_key(master: &[u8], domain: &str) -> crate::CryptoResult<[u8; 32]> {
         let derived = Self::derive(master, None, domain.as_bytes(), 32)?;
         let mut key = [0u8; 32];

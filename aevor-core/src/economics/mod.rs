@@ -181,7 +181,9 @@ impl Stake {
         amount: Amount,
         active_since_epoch: EpochNumber,
     ) -> Self {
-        let weight = ValidatorWeight::from_u64((amount.as_nano() / 1_000_000_000) as u64);
+        let weight = ValidatorWeight::from_u64(
+            u64::try_from(amount.as_nano() / 1_000_000_000).unwrap_or(u64::MAX)
+        );
         Self {
             staker,
             validator,
@@ -205,8 +207,7 @@ impl Stake {
     /// Returns `true` if the stake can be withdrawn in `current_epoch`.
     pub fn is_withdrawable(&self, current_epoch: EpochNumber) -> bool {
         self.unlock_epoch
-            .map(|unlock| current_epoch >= unlock)
-            .unwrap_or(false)
+            .is_some_and(|unlock| current_epoch >= unlock)
     }
 }
 

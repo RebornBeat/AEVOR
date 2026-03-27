@@ -58,3 +58,56 @@ impl MemoryManager {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::tee::MemoryRange;
+
+    fn range(start: u64, length: u64) -> MemoryRange { MemoryRange { start, length } }
+
+    #[test]
+    fn private_heap_capacity() {
+        let heap = PrivateHeap::new(64 * 1024 * 1024);
+        assert_eq!(heap.capacity(), 64 * 1024 * 1024);
+    }
+
+    #[test]
+    fn public_heap_capacity() {
+        let heap = PublicHeap::new(256 * 1024 * 1024);
+        assert_eq!(heap.capacity(), 256 * 1024 * 1024);
+    }
+
+    #[test]
+    fn tee_protected_memory_is_encrypted_and_protected() {
+        let mem = TeeProtectedMemory::new(range(0x1000, 0x4000));
+        assert!(mem.region().is_encrypted);
+        assert!(mem.region().is_tee_protected);
+        assert_eq!(mem.size_bytes(), 0x4000);
+        assert_eq!(mem.range().start, 0x1000);
+    }
+
+    #[test]
+    fn memory_isolation_add_and_count_regions() {
+        let mut iso = MemoryIsolation::new();
+        iso.add_region(MemoryRegion {
+            range: range(0, 1024),
+            is_encrypted: true,
+            is_tee_protected: false,
+        });
+        iso.add_region(MemoryRegion {
+            range: range(1024, 1024),
+            is_encrypted: false,
+            is_tee_protected: false,
+        });
+        assert_eq!(iso.regions.len(), 2);
+    }
+
+    #[test]
+    fn memory_manager_capacities() {
+        let mgr = MemoryManager::new(32 * 1024, 64 * 1024);
+        assert_eq!(mgr.private_heap.capacity(), 32 * 1024);
+        assert_eq!(mgr.public_heap.capacity(), 64 * 1024);
+        assert_eq!(mgr.isolation.regions.len(), 0);
+    }
+}

@@ -4,7 +4,13 @@ use serde::{Deserialize, Serialize};
 use aevor_core::primitives::{Address, Hash256};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DomainRecord { pub name: String, pub owner: Address, pub registered_at_round: u64 }
+pub struct DomainRecord {
+    pub name: String,
+    pub owner: Address,
+    pub registered_at_round: u64,
+    /// BLAKE3 hash of the name + owner for deduplication.
+    pub record_hash: Hash256,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RegistrationRequest { pub name: String, pub owner: Address, pub proof: Vec<u8> }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -23,7 +29,15 @@ impl DomainRegistry {
         if self.domains.contains_key(&req.name) {
             return RegistrationResult { success: false, domain: None };
         }
-        let record = DomainRecord { name: req.name.clone(), owner: req.owner, registered_at_round: round };
+        let mut h = [0u8; 32];
+        for (i, b) in req.name.bytes().enumerate() { h[i % 32] ^= b; }
+        for (i, b) in req.owner.0.iter().enumerate() { h[i % 32] ^= b; }
+        let record = DomainRecord {
+            name: req.name.clone(),
+            owner: req.owner,
+            registered_at_round: round,
+            record_hash: aevor_core::primitives::Hash256(h),
+        };
         self.domains.insert(req.name, record.clone());
         RegistrationResult { success: true, domain: Some(record) }
     }

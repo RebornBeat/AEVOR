@@ -38,6 +38,7 @@ impl StateVersion {
     }
 
     /// Create the next version.
+    #[must_use]
     pub fn advance(&self, new_root: StateRoot, block_height: BlockHeight) -> Self {
         Self {
             number: self.number + 1,
@@ -229,7 +230,7 @@ pub struct StateTransition {
     pub changes_hash: Hash256,
     /// Whether this transition was executed inside a TEE.
     pub tee_executed: bool,
-    /// TEE attestation for this transition (if tee_executed).
+    /// TEE attestation for this transition (if `tee_executed`).
     pub tee_attestation: Option<crate::consensus::ExecutionAttestation>,
 }
 
@@ -324,7 +325,7 @@ mod tests {
 
     #[test]
     fn state_transition_noop_detection() {
-        let root = MerkleRoot::EMPTY;
+        let _root = MerkleRoot::EMPTY;
         let v = StateVersion::genesis();
         let t = StateTransition {
             from_version: v,

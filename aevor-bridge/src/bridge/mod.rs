@@ -23,6 +23,9 @@ pub enum BridgeState { Initializing, Active, Paused, Stopped }
 pub struct Bridge { config: BridgeConfig, state: BridgeState }
 impl Bridge {
     pub fn new(config: BridgeConfig) -> Self { Self { config, state: BridgeState::Initializing } }
+    pub fn config(&self) -> &BridgeConfig { &self.config }
+    pub fn source_chain(&self) -> &str { &self.config.source_chain }
+    pub fn target_chain(&self) -> &str { &self.config.target_chain }
     pub fn state(&self) -> &BridgeState { &self.state }
     pub fn start(&mut self) { self.state = BridgeState::Active; }
     pub fn pause(&mut self) { self.state = BridgeState::Paused; }

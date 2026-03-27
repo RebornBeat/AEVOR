@@ -60,20 +60,28 @@ impl AttestationVerifier {
     /// Returns `true` if the report is structurally valid and passes
     /// basic integrity checks. Full cryptographic verification
     /// requires the platform SDK (Intel DCAP, AMD SEV-SNP tools, etc.).
+    ///
+    /// # Errors
+    /// Returns an error if the platform-specific verification step fails
+    /// (e.g. malformed quote structure).
     pub fn verify(report: &AttestationReport) -> TeeResult<bool> {
-        match report.platform {
+        let ok = match report.platform {
             TeePlatform::IntelSgx     => Self::verify_sgx(report),
             TeePlatform::AmdSev       => Self::verify_sev(report),
             TeePlatform::ArmTrustZone => Self::verify_trustzone(report),
             TeePlatform::RiscvKeystone => Self::verify_keystone(report),
             TeePlatform::AwsNitro     => Self::verify_nitro(report),
-        }
+        };
+        Ok(ok)
     }
 
     /// Verify and check consistency of a cross-platform attestation.
     ///
     /// All platforms in the bundle must individually verify, and their
     /// code measurements must be consistent with each other.
+    ///
+    /// # Errors
+    /// Returns an error if any individual platform verification step fails.
     pub fn verify_cross_platform(cross: &CrossPlatformAttestation) -> TeeResult<bool> {
         let primary_ok = Self::verify(&cross.primary)?;
         if !primary_ok { return Ok(false); }
@@ -84,28 +92,28 @@ impl AttestationVerifier {
     }
 
     /// SGX-specific verification (structural check; full DCAP in production).
-    fn verify_sgx(report: &AttestationReport) -> TeeResult<bool> {
-        Ok(!report.raw_report.is_empty())
+    fn verify_sgx(report: &AttestationReport) -> bool {
+        !report.raw_report.is_empty()
     }
 
     /// SEV-SNP-specific verification.
-    fn verify_sev(report: &AttestationReport) -> TeeResult<bool> {
-        Ok(!report.raw_report.is_empty())
+    fn verify_sev(report: &AttestationReport) -> bool {
+        !report.raw_report.is_empty()
     }
 
     /// TrustZone-specific verification.
-    fn verify_trustzone(report: &AttestationReport) -> TeeResult<bool> {
-        Ok(!report.raw_report.is_empty())
+    fn verify_trustzone(report: &AttestationReport) -> bool {
+        !report.raw_report.is_empty()
     }
 
     /// Keystone-specific verification.
-    fn verify_keystone(report: &AttestationReport) -> TeeResult<bool> {
-        Ok(!report.raw_report.is_empty())
+    fn verify_keystone(report: &AttestationReport) -> bool {
+        !report.raw_report.is_empty()
     }
 
     /// AWS Nitro Enclave-specific verification.
-    fn verify_nitro(report: &AttestationReport) -> TeeResult<bool> {
-        Ok(!report.raw_report.is_empty())
+    fn verify_nitro(report: &AttestationReport) -> bool {
+        !report.raw_report.is_empty()
     }
 }
 

@@ -34,7 +34,7 @@ impl MerklePathCircuit {
         Self { depth, expected_root }
     }
 
-    /// Approximate constraint count: 2 * depth * hash_constraints.
+    /// Approximate constraint count: 2 * depth * `hash_constraints`.
     pub fn constraint_count(&self) -> usize { self.depth * 2 * 256 }
 }
 

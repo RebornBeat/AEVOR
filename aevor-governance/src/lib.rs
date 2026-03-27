@@ -213,4 +213,102 @@ mod tests {
         assert!(DEFAULT_VOTING_PERIOD_ROUNDS > 0);
         assert!(DEFAULT_TIME_LOCK_ROUNDS > 0);
     }
+
+    use aevor_core::primitives::{Amount, EpochNumber};
+
+    #[test]
+    fn governance_error_display() {
+        let e = GovernanceError::VotingWindowClosed { proposal_id: "42".into() };
+        assert!(e.to_string().contains("42"));
+    }
+
+    #[test]
+    fn epoch_number_ordering_for_voting() {
+        // Governance proposals have epoch-based lifetimes: later epochs are greater
+        let start = EpochNumber::from_u64(100);
+        let end = EpochNumber::from_u64(114); // 14 epochs ~ 2 weeks
+        assert!(end > start);
+        assert_eq!(end.as_u64() - start.as_u64(), 14);
+    }
+
+    #[test]
+    fn governance_result_ok() {
+        let r: GovernanceResult<u64> = Ok(7);
+        assert_eq!(r.unwrap(), 7);
+    }
+
+    #[test]
+    fn treasury_balance_total() {
+        use crate::treasury::TreasuryBalance;
+        let bal = TreasuryBalance {
+            available: Amount::from_nano(700),
+            reserved: Amount::from_nano(300),
+        };
+        assert_eq!(bal.total().as_nano(), 1000);
+    }
+
+    #[test]
+    fn treasury_can_fund_within_available() {
+        use crate::treasury::TreasuryBalance;
+        let bal = TreasuryBalance {
+            available: Amount::from_nano(1000),
+            reserved: Amount::ZERO,
+        };
+        assert!(bal.can_fund(Amount::from_nano(500)));
+        assert!(!bal.can_fund(Amount::from_nano(1001)));
+    }
+
+    #[test]
+    fn treasury_manager_queue_spend_reserves_funds() {
+        use crate::treasury::{TreasuryManager, TreasurySpend};
+        use aevor_core::primitives::Address;
+        let mut mgr = TreasuryManager::new(Amount::from_nano(10_000));
+        let spend = TreasurySpend::new(Amount::from_nano(3_000), Address([1u8; 32]), "grant");
+        assert!(mgr.queue_spend(spend));
+        assert_eq!(mgr.balance().available.as_nano(), 7_000);
+        assert_eq!(mgr.balance().reserved.as_nano(), 3_000);
+        assert_eq!(mgr.pending_count(), 1);
+    }
+
+    #[test]
+    fn treasury_manager_rejects_over_available() {
+        use crate::treasury::{TreasuryManager, TreasurySpend};
+        use aevor_core::primitives::Address;
+        let mut mgr = TreasuryManager::new(Amount::from_nano(100));
+        let spend = TreasurySpend::new(Amount::from_nano(200), Address([1u8; 32]), "too much");
+        assert!(!mgr.queue_spend(spend));
+        assert_eq!(mgr.pending_count(), 0);
+    }
+
+    #[test]
+    fn governance_timing_defaults() {
+        use crate::timing::GovernanceTiming;
+        let t = GovernanceTiming::default();
+        assert!(t.voting_period_rounds > 0);
+        assert!(t.execution_delay_rounds > 0);
+    }
+
+    #[test]
+    fn vote_construction_with_and_without_validator_id() {
+        use crate::voting::{Vote, VoteChoice};
+        use aevor_core::primitives::{Address, Hash256, ValidatorWeight};
+        // ValidatorId = Hash256 (type alias), so Some(Hash256([1u8;32])) is Option<ValidatorId>
+        let vote_with_id = Vote {
+            proposal_id: Hash256([42u8; 32]),
+            voter: Address([1u8; 32]),
+            choice: VoteChoice::Yes,
+            weight: ValidatorWeight::from_u64(100),
+            validator_id: Some(Hash256([1u8; 32])),
+        };
+        assert!(vote_with_id.validator_id.is_some());
+
+        let vote_without_id = Vote {
+            proposal_id: Hash256([42u8; 32]),
+            voter: Address([2u8; 32]),
+            choice: VoteChoice::No,
+            weight: ValidatorWeight::from_u64(50),
+            validator_id: None,
+        };
+        assert!(vote_without_id.validator_id.is_none());
+    }
 }

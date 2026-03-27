@@ -25,6 +25,11 @@ pub struct CircuitStats { pub constraints: usize, pub variables: usize, pub prov
 
 pub struct ProofGenerator;
 impl ProofGenerator {
+    /// Generate a zero-knowledge proof for the given request.
+    ///
+    /// # Errors
+    /// Returns an error if the witness is incompatible with the circuit or the
+    /// proving key does not match the circuit hash.
     pub fn generate(_request: &ProofRequest, _witness: &Witness, _pkey: &ProvingKey) -> crate::ZkResult<ProofGenerationResult> {
         Ok(ProofGenerationResult {
             proof: vec![0u8; 192], // Placeholder Groth16 size

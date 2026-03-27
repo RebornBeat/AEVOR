@@ -42,6 +42,9 @@ pub struct Ed25519KeyPair {
 
 impl Ed25519KeyPair {
     /// Generate a new random key pair.
+    ///
+    /// # Errors
+    /// Returns an error if the OS random number generator fails.
     pub fn generate() -> crate::CryptoResult<Self> {
         use rand::rngs::OsRng;
         let signing_key = ed25519_dalek::SigningKey::generate(&mut OsRng);
@@ -136,13 +139,16 @@ pub struct BlsKeyPair {
 
 impl BlsKeyPair {
     /// Generate a new random BLS key pair.
+    ///
+    /// # Errors
+    /// Returns an error if OS entropy is unavailable or BLS key generation fails.
     pub fn generate() -> crate::CryptoResult<Self> {
         let mut ikm = [0u8; 32];
         getrandom::getrandom(&mut ikm)
             .map_err(|e| crate::CryptoError::KeyGenerationFailed(e.to_string()))?;
 
         let sk = blst::min_sig::SecretKey::key_gen(&ikm, &[])
-            .map_err(|e| crate::CryptoError::KeyGenerationFailed(format!("{:?}", e)))?;
+            .map_err(|e| crate::CryptoError::KeyGenerationFailed(format!("{e:?}")))?;
         let pk = sk.sk_to_pk();
 
         Ok(Self {
@@ -157,6 +163,10 @@ impl BlsKeyPair {
     }
 
     /// Sign a message.
+    ///
+    /// # Panics
+    /// Does not panic in practice — secret bytes were produced by `generate()` and are
+    /// always a valid BLS secret key. The `expect` is a safety assertion only.
     pub fn sign(&self, message: &[u8]) -> BlsSignature {
         let sk = blst::min_sig::SecretKey::from_bytes(&self.secret_bytes)
             .expect("valid BLS secret key");

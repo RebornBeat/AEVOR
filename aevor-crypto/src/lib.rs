@@ -16,7 +16,7 @@
 //!
 //! ## What This Crate Explicitly Excludes
 //!
-//! **Homomorphic encryption** (Paillier, ElGamal, BFV, CKKS) is intentionally absent.
+//! **Homomorphic encryption** (Paillier, `ElGamal`, BFV, CKKS) is intentionally absent.
 //! These schemes create 1,000×–1,000,000× computational overhead that would destroy
 //! throughput goals. Privacy is achieved through TEE hardware isolation (1.1×–1.3×
 //! overhead) providing stronger guarantees without the performance penalty.
@@ -27,8 +27,8 @@
 //!
 //! ## Hardware Acceleration
 //!
-//! The `acceleration` module provides architecture-specific optimizations for x86_64
-//! (AES-NI, AVX2, SHA Extensions), AArch64 (NEON, ARM Crypto Extensions), and
+//! The `acceleration` module provides architecture-specific optimizations for `x86_64`
+//! (AES-NI, AVX2, SHA Extensions), `AArch64` (NEON, ARM Crypto Extensions), and
 //! RISC-V (Vector Extensions) while maintaining identical results across all platforms.
 
 #![warn(clippy::all)]
@@ -257,5 +257,30 @@ mod tests {
         assert_eq!(CHACHA20_TAG_BYTES, 16);
         assert_eq!(AES_256_KEY_BYTES, 32);
         assert_eq!(AES_256_NONCE_BYTES, 12);
+    }
+
+    #[test]
+    fn x25519_key_size_matches_constant() {
+        assert_eq!(X25519_KEY_BYTES, 32);
+    }
+
+    #[test]
+    fn crypto_error_display_is_informative() {
+        let e = CryptoError::InvalidKey { reason: "too short".into() };
+        assert!(e.to_string().contains("too short"));
+
+        let e2 = CryptoError::EncryptionError("bad nonce".into());
+        assert!(e2.to_string().contains("bad nonce"));
+
+        let e3 = CryptoError::ProofVerificationFailed { system: "Groth16".into() };
+        assert!(e3.to_string().contains("Groth16"));
+    }
+
+    #[test]
+    fn crypto_result_ok_and_err() {
+        let ok: CryptoResult<u64> = Ok(99);
+        assert!(ok.is_ok());
+        let err: CryptoResult<u64> = Err(CryptoError::SignatureVerificationFailed);
+        assert!(err.is_err());
     }
 }

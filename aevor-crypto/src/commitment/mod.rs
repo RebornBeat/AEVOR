@@ -14,6 +14,9 @@ pub struct PedersenCommitment {
 
 impl PedersenCommitment {
     /// Create a Pedersen commitment to `value` with a fresh random blinding factor.
+    ///
+    /// # Errors
+    /// Returns an error if the OS random number generator fails.
     pub fn commit(value: &[u8]) -> crate::CryptoResult<Self> {
         let mut blinding = [0u8; 32];
         getrandom::getrandom(&mut blinding)
@@ -24,6 +27,10 @@ impl PedersenCommitment {
     /// Create a Pedersen commitment with a specific blinding factor.
     ///
     /// Use `commit()` unless you need a deterministic blinding for testing.
+    ///
+    /// # Errors
+    /// This function currently always succeeds; the `Result` allows future
+    /// elliptic-curve validation of the blinding factor.
     pub fn commit_with_blinding(value: &[u8], blinding: [u8; 32]) -> crate::CryptoResult<Self> {
         let mut hasher = crate::hash::Blake3Hasher::new();
         hasher.update(&blinding);
@@ -67,6 +74,9 @@ pub struct HashCommitment {
 
 impl HashCommitment {
     /// Create a commitment to `value` with a fresh random blinding factor.
+    ///
+    /// # Errors
+    /// Returns an error if the OS random number generator fails.
     pub fn commit(value: &[u8]) -> crate::CryptoResult<Self> {
         let mut randomness = [0u8; 32];
         getrandom::getrandom(&mut randomness)

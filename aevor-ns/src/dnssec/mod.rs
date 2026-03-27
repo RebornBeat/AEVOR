@@ -13,6 +13,21 @@ pub struct Nsec { pub next_domain: String, pub types: Vec<u16> }
 pub struct Ds { pub key_tag: u16, pub algorithm: u8, pub digest: Vec<u8> }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DnssecChain { pub keys: Vec<DnsKey>, pub sigs: Vec<Rrsig> }
+
+impl DnssecChain {
+    /// A `Hash256` commitment to the key set in this chain.
+    ///
+    /// Enables light clients to verify the DNSSEC chain against a trusted
+    /// root hash without downloading all key material.
+    pub fn key_commitment(&self) -> Hash256 {
+        let mut h = [0u8; 32];
+        for key in &self.keys {
+            for (i, b) in key.public_key.iter().enumerate() { h[i % 32] ^= b; }
+        }
+        Hash256(h)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DnssecValidation { pub chain: DnssecChain, pub validated: bool }
 

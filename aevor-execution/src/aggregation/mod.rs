@@ -16,11 +16,26 @@ impl ConsistencyCheck {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ParallelResultSet { pub results: Vec<ExecutionResult>, pub all_consistent: bool }
+pub struct ParallelResultSet {
+    /// Execution results for each transaction in this parallel batch.
+    pub results: Vec<ExecutionResult>,
+    /// Whether all results are mutually consistent (no conflicting state changes).
+    pub all_consistent: bool,
+    /// Merged state changes from all consistent executions in this set.
+    pub merged_changes: Vec<StateChange>,
+}
+
+impl ParallelResultSet {
+    /// Collect all state changes from successful executions.
+    pub fn successful_changes(&self) -> Vec<&StateChange> {
+        self.merged_changes.iter().collect()
+    }
+}
 
 pub struct ResultAggregator;
 impl ResultAggregator {
-    pub fn aggregate(results: Vec<ExecutionResult>) -> AggregatedReceipt {
+    /// Aggregate a slice of execution results into a single receipt.
+    pub fn aggregate(results: &[ExecutionResult]) -> AggregatedReceipt {
         let total_gas: u64 = results.iter().map(|r| r.gas_consumed.as_u64()).sum();
         AggregatedReceipt {
             transaction_count: results.len(),

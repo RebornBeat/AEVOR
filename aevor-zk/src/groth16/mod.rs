@@ -29,6 +29,10 @@ impl Groth16Circuit {
 
 pub struct Groth16Prover;
 impl Groth16Prover {
+    /// Generate a Groth16 proof for the given witness.
+    ///
+    /// # Errors
+    /// Returns an error if the witness is incompatible with the proving key's circuit.
     pub fn prove(_witness: &[u8], pkey: &Groth16ProvingKey) -> crate::ZkResult<Groth16Proof> {
         Ok(Groth16Proof {
             proof_bytes: vec![0u8; 192],

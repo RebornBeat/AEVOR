@@ -207,6 +207,14 @@ pub enum StorageError {
     /// Index operation failed.
     #[error("index error: {0}")]
     IndexError(String),
+
+    /// Object serialization or deserialization failed.
+    ///
+    /// Raised when bincode (or another codec) cannot encode a value for storage
+    /// or decode stored bytes back into a typed value.  This is distinct from
+    /// a backend I/O error — the bytes are accessible but the schema is wrong.
+    #[error("serialization error: {0}")]
+    SerializationError(String),
 }
 
 /// Convenience alias for storage results.

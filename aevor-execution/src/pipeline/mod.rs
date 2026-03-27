@@ -30,9 +30,13 @@ pub struct PipelineResult {
 
 pub struct PreExecutionCheck;
 impl PreExecutionCheck {
+    /// Validate a transaction before execution begins.
+    ///
+    /// # Errors
+    /// Returns `ExecutionError::VmFailed` if the transaction has a zero gas limit.
     pub fn run(tx: &aevor_core::transaction::SignedTransaction) -> crate::ExecutionResult<()> {
         if tx.transaction.gas_limit == aevor_core::primitives::GasAmount::ZERO {
-            return Err(crate::ExecutionError::InvalidInput("zero gas limit".into()));
+            return Err(crate::ExecutionError::VmFailed("zero gas limit".into()));
         }
         Ok(())
     }
@@ -47,4 +51,10 @@ pub struct ExecutionPipeline { config: PipelineConfig }
 impl ExecutionPipeline {
     pub fn new(config: PipelineConfig) -> Self { Self { config } }
     pub fn stage_count(&self) -> usize { 7 }
+    /// The configuration for this pipeline.
+    pub fn config(&self) -> &PipelineConfig { &self.config }
+    /// Whether this pipeline runs stages in parallel.
+    pub fn is_parallel(&self) -> bool { self.config.parallel_stages }
+    /// Maximum depth of nested pipeline calls.
+    pub fn max_depth(&self) -> usize { self.config.max_pipeline_depth }
 }

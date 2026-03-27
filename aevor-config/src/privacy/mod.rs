@@ -129,3 +129,49 @@ impl Default for AntiSnoopingConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::privacy::PrivacyLevel;
+
+    #[test]
+    fn privacy_config_default_is_enabled_and_strict() {
+        let cfg = PrivacyConfig::default();
+        assert!(cfg.enabled);
+        assert!(cfg.strict_enforcement);
+    }
+
+    #[test]
+    fn default_privacy_level_is_public() {
+        let cfg = DefaultPrivacyLevel::default();
+        assert_eq!(cfg.level, PrivacyLevel::Public);
+        assert!(cfg.inherit_from_context);
+        assert!(!cfg.escalate_with_tee);
+    }
+
+    #[test]
+    fn selective_disclosure_default_enabled_no_zk() {
+        let cfg = SelectiveDisclosureConfig::default();
+        assert!(cfg.enabled);
+        assert!(!cfg.require_zk_proof);
+        assert!(cfg.max_disclosable_fields > 0);
+        assert!(cfg.cache_proofs);
+    }
+
+    #[test]
+    fn cross_privacy_default_requires_auth_and_audits() {
+        let cfg = CrossPrivacyConfig::default();
+        assert!(cfg.allowed);
+        assert!(cfg.require_explicit_auth);
+        assert!(cfg.audit_crossings);
+    }
+
+    #[test]
+    fn anti_snooping_default_is_minimal() {
+        let cfg = AntiSnoopingConfig::default();
+        assert!(!cfg.traffic_obfuscation);
+        assert!(!cfg.message_padding);
+        assert!(!cfg.cover_traffic);
+    }
+}

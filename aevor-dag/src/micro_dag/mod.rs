@@ -25,7 +25,7 @@ impl MicroDag {
 
     /// Returns `true` if all transactions are conflict-free (100% parallelism).
     pub fn is_fully_parallel(&self) -> bool {
-        self.entries.iter().all(|e| e.is_dag_root())
+        self.entries.iter().all(MicroDagEntry::is_dag_root)
     }
 
     /// A `Hash256` commitment to the DAG structure (XOR of all tx hashes).
@@ -64,6 +64,7 @@ pub struct ConflictSet {
 pub struct MicroDagAnalyzer;
 
 impl MicroDagAnalyzer {
+    #[allow(clippy::cast_precision_loss)] // DAG parallelism ratio: precision loss acceptable
     pub fn compute_parallelism(dag: &MicroDag) -> f64 {
         if dag.entries.is_empty() { return 1.0; }
         dag.entries.iter().filter(|e| e.is_dag_root()).count() as f64
@@ -86,4 +87,66 @@ pub struct ObjectAccessPattern {
     pub reads: Vec<ObjectId>,
     pub writes: Vec<ObjectId>,
     pub privacy_level: PrivacyLevel,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{Hash256, TransactionHash};
+
+    fn tx(n: u8) -> TransactionHash { Hash256([n; 32]) }
+
+    #[test]
+    fn empty_dag_hash_is_zero() {
+        let dag = MicroDag { entries: vec![], parallel_groups: vec![], max_parallelism: 0 };
+        assert_eq!(dag.dag_hash(), Hash256([0u8; 32]));
+    }
+
+    #[test]
+    fn dag_hash_differs_for_different_tx_sets() {
+        use aevor_core::block::MicroDagEntry;
+        use aevor_core::consensus::ValidationResult;
+        use aevor_core::privacy::PrivacyLevel;
+        let entry_a = MicroDagEntry {
+            transaction_hash: tx(1),
+            parents: vec![],
+            execution_lane: aevor_core::execution::ExecutionLane(0),
+            read_set: vec![],
+            write_set: vec![],
+            privacy_level: PrivacyLevel::Public,
+            requires_tee: false,
+            validation: ValidationResult::valid(),
+        };
+        let entry_b = MicroDagEntry {
+            transaction_hash: tx(2),
+            parents: vec![],
+            execution_lane: aevor_core::execution::ExecutionLane(0),
+            read_set: vec![],
+            write_set: vec![],
+            privacy_level: PrivacyLevel::Public,
+            requires_tee: false,
+            validation: ValidationResult::valid(),
+        };
+        let dag_a = MicroDag { entries: vec![entry_a], parallel_groups: vec![], max_parallelism: 1 };
+        let dag_b = MicroDag { entries: vec![entry_b], parallel_groups: vec![], max_parallelism: 1 };
+        assert_ne!(dag_a.dag_hash(), dag_b.dag_hash());
+    }
+
+    #[test]
+    fn conflict_edge_sequential_for_write_after_write() {
+        use super::super::conflict::ConflictEdge;
+        use aevor_core::primitives::ObjectId;
+        use aevor_core::execution::DependencyType;
+        let edge = ConflictEdge::new(tx(1), tx(2), ObjectId(Hash256([3u8; 32])), DependencyType::WriteAfterWrite);
+        assert!(edge.requires_sequential());
+    }
+
+    #[test]
+    fn conflict_edge_not_sequential_for_read_after_write() {
+        use super::super::conflict::ConflictEdge;
+        use aevor_core::primitives::ObjectId;
+        use aevor_core::execution::DependencyType;
+        let edge = ConflictEdge::new(tx(1), tx(2), ObjectId(Hash256([3u8; 32])), DependencyType::ReadAfterWrite);
+        assert!(!edge.requires_sequential());
+    }
 }

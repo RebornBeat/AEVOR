@@ -103,7 +103,7 @@ impl std::fmt::Display for ValidatorStatus {
             Self::Joining => write!(f, "Joining"),
             Self::Leaving => write!(f, "Leaving"),
             Self::Inactive => write!(f, "Inactive"),
-            Self::Jailed { release_epoch } => write!(f, "Jailed(until epoch {})", release_epoch),
+            Self::Jailed { release_epoch } => write!(f, "Jailed(until epoch {release_epoch})"),
             Self::Tombstoned => write!(f, "Tombstoned"),
         }
     }
@@ -224,6 +224,7 @@ pub struct ValidatorPerformance {
 
 impl ValidatorPerformance {
     /// Compute the participation rate as a fraction (0.0–1.0).
+    #[allow(clippy::cast_precision_loss)] // u64->f64 precision acceptable for participation metrics
     pub fn participation_rate(&self) -> f64 {
         if self.rounds_expected == 0 {
             return 1.0;
@@ -232,6 +233,7 @@ impl ValidatorPerformance {
     }
 
     /// Compute the TEE success rate as a fraction (0.0–1.0).
+    #[allow(clippy::cast_precision_loss)] // u64->f64 precision acceptable for service metrics
     pub fn tee_success_rate(&self) -> f64 {
         let total = self.tee_requests_served + self.tee_requests_failed;
         if total == 0 {

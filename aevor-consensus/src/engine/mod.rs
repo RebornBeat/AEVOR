@@ -54,7 +54,7 @@ pub struct ProposalMessage {
     pub round: u64,
     /// Consensus timestamp of this proposal.
     pub timestamp: ConsensusTimestamp,
-    /// Proposer's signature over (block_hash ‖ round ‖ timestamp).
+    /// Proposer's signature over (`block_hash` ‖ round ‖ timestamp).
     pub signature: aevor_core::primitives::Signature,
     /// TEE attestation proving execution correctness.
     pub tee_attestation: Option<aevor_core::consensus::ExecutionAttestation>,
@@ -116,6 +116,7 @@ impl AttestationCollection {
     }
 
     /// Fraction of total weight that has attested (0.0–1.0).
+    #[allow(clippy::cast_precision_loss)] // weight ratios: precision loss is acceptable for participation metrics
     pub fn participation_fraction(&self) -> f64 {
         if self.total_weight.as_u64() == 0 { return 0.0; }
         self.current_weight.as_u64() as f64 / self.total_weight.as_u64() as f64
@@ -183,9 +184,94 @@ impl ConsensusEngine {
             finalized_blocks: finalized,
             security_level: self.security_level,
             duration_ms,
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            // participation is always in [0.0, 1.0] so * 100.0 is in [0, 100] — safe to u8
             participation_pct: (collection.participation_fraction() * 100.0) as u8,
             finality_proof: None, // Built by BLS aggregation in production
             validation,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{Hash256, ValidatorWeight};
+    use aevor_core::consensus::SecurityLevel;
+
+    fn w(n: u64) -> ValidatorWeight { ValidatorWeight::from_u64(n) }
+    fn bh(n: u8) -> BlockHash { Hash256([n; 32]) }
+
+    #[test]
+    fn attestation_collection_starts_empty() {
+        let c = AttestationCollection::new(bh(1), SecurityLevel::Basic, w(1000));
+        assert_eq!(c.attestations.len(), 0);
+        assert_eq!(c.participation_fraction(), 0.0);
+        assert!(!c.meets_required_level());
+    }
+
+    #[test]
+    fn attestation_collection_meets_level_after_sufficient_weight() {
+        let mut c = AttestationCollection::new(bh(1), SecurityLevel::Minimal, w(100));
+        // Minimal requires ~2–3% — add a dummy attestation with 10% weight
+        let att = aevor_core::block::BlockAttestation {
+            block_hash: bh(1),
+            validator_id: Hash256([1u8; 32]),
+            signature: aevor_core::primitives::Signature([0u8; 64]),
+            tee_attestation: None,
+            timestamp: aevor_core::consensus::ConsensusTimestamp::GENESIS,
+        };
+        c.add(att, w(10)); // 10% of total
+        assert!(c.participation_fraction() > 0.0);
+    }
+
+    #[test]
+    fn attestation_collection_zero_total_weight_returns_zero_fraction() {
+        let c = AttestationCollection::new(bh(1), SecurityLevel::Full, w(0));
+        assert_eq!(c.participation_fraction(), 0.0);
+    }
+
+    #[test]
+    fn consensus_engine_starts_at_round_zero() {
+        let engine = ConsensusEngine::new(SecurityLevel::Basic);
+        assert_eq!(engine.current_round(), 0);
+        assert_eq!(engine.state(), ConsensusState::Initializing);
+    }
+
+    #[test]
+    fn consensus_engine_advance_round_increments() {
+        let mut engine = ConsensusEngine::new(SecurityLevel::Basic);
+        engine.advance_round();
+        assert_eq!(engine.current_round(), 1);
+        assert_eq!(engine.state(), ConsensusState::Proposing);
+        engine.advance_round();
+        assert_eq!(engine.current_round(), 2);
+    }
+
+    #[test]
+    fn consensus_engine_finalize_round_no_attestations() {
+        let mut engine = ConsensusEngine::new(SecurityLevel::Full);
+        let collection = AttestationCollection::new(bh(5), SecurityLevel::Full, w(1000));
+        let result = engine.finalize_round(&collection, 100);
+        // Full security requires >67% — no attestations means no finalized blocks
+        assert!(result.finalized_blocks.is_empty());
+        assert!(!result.validation.is_valid);
+        assert_eq!(result.participation_pct, 0);
+    }
+
+    #[test]
+    fn round_result_is_successful_on_valid_validation() {
+        let r = RoundResult {
+            round: 1,
+            finalized_blocks: vec![bh(1)],
+            security_level: SecurityLevel::Basic,
+            duration_ms: 50,
+            participation_pct: 25,
+            finality_proof: None,
+            validation: aevor_core::consensus::ValidationResult::valid(),
+        };
+        assert!(r.is_successful());
+        // finality_proof is None so is_finalized returns false
+        assert!(!r.is_finalized());
     }
 }

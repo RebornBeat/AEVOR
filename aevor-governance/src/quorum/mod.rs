@@ -12,6 +12,7 @@ impl Default for QuorumRequirement {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QuorumCheck { pub participated_weight: ValidatorWeight, pub total_weight: ValidatorWeight }
 impl QuorumCheck {
+    #[allow(clippy::cast_possible_truncation)] // result is always 0–100 so truncation to u8 is safe
     pub fn participation_pct(&self) -> u8 {
         if self.total_weight.as_u64() == 0 { 0 }
         else { (self.participated_weight.as_u64() * 100 / self.total_weight.as_u64()) as u8 }

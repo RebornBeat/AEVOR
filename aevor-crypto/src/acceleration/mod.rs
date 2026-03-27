@@ -1,18 +1,19 @@
-//! Hardware acceleration detection and dispatch for x86_64 (AES-NI, AVX2, SHA),
-//! AArch64 (NEON, ARM Crypto), and RISC-V (Vector Extensions).
+//! Hardware acceleration detection and dispatch for `x86_64` (AES-NI, AVX2, SHA),
+//! `AArch64` (NEON, ARM Crypto), and RISC-V (Vector Extensions).
 
 /// Architecture-specific acceleration capability flags.
+#[allow(clippy::struct_excessive_bools)] // These are distinct ISA feature flags, not a state machine
 #[derive(Clone, Debug, Default)]
 pub struct AccelerationCapabilities {
-    /// AES-NI hardware AES instructions (x86_64).
+    /// AES-NI hardware AES instructions (`x86_64`).
     pub aes_ni: bool,
-    /// AVX2 256-bit SIMD (x86_64).
+    /// AVX2 256-bit SIMD (`x86_64`).
     pub avx2: bool,
-    /// SHA Extensions (x86_64).
+    /// SHA Extensions (`x86_64`).
     pub sha_extensions: bool,
-    /// ARM NEON SIMD (AArch64).
+    /// ARM NEON SIMD (`AArch64`).
     pub neon: bool,
-    /// ARM Crypto Extensions (AArch64).
+    /// ARM Crypto Extensions (`AArch64`).
     pub arm_crypto: bool,
     /// RISC-V Vector Extension.
     pub riscv_v: bool,
@@ -42,7 +43,7 @@ impl AccelerationCapabilities {
             || self.neon || self.arm_crypto || self.riscv_v
     }
 
-    /// Whether to prefer AES-GCM over ChaCha20 (AES-NI makes AES faster).
+    /// Whether to prefer AES-GCM over `ChaCha20` (AES-NI makes AES faster).
     pub fn prefer_aes(&self) -> bool {
         self.aes_ni || self.arm_crypto
     }
@@ -65,5 +66,20 @@ mod tests {
         let caps = AccelerationCapabilities::detect();
         // Just verifying detection runs without panic on CI
         let _ = caps.has_any();
+    }
+
+    #[test]
+    fn prefer_aes_reflects_aes_ni() {
+        let caps_with = AccelerationCapabilities { aes_ni: true, ..Default::default() };
+        assert!(caps_with.prefer_aes());
+        let caps_without = AccelerationCapabilities::default();
+        // On non-AES-NI hardware prefer_aes is false
+        assert!(!caps_without.prefer_aes());
+    }
+
+    #[test]
+    fn has_any_is_false_when_no_features() {
+        let caps = AccelerationCapabilities::default();
+        assert!(!caps.has_any());
     }
 }

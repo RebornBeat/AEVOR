@@ -125,3 +125,76 @@ impl ConflictResolution {
         Self { winner_version: winner, loser_version: loser }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::storage::{StorageKey, StorageValue, StateRoot};
+
+    fn key(n: u8) -> StorageKey { StorageKey(vec![n]) }
+    fn val(n: u8) -> StorageValue { StorageValue::from_bytes(vec![n]) }
+
+    #[test]
+    fn versioned_store_starts_at_zero() {
+        let store = VersionedObjectStore::new();
+        assert_eq!(store.current_version(), 0);
+        assert!(store.snapshot_root(0).is_none());
+    }
+
+    #[test]
+    fn advance_increments_version_and_stores_root() {
+        let mut store = VersionedObjectStore::new();
+        let new_v = store.advance(StateRoot::EMPTY, vec![]);
+        assert_eq!(new_v, 1);
+        assert_eq!(store.current_version(), 1);
+        assert!(store.snapshot_root(1).is_some());
+    }
+
+    #[test]
+    fn read_at_returns_written_value() {
+        let mut store = VersionedObjectStore::new();
+        store.advance(StateRoot::EMPTY, vec![(key(1), val(42))]);
+        assert_eq!(store.read_at(&key(1), 1).unwrap().0, vec![42]);
+        assert!(store.read_at(&key(1), 0).is_none());
+        assert!(store.read_at(&key(2), 1).is_none());
+    }
+
+    #[test]
+    fn detect_conflict_finds_differing_values() {
+        let mut store = VersionedObjectStore::new();
+        store.advance(StateRoot::EMPTY, vec![(key(1), val(10))]);
+        store.advance(StateRoot::EMPTY, vec![(key(1), val(20))]);
+        let conflict = store.detect_conflict(1, 2);
+        assert!(conflict.is_some());
+        assert_eq!(conflict.unwrap().0, vec![1]);
+    }
+
+    #[test]
+    fn detect_conflict_no_conflict_for_same_value() {
+        let mut store = VersionedObjectStore::new();
+        store.advance(StateRoot::EMPTY, vec![(key(1), val(5))]);
+        store.advance(StateRoot::EMPTY, vec![(key(1), val(5))]);
+        assert!(store.detect_conflict(1, 2).is_none());
+    }
+
+    #[test]
+    fn optimistic_lock_check_passes_when_version_matches() {
+        let lock = OptimisticLock { key: key(1), expected_version: 3 };
+        assert!(ConcurrencyControl::check_lock(&lock, 3));
+        assert!(!ConcurrencyControl::check_lock(&lock, 4));
+    }
+
+    #[test]
+    fn conflict_resolution_first_write_wins_lower_version() {
+        let r = ConflictResolution::first_write_wins(5, 3);
+        assert_eq!(r.winner_version, 3);
+        assert_eq!(r.loser_version, 5);
+    }
+
+    #[test]
+    fn conflict_resolution_same_version_both_same() {
+        let r = ConflictResolution::first_write_wins(2, 2);
+        assert_eq!(r.winner_version, 2);
+        assert_eq!(r.loser_version, 2);
+    }
+}

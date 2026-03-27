@@ -86,3 +86,58 @@ impl ConflictResolver {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{Hash256, ObjectId, TransactionHash};
+    use aevor_core::execution::DependencyType;
+
+    fn tx(n: u8) -> TransactionHash { Hash256([n; 32]) }
+    fn obj(n: u8) -> ObjectId { ObjectId(Hash256([n; 32])) }
+
+    #[test]
+    fn conflict_edge_write_after_write_requires_sequential() {
+        let edge = ConflictEdge::new(tx(1), tx(2), obj(5), DependencyType::WriteAfterWrite);
+        assert!(edge.requires_sequential());
+    }
+
+    #[test]
+    fn conflict_edge_read_after_write_does_not_require_sequential() {
+        let edge = ConflictEdge::new(tx(1), tx(2), obj(5), DependencyType::ReadAfterWrite);
+        assert!(!edge.requires_sequential());
+    }
+
+    #[test]
+    fn conflict_resolver_lower_hash_wins() {
+        let resolution = ConflictResolver::resolve(ConflictType::WriteWrite, tx(5), tx(1));
+        assert_eq!(resolution.winner, tx(1));
+        assert_eq!(resolution.loser, tx(5));
+    }
+
+    #[test]
+    fn conflict_resolver_equal_hashes_first_wins() {
+        let resolution = ConflictResolver::resolve(ConflictType::ReadWrite, tx(3), tx(3));
+        assert_eq!(resolution.winner, tx(3));
+        assert_eq!(resolution.loser, tx(3));
+    }
+
+    #[test]
+    fn conflict_resolver_preserves_conflict_type() {
+        let resolution = ConflictResolver::resolve(ConflictType::WriteRead, tx(2), tx(1));
+        assert_eq!(resolution.conflict_type, ConflictType::WriteRead);
+    }
+
+    #[test]
+    fn write_write_conflict_stores_txs_and_object() {
+        let c = WriteWriteConflict { tx_a: tx(1), tx_b: tx(2), object: obj(9) };
+        assert_eq!(c.object, obj(9));
+    }
+
+    #[test]
+    fn read_write_conflict_stores_reader_and_writer() {
+        let c = ReadWriteConflict { reader: tx(1), writer: tx(2), object: obj(3) };
+        assert_eq!(c.reader, tx(1));
+        assert_eq!(c.writer, tx(2));
+    }
+}

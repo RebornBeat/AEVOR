@@ -20,6 +20,9 @@ pub fn is_available() -> bool {
 ///
 /// Returns an error if SGX is not available. In production this reads
 /// the Intel SGX TCB (Trusted Computing Base) info via the DCAP libraries.
+///
+/// # Errors
+/// Returns `TeeError::PlatformUnavailable` if the SGX driver is not loaded.
 pub fn detect_capabilities() -> TeeResult<PlatformCapabilities> {
     if !is_available() {
         return Err(TeeError::PlatformUnavailable { platform: "sgx".into() });
@@ -48,6 +51,9 @@ pub fn detect_capabilities() -> TeeResult<PlatformCapabilities> {
 ///
 /// In production calls `sgx_create_report()` or the DCAP quote generation
 /// library. Returns a simulation report when SGX is not available.
+///
+/// # Errors
+/// Returns an error if the OS entropy source fails during nonce generation.
 pub fn generate_report(user_data: &[u8]) -> TeeResult<AttestationReport> {
     use aevor_core::primitives::Hash256;
     use aevor_crypto::hash::Blake3Hasher;

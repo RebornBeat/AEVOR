@@ -1,7 +1,7 @@
 //! # AEVOR TEE: Multi-Platform Trusted Execution Environment Coordination
 //!
 //! `aevor-tee` provides the unified interface for AEVOR's TEE-as-a-Service infrastructure,
-//! coordinating secure execution across Intel SGX, AMD SEV, ARM TrustZone, RISC-V Keystone,
+//! coordinating secure execution across Intel SGX, AMD SEV, ARM `TrustZone`, RISC-V Keystone,
 //! and AWS Nitro Enclaves with behavioral consistency and anti-snooping protection.
 //!
 //! ## Design Principles
@@ -218,7 +218,7 @@ pub const SGX_MEASUREMENT_SIZE: usize = 32;
 /// AMD SEV measurement size in bytes.
 pub const SEV_MEASUREMENT_SIZE: usize = 48;
 
-/// ARM TrustZone TA UUID size in bytes.
+/// ARM `TrustZone` TA UUID size in bytes.
 pub const TRUSTZONE_UUID_SIZE: usize = 16;
 
 /// AWS Nitro attestation document maximum size in bytes.

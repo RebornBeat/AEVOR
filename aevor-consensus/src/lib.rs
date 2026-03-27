@@ -1,19 +1,19 @@
 //! # AEVOR Consensus: Proof of Uncorruption
 //!
-//! `aevor-consensus` implements AEVOR's Proof of Uncorruption (PoU) consensus mechanism,
+//! `aevor-consensus` implements AEVOR's Proof of Uncorruption (`PoU`) consensus mechanism,
 //! which provides **mathematical certainty through deterministic security** rather than
 //! probabilistic assumptions requiring multiple confirmations.
 //!
 //! ## Revolutionary Consensus Paradigm
 //!
-//! Traditional consensus mechanisms (PoW, PoS, BFT) reduce the *probability* of incorrect
-//! outcomes through economic incentives and repeated verification. PoU provides
+//! Traditional consensus mechanisms (`PoW`, `PoS`, BFT) reduce the *probability* of incorrect
+//! outcomes through economic incentives and repeated verification. `PoU` provides
 //! **mathematical proof** of execution correctness through TEE attestation, eliminating
 //! uncertainty entirely and enabling immediate finality.
 //!
 //! ## Progressive Security Levels
 //!
-//! Rather than forcing a single security/latency trade-off, PoU provides four progressive
+//! Rather than forcing a single security/latency trade-off, `PoU` provides four progressive
 //! levels that scale validator participation and confirmation time based on application needs:
 //!
 //! | Level | Validators | Latency | Use Case |
@@ -34,7 +34,7 @@
 //!
 //! ## Cross-Platform Consistency
 //!
-//! Consensus operations produce identical results across Intel SGX, AMD SEV, ARM TrustZone,
+//! Consensus operations produce identical results across Intel SGX, AMD SEV, ARM `TrustZone`,
 //! RISC-V Keystone, and AWS Nitro Enclaves through mathematical verification of execution
 //! correctness, not platform-specific synchronization.
 
@@ -245,8 +245,13 @@ pub const FULL_CONFIRMATION_MS: u64 = 1_000;
 /// Number of consensus rounds per epoch.
 pub const ROUNDS_PER_EPOCH: u64 = 1_000;
 
-/// Maximum validators that can be Byzantine before network failure (1/3 minus epsilon).
-pub const MAX_BYZANTINE_FRACTION: f64 = 0.333;
+/// Maximum validators that can be Byzantine before network failure (strictly < 1/3).
+///
+/// BFT consensus requires f < n/3 Byzantine faults. This constant is set to 0.32
+/// (slightly below 1/3 ≈ 0.333) to maintain a clear strict-less-than relationship
+/// with `STRONG_SECURITY_THRESHOLD` (0.33), ensuring the invariant:
+/// `MAX_BYZANTINE_FRACTION < STRONG_SECURITY_THRESHOLD`.
+pub const MAX_BYZANTINE_FRACTION: f64 = 0.32;
 
 /// Slashing penalty for double-signing (fraction of stake).
 pub const DOUBLE_SIGN_SLASH_FRACTION: f64 = 0.05;

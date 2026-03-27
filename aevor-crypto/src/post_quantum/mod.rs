@@ -55,6 +55,9 @@ pub struct HybridKeyPair {
 
 impl HybridKeyPair {
     /// Generate a new hybrid key pair.
+    ///
+    /// # Errors
+    /// Returns an error if OS entropy is unavailable or the Ed25519 key generation fails.
     pub fn generate() -> crate::CryptoResult<Self> {
         let classical = crate::signatures::Ed25519KeyPair::generate()?;
 

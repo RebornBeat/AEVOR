@@ -35,7 +35,7 @@ pub struct TeeExecutionPremium {
 impl TeeExecutionPremium {
     /// Apply the premium multiplier to a base gas amount.
     pub fn apply(&self, base: GasAmount) -> GasAmount {
-        GasAmount::from_u64(base.as_u64().saturating_mul(self.multiplier_pct as u64) / 100)
+        GasAmount::from_u64(base.as_u64().saturating_mul(u64::from(self.multiplier_pct)) / 100)
     }
 }
 
@@ -83,6 +83,9 @@ impl GasMeter {
     /// Deduct `amount` from the gas budget.
     ///
     /// Returns `OutOfGas` if the budget is exhausted.
+    ///
+    /// # Errors
+    /// Returns `VmError::OutOfGas` if the accumulated gas exceeds the configured limit.
     pub fn charge(&mut self, amount: GasAmount) -> crate::VmResult<()> {
         self.consumed = self.consumed.checked_add(amount)
             .ok_or(crate::VmError::OutOfGas {
@@ -111,12 +114,12 @@ impl GasMeter {
 
     /// Total fee in nAVR for the gas consumed at the configured price.
     pub fn fee(&self) -> Amount {
-        Amount::from_nano(self.consumed.as_u64() as u128 * self.price.0 as u128)
+        Amount::from_nano(u128::from(self.consumed.as_u64()) * u128::from(self.price.0))
     }
 
     /// Maximum possible fee (if all gas were consumed).
     pub fn max_fee(&self) -> Amount {
-        Amount::from_nano(self.limit.as_u64() as u128 * self.price.0 as u128)
+        Amount::from_nano(u128::from(self.limit.as_u64()) * u128::from(self.price.0))
     }
 }
 
@@ -139,7 +142,7 @@ impl GasEstimator {
 
     /// Estimate total fee given an estimated gas amount and a price.
     pub fn estimate_fee(gas: GasAmount, price: GasPrice) -> Amount {
-        Amount::from_nano(gas.as_u64() as u128 * price.0 as u128)
+        Amount::from_nano(u128::from(gas.as_u64()) * u128::from(price.0))
     }
 
     /// Estimate gas for a TEE-executed call (applies the TEE premium).

@@ -39,8 +39,8 @@ pub struct ServiceQuality {
 impl ServiceQuality {
     /// Composite quality score: higher is better.
     pub fn score(&self) -> u64 {
-        let avail = self.availability_pct as u64;
-        let lat = (1000u64).saturating_sub(self.latency_ms as u64);
+        let avail = u64::from(self.availability_pct);
+        let lat = (1000u64).saturating_sub(u64::from(self.latency_ms));
         avail * 10 + lat
     }
 }
@@ -134,6 +134,10 @@ impl TeeServiceAllocator {
     ///
     /// Selects the best provider according to `request.strategy` and returns
     /// a `TeeServiceResponse` with the allocation details.
+    ///
+    /// # Errors
+    /// Returns `TeeError::AllocationFailed` if no registered provider satisfies
+    /// the service type, memory, and price constraints of the request.
     pub fn allocate(&self, request: &TeeServiceRequest) -> TeeResult<TeeServiceResponse> {
         let provider = self.known_providers.iter()
             .find(|p| {
@@ -196,7 +200,7 @@ mod tests {
     #[test]
     fn allocator_returns_error_with_no_providers() {
         let allocator = TeeServiceAllocator::new();
-        let req = make_request(TeeServiceType::ConfidentialCompute);
+        let req = make_request(TeeServiceType::Compute);
         assert!(allocator.allocate(&req).is_err());
     }
 
@@ -204,13 +208,13 @@ mod tests {
     fn allocator_returns_handle_when_provider_matches() {
         let mut allocator = TeeServiceAllocator::new();
         allocator.register_provider(ServiceCapability {
-            service_type: TeeServiceType::ConfidentialCompute,
+            service_type: TeeServiceType::Compute,
             platform: TeePlatform::IntelSgx,
             max_memory_bytes: 128 * 1024,
             max_concurrent: 4,
             price_per_request_nano: 100,
         });
-        let req = make_request(TeeServiceType::ConfidentialCompute);
+        let req = make_request(TeeServiceType::Compute);
         let resp = allocator.allocate(&req).unwrap();
         assert!(resp.handle.is_valid(0));
     }

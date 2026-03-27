@@ -219,6 +219,7 @@ impl VersionedState {
     }
 
     /// Create a new state version by incrementing.
+    #[must_use]
     pub fn advance(&self, new_root: StateRoot, block_height: crate::primitives::BlockHeight, round: u64) -> Self {
         Self {
             version: self.version + 1,

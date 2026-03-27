@@ -113,7 +113,7 @@ impl std::fmt::Display for GeographicRegion {
 
 /// Unique identifier for a network node, derived from its public key.
 ///
-/// NodeId is derived as BLAKE3(ed25519_public_key) — stable across
+/// `NodeId` is derived as `BLAKE3(ed25519_public_key)` — stable across
 /// node restarts as long as the same keypair is used.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeId(pub Hash256);
@@ -333,11 +333,12 @@ impl NetworkTopology {
     }
 
     /// Returns the connectivity (average connections per node).
+    #[allow(clippy::cast_precision_loss)] // usize->f64 precision loss acceptable for metrics
     pub fn average_connectivity(&self) -> f64 {
         if self.nodes.is_empty() {
             return 0.0;
         }
-        let total_connections: usize = self.connections.values().map(|c| c.len()).sum();
+        let total_connections: usize = self.connections.values().map(Vec::len).sum();
         total_connections as f64 / self.nodes.len() as f64
     }
 }

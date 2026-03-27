@@ -99,6 +99,9 @@ impl LightClient {
     /// The current trusted state root.
     pub fn trusted_root(&self) -> Hash256 { self.state.trusted_root }
 
+    /// The configuration for this light client.
+    pub fn config(&self) -> &LightClientConfig { &self.config }
+
     /// Returns `true` if the client has synced at least one header.
     pub fn is_synced(&self) -> bool { self.state.is_synced() }
 
@@ -111,17 +114,92 @@ impl LightClient {
     ///
     /// In a full implementation this would validate the header's signature
     /// against the validator set before accepting it.
+    ///
+    /// # Errors
+    /// Returns an error if `new_height` is not strictly greater than the current synced height.
     pub fn advance(&mut self, new_height: u64, new_root: Hash256) -> ClientResult<()> {
         if new_height <= self.state.synced_to_height {
             return Err(crate::ClientError::InvalidResponse {
                 reason: format!(
-                    "height {} is not newer than synced height {}",
-                    new_height, self.state.synced_to_height
+                    "height {new_height} is not newer than synced height {}",
+                    self.state.synced_to_height
                 ),
             });
         }
         self.state.synced_to_height = new_height;
         self.state.trusted_root = new_root;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Hash256;
+
+    fn hash(n: u8) -> Hash256 { Hash256([n; 32]) }
+
+    #[test]
+    fn light_client_config_default_no_checkpoint() {
+        let cfg = LightClientConfig::default();
+        assert!(cfg.trusted_checkpoint.is_none());
+        assert_eq!(cfg.max_headers_to_sync, 10_000);
+    }
+
+    #[test]
+    fn header_sync_state_genesis_is_not_synced() {
+        let state = HeaderSyncState::genesis();
+        assert_eq!(state.synced_to_height, 0);
+        assert!(!state.is_synced());
+        assert_eq!(state.trusted_root, Hash256::ZERO);
+    }
+
+    #[test]
+    fn light_client_starts_unsynced() {
+        let client = LightClient::new(LightClientConfig::default());
+        assert!(!client.is_synced());
+        assert_eq!(client.sync_height(), 0);
+        assert_eq!(client.trusted_root(), Hash256::ZERO);
+    }
+
+    #[test]
+    fn light_client_with_checkpoint_uses_it_as_root() {
+        let cfg = LightClientConfig {
+            trusted_checkpoint: Some(hash(7)),
+            max_headers_to_sync: 1000,
+        };
+        let client = LightClient::new(cfg);
+        assert_eq!(client.trusted_root(), hash(7));
+    }
+
+    #[test]
+    fn light_client_advance_updates_height_and_root() {
+        let mut client = LightClient::new(LightClientConfig::default());
+        client.advance(100, hash(5)).unwrap();
+        assert_eq!(client.sync_height(), 100);
+        assert_eq!(client.trusted_root(), hash(5));
+        assert!(client.is_synced());
+    }
+
+    #[test]
+    fn light_client_advance_rejects_non_increasing_height() {
+        let mut client = LightClient::new(LightClientConfig::default());
+        client.advance(100, hash(1)).unwrap();
+        assert!(client.advance(100, hash(2)).is_err()); // same height
+        assert!(client.advance(50, hash(3)).is_err());  // lower height
+        assert_eq!(client.sync_height(), 100); // unchanged
+    }
+
+    #[test]
+    fn merkle_verified_response_is_verified_flag() {
+        let proof = aevor_core::storage::MerkleProof {
+            key: aevor_core::storage::StorageKey(vec![1]),
+            value: aevor_core::storage::StorageValue(vec![]),
+            siblings: vec![],
+            root: aevor_core::storage::MerkleRoot::EMPTY,
+            is_inclusion: false,
+        };
+        let resp = MerkleVerifiedResponse { data: vec![42], proof, verified: true };
+        assert!(resp.is_verified());
     }
 }

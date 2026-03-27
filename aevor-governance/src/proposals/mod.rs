@@ -20,6 +20,8 @@ pub struct Proposal {
     pub id: ProposalId, pub proposer: Address, pub proposal_type: ProposalType,
     pub status: ProposalStatus, pub content: ProposalContent,
     pub submitted_at: ConsensusTimestamp, pub voting_ends_at: ConsensusTimestamp,
+    /// Block height at which voting ends (used for light client verification).
+    pub voting_ends_at_height: BlockHeight,
 }
 impl Proposal {
     pub fn is_active(&self) -> bool { matches!(self.status, ProposalStatus::Active) }

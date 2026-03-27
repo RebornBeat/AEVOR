@@ -98,3 +98,70 @@ impl ClientAuth {
     /// Create JWT credentials from a token string.
     pub fn from_jwt(token: String) -> JwtAuth { JwtAuth { token } }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn api_key_valid_when_non_empty() {
+        assert!(ApiKeyAuth::new("my-secret-key").is_valid());
+        assert!(!ApiKeyAuth::new("").is_valid());
+    }
+
+    #[test]
+    fn jwt_auth_valid_when_non_empty() {
+        assert!(JwtAuth::new("header.payload.sig").is_valid());
+        assert!(!JwtAuth::new("").is_valid());
+    }
+
+    #[test]
+    fn auth_credentials_from_api_key() {
+        let creds = AuthCredentials::from_api_key("sk-123");
+        assert_eq!(creds.api_key.as_deref(), Some("sk-123"));
+        assert!(creds.jwt.is_none());
+        assert!(!creds.is_empty());
+    }
+
+    #[test]
+    fn auth_credentials_from_jwt() {
+        let creds = AuthCredentials::from_jwt("eyJ...");
+        assert!(creds.api_key.is_none());
+        assert_eq!(creds.jwt.as_deref(), Some("eyJ..."));
+        assert!(!creds.is_empty());
+    }
+
+    #[test]
+    fn auth_credentials_empty_when_both_none() {
+        let creds = AuthCredentials { api_key: None, jwt: None };
+        assert!(creds.is_empty());
+    }
+
+    #[test]
+    fn auth_token_valid_before_expiry() {
+        let token = AuthToken { token: "tok".into(), expires_at: 1_000_000 };
+        assert!(token.is_valid(999_999));
+        assert!(!token.is_valid(1_000_000)); // at expiry = expired
+        assert!(!token.is_valid(1_000_001));
+    }
+
+    #[test]
+    fn auth_token_invalid_when_empty() {
+        let token = AuthToken { token: String::new(), expires_at: u64::MAX };
+        assert!(!token.is_valid(0));
+    }
+
+    #[test]
+    fn client_auth_from_api_key() {
+        let auth = ClientAuth::from_api_key("key-abc".into());
+        assert_eq!(auth.key, "key-abc");
+        assert!(auth.is_valid());
+    }
+
+    #[test]
+    fn client_auth_from_jwt() {
+        let auth = ClientAuth::from_jwt("jwt-token".into());
+        assert_eq!(auth.token, "jwt-token");
+        assert!(auth.is_valid());
+    }
+}

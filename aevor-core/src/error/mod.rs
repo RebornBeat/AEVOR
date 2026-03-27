@@ -471,9 +471,9 @@ impl AevorError {
     pub fn is_transient(&self) -> bool {
         matches!(
             self,
-            AevorError::Network(NetworkError::ConnectionFailed { .. })
-                | AevorError::Network(NetworkError::PropagationTimeout { .. })
-                | AevorError::Consensus(ConsensusError::RoundTimeout { .. })
+            AevorError::Network(
+                NetworkError::ConnectionFailed { .. } | NetworkError::PropagationTimeout { .. }
+            ) | AevorError::Consensus(ConsensusError::RoundTimeout { .. })
         )
     }
 

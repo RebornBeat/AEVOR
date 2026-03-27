@@ -195,7 +195,7 @@ impl Transaction {
 
 /// A transaction with its cryptographic signature(s).
 ///
-/// Signature coverage: Ed25519(BLAKE3(canonical_transaction_bytes))
+/// Signature coverage: `Ed25519(BLAKE3(canonical_transaction_bytes))`
 /// using the sender's key. Additional signatures may be present for
 /// multi-sig transactions.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

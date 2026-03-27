@@ -22,6 +22,9 @@ pub struct BlsAggregateSignature {
 
 impl BlsAggregateSignature {
     /// Verify the aggregate signature against the participant public keys.
+    ///
+    /// # Errors
+    /// Returns an error if the aggregate public key assembly fails.
     pub fn verify(
         &self,
         message: &[u8],
@@ -53,7 +56,7 @@ impl BlsAggregateSignature {
         let pk_ref_slice: Vec<&blst::min_sig::PublicKey> = pk_refs.iter().collect();
         let agg_pk = AggregatePublicKey::aggregate(&pk_ref_slice, true)
             .map_err(|e| crate::CryptoError::ProofVerificationFailed {
-                system: format!("BLS aggregate key: {:?}", e),
+                system: format!("BLS aggregate key: {e:?}"),
             })?
             .to_public_key();
 
@@ -92,6 +95,10 @@ impl BlsAggregator {
     }
 
     /// Add a validator's BLS signature. Duplicate indices are silently ignored.
+    ///
+    /// # Errors
+    /// This function currently always succeeds; the `Result` type allows future
+    /// validation of signature bytes before accumulation.
     pub fn add_signature(
         &mut self,
         validator_index: usize,
@@ -106,6 +113,10 @@ impl BlsAggregator {
     }
 
     /// Aggregate all collected signatures into a single `BlsAggregateSignature`.
+    ///
+    /// # Errors
+    /// Returns an error if there are no signatures to aggregate, or if the
+    /// BLS aggregation step fails (malformed signature bytes).
     pub fn aggregate(self) -> crate::CryptoResult<BlsAggregateSignature> {
         use blst::min_sig::{AggregateSignature as BlstAgg, Signature};
 
@@ -122,7 +133,7 @@ impl BlsAggregator {
         let sig_refs: Vec<&Signature> = sigs.iter().collect();
         let agg = BlstAgg::aggregate(&sig_refs, true).map_err(|e| {
             crate::CryptoError::ProofVerificationFailed {
-                system: format!("BLS aggregation: {:?}", e),
+                system: format!("BLS aggregation: {e:?}"),
             }
         })?;
 
@@ -156,7 +167,7 @@ impl BlsBatchVerifier {
         Self { items: Vec::new() }
     }
 
-    /// Add a (message, public_key, signature) triple to the batch.
+    /// Add a (message, `public_key`, signature) triple to the batch.
     pub fn add(
         &mut self,
         message: Vec<u8>,
@@ -167,6 +178,10 @@ impl BlsBatchVerifier {
     }
 
     /// Verify all signatures in the batch. Returns `false` if any fail.
+    ///
+    /// # Errors
+    /// This function currently always returns `Ok`; the `Result` type allows
+    /// future propagation of internal BLS library errors.
     pub fn verify_all(self) -> crate::CryptoResult<bool> {
         for (msg, pk_bytes, sig_bytes) in &self.items {
             use blst::min_sig::{PublicKey, Signature};
@@ -209,7 +224,7 @@ pub struct ParticipantBitmap {
 impl ParticipantBitmap {
     /// Create a new empty bitmap for `total` validators.
     pub fn new(total: usize) -> Self {
-        let bytes = (total + 7) / 8;
+        let bytes = total.div_ceil(8);
         Self { bits: vec![0u8; bytes], total }
     }
 
@@ -234,6 +249,7 @@ impl ParticipantBitmap {
     }
 
     /// Participation fraction as a float in [0.0, 1.0].
+    #[allow(clippy::cast_precision_loss)] // usize->f64 acceptable for participation metrics
     pub fn participation_fraction(&self) -> f64 {
         if self.total == 0 { 0.0 } else { self.count() as f64 / self.total as f64 }
     }

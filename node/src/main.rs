@@ -166,8 +166,8 @@ async fn async_run_node(cli: Cli) -> NodeResult<()> {
         "Starting AEVOR node orchestration"
     );
 
-    let orchestrator = NodeOrchestrator::new(orch_config).await?;
-    let node_handle = orchestrator.start().await?;
+    let orchestrator = NodeOrchestrator::new(orch_config)?;
+    let node_handle = orchestrator.start()?;
 
     info!("AEVOR node started successfully — all subsystems operational");
     log_node_info(&node_handle);
@@ -176,7 +176,7 @@ async fn async_run_node(cli: Cli) -> NodeResult<()> {
     wait_for_shutdown(signal_rx).await;
 
     info!("Shutdown signal received — initiating graceful shutdown");
-    node_handle.shutdown().await?;
+    node_handle.shutdown()?;
 
     info!("All subsystems stopped cleanly");
     Ok(())
@@ -192,7 +192,7 @@ fn load_config(cli: &Cli) -> NodeResult<NodeConfig> {
     let config_path = cli
         .config
         .clone()
-        .unwrap_or_else(|| default_config_path());
+        .unwrap_or_else(default_config_path);
 
     if config_path.exists() {
         info!(path = %config_path.display(), "Loading configuration file");
@@ -333,5 +333,24 @@ mod tests {
     fn default_mode_is_full_when_omitted() {
         let mode = determine_mode(&None);
         assert!(matches!(mode, node::orchestrator::NodeMode::Full));
+    }
+
+    #[test]
+    fn default_config_path_ends_with_config_toml() {
+        let path = default_config_path();
+        assert!(path.to_string_lossy().ends_with("config.toml"));
+    }
+
+    #[test]
+    fn default_config_path_contains_aevor() {
+        let path = default_config_path();
+        assert!(path.to_string_lossy().contains(".aevor"));
+    }
+
+    #[test]
+    fn cli_parses_archive_mode() {
+        let args = vec!["aevor-node", "archive"];
+        let cli = Cli::parse_from(args);
+        assert!(matches!(cli.mode, Some(NodeMode::Archive { .. })));
     }
 }

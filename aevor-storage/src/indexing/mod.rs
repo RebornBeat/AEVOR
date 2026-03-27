@@ -24,7 +24,7 @@ impl OwnerIndex {
         self.0.entry(owner.0).or_default().push(id);
     }
     pub fn get(&self, owner: &Address) -> &[ObjectId] {
-        self.0.get(&owner.0).map(Vec::as_slice).unwrap_or(&[])
+        self.0.get(&owner.0).map_or(&[], Vec::as_slice)
     }
 }
 impl Default for OwnerIndex { fn default() -> Self { Self::new() } }
@@ -88,5 +88,80 @@ impl IndexManager {
     /// Retrieve all object IDs for a given owner.
     pub fn objects_for_owner(&self, owner: &aevor_core::primitives::Address) -> &[aevor_core::primitives::ObjectId] {
         self.indices.owner.get(owner)
+    }
+}
+
+impl Default for IndexManager {
+    fn default() -> Self { Self::new() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{Address, Hash256, ObjectId};
+    use aevor_core::privacy::PrivacyLevel;
+
+    fn addr(n: u8) -> Address { Address([n; 32]) }
+    fn obj(n: u8) -> ObjectId { ObjectId(Hash256([n; 32])) }
+
+    #[test]
+    fn owner_index_add_and_get() {
+        let mut idx = OwnerIndex::new();
+        idx.add(addr(1), obj(10));
+        idx.add(addr(1), obj(11));
+        let owned = idx.get(&addr(1));
+        assert_eq!(owned.len(), 2);
+        assert!(owned.contains(&obj(10)));
+        assert!(owned.contains(&obj(11)));
+    }
+
+    #[test]
+    fn owner_index_get_missing_returns_empty_slice() {
+        let idx = OwnerIndex::default();
+        assert!(idx.get(&addr(99)).is_empty());
+    }
+
+    #[test]
+    fn type_index_add_groups_by_type() {
+        let mut idx = TypeIndex::new();
+        idx.add("Coin".into(), obj(1));
+        idx.add("Coin".into(), obj(2));
+        idx.add("NFT".into(), obj(3));
+        // Internal state: 2 Coin entries, 1 NFT
+        assert_eq!(idx.0.get("Coin").unwrap().len(), 2);
+        assert_eq!(idx.0.get("NFT").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn privacy_index_groups_by_level() {
+        let mut idx = PrivacyIndex::new();
+        idx.add(PrivacyLevel::Public, obj(1));
+        idx.add(PrivacyLevel::Private, obj(2));
+        idx.add(PrivacyLevel::Public, obj(3));
+        assert_eq!(idx.0.get(&(PrivacyLevel::Public as u8)).unwrap().len(), 2);
+        assert_eq!(idx.0.get(&(PrivacyLevel::Private as u8)).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn index_manager_index_by_owner_and_retrieve() {
+        let mut mgr = IndexManager::new();
+        mgr.index_by_owner(addr(5), obj(10));
+        mgr.index_by_owner(addr(5), obj(11));
+        let owned = mgr.objects_for_owner(&addr(5));
+        assert_eq!(owned.len(), 2);
+    }
+
+    #[test]
+    fn index_manager_objects_for_unknown_owner_is_empty() {
+        let mgr = IndexManager::default();
+        assert!(mgr.objects_for_owner(&addr(42)).is_empty());
+    }
+
+    #[test]
+    fn index_manager_index_by_type() {
+        let mut mgr = IndexManager::new();
+        mgr.index_by_type("Token".into(), obj(1));
+        mgr.index_by_type("Token".into(), obj(2));
+        assert_eq!(mgr.indices().type_.0.get("Token").unwrap().len(), 2);
     }
 }

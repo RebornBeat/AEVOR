@@ -40,7 +40,12 @@ pub struct FaucetStatus {
 
 pub struct Faucet { config: FaucetConfig }
 impl Faucet {
-    pub async fn new(config: FaucetConfig) -> FaucetResult<Self> {
+    /// Create a new faucet with the given configuration.
+    ///
+    /// # Errors
+    /// Returns an error if the configured network is `"mainnet"` (faucets
+    /// are only supported on test and development networks).
+    pub fn new(config: FaucetConfig) -> FaucetResult<Self> {
         if config.network == "mainnet" {
             return Err(FaucetError::NetworkNotSupported { network: config.network.clone() });
         }

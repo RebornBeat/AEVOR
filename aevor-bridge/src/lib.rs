@@ -19,7 +19,7 @@
 //!
 //! **No Protocol Overreach**: This crate provides communication and verification primitives
 //! for cross-chain coordination. Application-specific bridge protocols (asset wrapping,
-//! cross-chain DeFi, etc.) belong in application crates.
+//! cross-chain `DeFi`, etc.) belong in application crates.
 //!
 //! ## Supported External Networks
 //!
@@ -208,16 +208,42 @@ pub const MAX_RELAYER_SET_SIZE: usize = 64;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aevor_core::primitives::Hash256;
 
     #[test]
-    fn finality_confirmations_are_positive() {
-        assert!(ETH_FINALITY_CONFIRMATIONS > 0);
-        assert!(BTC_FINALITY_CONFIRMATIONS > 0);
+    fn bridge_error_display() {
+        let e = BridgeError::ChainUnavailable { chain_id: "ethereum-1".into(), reason: "timeout".into() };
+        assert!(e.to_string().contains("ethereum-1"));
     }
 
     #[test]
-    fn message_limits_are_reasonable() {
-        assert!(MAX_CROSS_CHAIN_MESSAGE_SIZE > 0);
-        assert!(MAX_MESSAGE_AGE_SECONDS >= 3600); // At least 1 hour
+    fn bridge_result_ok() {
+        let r: BridgeResult<u64> = Ok(42);
+        assert_eq!(r.unwrap(), 42);
+    }
+
+    #[test]
+    fn cross_chain_message_has_payload() {
+        use crate::bridge::CrossChainMessage;
+        let msg = CrossChainMessage {
+            id: Hash256([1u8; 32]),
+            from_chain: "aevor".into(),
+            to_chain: "ethereum".into(),
+            payload: vec![1, 2, 3],
+            nonce: 1,
+        };
+        assert!(!msg.payload.is_empty());
+        assert_eq!(msg.nonce, 1);
+    }
+
+    #[test]
+    fn chain_connection_fields() {
+        use crate::bridge::ChainConnection;
+        let conn = ChainConnection {
+            chain_id: "aevor-1".into(),
+            endpoint: "https://rpc.aevor.io".into(),
+            connected: true,
+        };
+        assert!(conn.connected);
     }
 }

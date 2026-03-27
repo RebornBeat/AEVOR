@@ -268,7 +268,7 @@ pub struct CommitmentOpening {
 
 /// An attestation that is valid across multiple TEE platforms simultaneously.
 ///
-/// For the PoU consensus mechanism, attestations from validators on different
+/// For the `PoU` consensus mechanism, attestations from validators on different
 /// TEE hardware must be verifiable by all other validators regardless of their
 /// own TEE platform. `CrossPlatformAttestation` wraps all platform-specific
 /// attestation formats and provides a unified verification interface.

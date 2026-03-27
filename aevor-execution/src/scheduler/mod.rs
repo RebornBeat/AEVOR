@@ -48,7 +48,9 @@ impl ParallelScheduler {
     pub fn schedule(&self, txs: Vec<TransactionHash>) -> Vec<SchedulingDecision> {
         txs.into_iter().enumerate().map(|(i, tx)| SchedulingDecision {
             transaction: tx,
-            lane: ExecutionLane::new((i % self.lane_count) as u32),
+            #[allow(clippy::cast_possible_truncation)] // lane index bounded by lane_count — small value
+            lane: ExecutionLane((i % self.lane_count) as u32),
+            #[allow(clippy::cast_possible_truncation)] // scheduling priority index — small in practice
             priority: i as u32,
         }).collect()
     }

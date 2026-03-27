@@ -15,7 +15,7 @@
 //!
 //! ## Cross-Platform Consistency
 //!
-//! All configuration types serialize identically across Intel SGX, AMD SEV, ARM TrustZone,
+//! All configuration types serialize identically across Intel SGX, AMD SEV, ARM `TrustZone`,
 //! RISC-V Keystone, and AWS Nitro Enclaves, ensuring that configuration files are portable
 //! across deployment environments without modification.
 //!
@@ -138,11 +138,19 @@ impl AevorConfig {
     ///
     /// This checks structural and technical feasibility only — never
     /// organizational or policy correctness.
+    ///
+    /// # Errors
+    /// Returns an error if any subsystem configuration is structurally invalid
+    /// or internally inconsistent (e.g. reward shares don't sum to 100%).
     pub fn validate(&self) -> ConfigResult<()> {
         validation::validate_full_config(self)
     }
 
     /// Load configuration from the given sources with optional overrides.
+    ///
+    /// # Errors
+    /// Returns an error if any source cannot be read or parsed, or if the
+    /// merged configuration fails validation.
     pub fn load(sources: &[loader::ConfigSource]) -> ConfigResult<Self> {
         loader::ConfigLoader::new(sources).load()
     }

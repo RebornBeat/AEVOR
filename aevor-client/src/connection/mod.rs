@@ -62,18 +62,25 @@ impl ConnectionBuilder {
     pub fn new() -> Self { Self { config: ConnectionConfig::default() } }
 
     /// Set the endpoint URL.
+    #[must_use]
     pub fn endpoint(mut self, e: &str) -> Self { self.config.endpoint = e.to_string(); self }
 
     /// Set the request timeout in milliseconds.
+    #[must_use]
     pub fn timeout_ms(mut self, ms: u64) -> Self { self.config.timeout_ms = ms; self }
 
     /// Enable or disable TLS.
+    #[must_use]
     pub fn tls(mut self, enabled: bool) -> Self { self.config.tls = enabled; self }
 
     /// Set the connection pool size.
+    #[must_use]
     pub fn pool_size(mut self, size: usize) -> Self { self.config.pool_size = size; self }
 
     /// Build the connection. Returns an error if the endpoint URL is empty.
+    ///
+    /// # Errors
+    /// Returns an error if the endpoint URL is empty.
     pub fn build(self) -> ClientResult<AevorConnection> {
         if self.config.endpoint.is_empty() {
             return Err(crate::ClientError::ConnectionFailed {
@@ -127,4 +134,81 @@ impl AevorConnection {
     pub fn mark_disconnected(&mut self) { self.status = ConnectionStatus::Disconnected; }
     /// Returns `true` if the connection is currently live.
     pub fn is_connected(&self) -> bool { self.status == ConnectionStatus::Connected }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn connection_config_default_is_localhost() {
+        let cfg = ConnectionConfig::default();
+        assert!(cfg.endpoint.contains("localhost"));
+        assert!(!cfg.tls);
+        assert_eq!(cfg.pool_size, 10);
+    }
+
+    #[test]
+    fn builder_sets_endpoint() {
+        let conn = ConnectionBuilder::new()
+            .endpoint("http://node.aevor.io:8731")
+            .build()
+            .unwrap();
+        assert_eq!(conn.endpoint(), "http://node.aevor.io:8731");
+    }
+
+    #[test]
+    fn builder_empty_endpoint_returns_error() {
+        let result = ConnectionBuilder::new().endpoint("").build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn builder_sets_tls() {
+        let conn = ConnectionBuilder::new().tls(true).build().unwrap();
+        assert!(conn.config().tls);
+    }
+
+    #[test]
+    fn builder_sets_timeout() {
+        let conn = ConnectionBuilder::new().timeout_ms(5000).build().unwrap();
+        assert_eq!(conn.config().timeout_ms, 5000);
+    }
+
+    #[test]
+    fn builder_sets_pool_size() {
+        let conn = ConnectionBuilder::new().pool_size(25).build().unwrap();
+        assert_eq!(conn.config().pool_size, 25);
+    }
+
+    #[test]
+    fn new_connection_starts_disconnected() {
+        let conn = AevorConnection::new(ConnectionConfig::default());
+        assert_eq!(conn.status(), ConnectionStatus::Disconnected);
+        assert!(!conn.is_connected());
+    }
+
+    #[test]
+    fn mark_connected_and_disconnected() {
+        let mut conn = AevorConnection::new(ConnectionConfig::default());
+        conn.mark_connected();
+        assert!(conn.is_connected());
+        assert_eq!(conn.status(), ConnectionStatus::Connected);
+        conn.mark_disconnected();
+        assert!(!conn.is_connected());
+    }
+
+    #[test]
+    fn connection_pool_starts_empty() {
+        let pool = ConnectionPool::new(5);
+        assert!(pool.is_empty());
+        assert_eq!(pool.len(), 0);
+        assert!(!pool.is_full());
+    }
+
+    #[test]
+    fn connection_pool_full_when_at_max() {
+        let pool = ConnectionPool { connections: vec![], max_size: 0 };
+        assert!(pool.is_full());
+    }
 }

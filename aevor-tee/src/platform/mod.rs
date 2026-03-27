@@ -51,6 +51,7 @@ pub struct PlatformDetection;
 impl PlatformDetection {
     /// Query capabilities for the given platform.
     ///
+    /// # Errors
     /// Returns an error if the platform is not available on this machine.
     pub fn detect_capabilities(platform: TeePlatform) -> TeeResult<PlatformCapabilities> {
         match platform {
@@ -63,6 +64,10 @@ impl PlatformDetection {
     }
 
     /// Generate an attestation report on the given platform.
+    ///
+    /// # Errors
+    /// Returns an error if the platform is unavailable or the hardware fails
+    /// to produce an attestation (e.g. quoting service not running for SGX).
     pub fn generate_report(platform: TeePlatform, user_data: &[u8]) -> TeeResult<AttestationReport> {
         match platform {
             TeePlatform::IntelSgx     => crate::sgx::generate_report(user_data),
@@ -83,21 +88,33 @@ pub trait TeeBackend: Send + Sync {
     fn platform(&self) -> TeePlatform;
 
     /// Generate an attestation report for the given user data.
+    ///
+    /// # Errors
+    /// Returns an error if the TEE is unavailable or attestation generation fails.
     fn generate_attestation(&self, user_data: &[u8]) -> TeeResult<AttestationReport>;
 
     /// Verify an attestation report from another enclave on this platform.
+    ///
+    /// # Errors
+    /// Returns an error if the platform is unable to parse or verify the report.
     fn verify_attestation(&self, report: &AttestationReport) -> TeeResult<bool>;
 
     /// Returns `true` if this backend is available on the current hardware.
     fn is_available(&self) -> bool;
 
     /// Detected capabilities of this platform.
+    ///
+    /// # Errors
+    /// Returns an error if the platform driver is not loaded or not accessible.
     fn capabilities(&self) -> TeeResult<PlatformCapabilities>;
 
     /// Execute a closure inside an isolated enclave context.
     ///
     /// The closure runs with the platform's full isolation guarantees.
     /// Results are returned after the isolated execution completes.
+    ///
+    /// # Errors
+    /// Returns an error if the enclave cannot be created or the closure fails.
     fn execute_isolated<F, R>(&self, f: F) -> TeeResult<R>
     where
         F: FnOnce() -> TeeResult<R> + Send,

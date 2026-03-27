@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub use aevor_core::tee::AntiSnoopingLevel;
 
 /// Configuration for anti-snooping protections.
+#[allow(clippy::struct_excessive_bools)] // Each bool is a distinct independent feature flag
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AntiSnoopingConfig {
     /// The overall protection level (determines which features are mandatory).

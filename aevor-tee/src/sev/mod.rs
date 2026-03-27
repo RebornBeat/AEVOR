@@ -18,6 +18,9 @@ pub fn is_available() -> bool {
 ///
 /// Returns an error if SEV-SNP is not available. In production reads
 /// the CPUID leaf 0x8000001F for SEV/SNP feature flags.
+///
+/// # Errors
+/// Returns `TeeError::PlatformUnavailable` if the SEV guest device is absent.
 pub fn detect_capabilities() -> TeeResult<PlatformCapabilities> {
     if !is_available() {
         return Err(TeeError::PlatformUnavailable { platform: "sev".into() });
@@ -46,6 +49,9 @@ pub fn detect_capabilities() -> TeeResult<PlatformCapabilities> {
 ///
 /// In production issues `SNP_GET_REPORT` ioctl via `/dev/sev-guest`
 /// to obtain a signed attestation document with VM measurement (MEASUREMENT).
+///
+/// # Errors
+/// Returns an error if OS entropy generation fails during nonce creation.
 pub fn generate_report(user_data: &[u8]) -> TeeResult<AttestationReport> {
     use aevor_core::primitives::Hash256;
     use aevor_crypto::hash::Blake3Hasher;

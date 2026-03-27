@@ -38,6 +38,7 @@ pub struct ExecutionSession {
     pub state: VmState,
 }
 
+#[allow(clippy::struct_excessive_bools)] // Each bool is an independent VM capability flag
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VmCapabilities {
     pub supports_move: bool,
@@ -84,7 +85,7 @@ pub struct AevorVm {
 }
 
 impl AevorVm {
-    /// Create a new AevorVM with the given configuration.
+    /// Create a new `AevorVM` with the given configuration.
     pub fn new(config: VmConfig) -> Self {
         Self { config, registry: ContractRegistry::new() }
     }
@@ -102,4 +103,73 @@ impl AevorVm {
     }
     /// Number of deployed contracts.
     pub fn contract_count(&self) -> usize { self.registry.count() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{Address, GasAmount};
+
+    fn addr(n: u8) -> Address { Address([n; 32]) }
+
+    #[test]
+    fn vm_config_default_values() {
+        let cfg = VmConfig::default();
+        assert_eq!(cfg.max_call_depth, 64);
+        assert!(cfg.enable_jit);
+        assert!(cfg.enable_tee);
+        assert!(cfg.max_memory_bytes > 0);
+    }
+
+    #[test]
+    fn vm_capabilities_default_all_enabled() {
+        let caps = VmCapabilities::default();
+        assert!(caps.supports_move);
+        assert!(caps.supports_tee);
+        assert!(caps.supports_jit);
+        assert!(caps.supports_parallel);
+        assert!(caps.max_gas_per_tx.as_u64() > 0);
+    }
+
+    #[test]
+    fn contract_registry_register_and_get() {
+        let mut reg = ContractRegistry::new();
+        reg.register(addr(1), vec![0xDE, 0xAD]);
+        assert_eq!(reg.get(&addr(1)).unwrap(), &vec![0xDE, 0xAD]);
+        assert_eq!(reg.count(), 1);
+    }
+
+    #[test]
+    fn contract_registry_get_missing_returns_none() {
+        let reg = ContractRegistry::default();
+        assert!(reg.get(&addr(99)).is_none());
+        assert_eq!(reg.count(), 0);
+    }
+
+    #[test]
+    fn contract_registry_overwrite_on_redeploy() {
+        let mut reg = ContractRegistry::new();
+        reg.register(addr(1), vec![1]);
+        reg.register(addr(1), vec![2, 3]);
+        assert_eq!(reg.get(&addr(1)).unwrap(), &vec![2, 3]);
+        assert_eq!(reg.count(), 1); // only one entry
+    }
+
+    #[test]
+    fn aevor_vm_deploy_and_lookup() {
+        let mut vm = AevorVm::new(VmConfig::default());
+        assert_eq!(vm.contract_count(), 0);
+        vm.deploy(addr(5), vec![0xFF]);
+        assert_eq!(vm.contract_count(), 1);
+        assert_eq!(vm.lookup(&addr(5)).unwrap(), &vec![0xFF]);
+        assert!(vm.lookup(&addr(6)).is_none());
+    }
+
+    #[test]
+    fn aevor_vm_capabilities_match_default() {
+        let vm = AevorVm::new(VmConfig::default());
+        let caps = vm.capabilities();
+        assert!(caps.supports_move);
+        assert_eq!(caps.max_gas_per_tx, GasAmount::from_u64(10_000_000));
+    }
 }

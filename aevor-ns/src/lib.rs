@@ -237,4 +237,51 @@ mod tests {
         assert!(AEVOR_TEE_RECORD_TYPE >= 65_280);
         assert!(AEVOR_TEE_RECORD_TYPE <= 65_534);
     }
+
+
+    #[test]
+    fn ns_error_display() {
+        let e = NsError::DomainNotFound { domain: "example.aevor".into() };
+        assert!(e.to_string().contains("example.aevor"));
+    }
+
+    #[test]
+    fn dns_message_query_is_not_response() {
+        use crate::protocol::DnsMessage;
+        let msg = DnsMessage::query(1, vec!["example.aevor".into()]);
+        assert!(!msg.is_response);
+        assert_eq!(msg.id, 1);
+    }
+
+    #[test]
+    fn dns_message_nxdomain_is_response() {
+        use crate::protocol::DnsMessage;
+        let query = DnsMessage::query(42, vec!["notfound.aevor".into()]);
+        let nx = DnsMessage::nxdomain(&query);
+        assert!(nx.is_response);
+        assert_eq!(nx.id, 42);
+        assert!(!nx.is_success());
+    }
+
+    #[test]
+    fn cache_starts_empty() {
+        use crate::cache::ResponseCache;
+        let cache = ResponseCache::new();
+        assert_eq!(cache.stats().hits, 0);
+        assert_eq!(cache.stats().entries, 0);
+    }
+
+    #[test]
+    fn cache_hit_rate_zero_when_empty() {
+        use crate::cache::{DnsCache};
+        let stats = DnsCache::default();
+        assert_eq!(stats.hit_rate_pct(), 0.0);
+    }
+
+    #[test]
+    fn cache_hit_rate_calculation() {
+        use crate::cache::DnsCache;
+        let stats = DnsCache { hits: 3, misses: 1, entries: 4 };
+        assert_eq!(stats.hit_rate_pct(), 75.0);
+    }
 }

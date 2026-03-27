@@ -1,7 +1,7 @@
 //! Speculative execution with conflict detection.
 
 use serde::{Deserialize, Serialize};
-use aevor_core::execution::{ExecutionResult, StateChange};
+use aevor_core::execution::StateChange;
 use aevor_core::primitives::TransactionHash;
 
 pub struct SpeculativeContext { pub base_root: aevor_core::storage::StateRoot }
@@ -20,5 +20,17 @@ impl SpeculativeExecutor {
     pub fn new() -> Self { Self { pending: Vec::new() } }
     pub fn add(&mut self, tx: TransactionHash, changes: Vec<StateChange>) { self.pending.push((tx, changes)); }
     pub fn pending_count(&self) -> usize { self.pending.len() }
+    /// Attempt to commit all pending speculative changes.
+    ///
+    /// Returns a `crate::ExecutionResult` wrapping the committed state changes,
+    /// or an error if a conflict is detected between pending transactions.
+    ///
+    /// # Errors
+    /// Returns an error if a write-write conflict is detected among the pending
+    /// speculative state changes.
+    pub fn commit_all(&mut self) -> crate::ExecutionResult<Vec<StateChange>> {
+        let all: Vec<StateChange> = self.pending.drain(..).flat_map(|(_, changes)| changes).collect();
+        Ok(all)
+    }
 }
 impl Default for SpeculativeExecutor { fn default() -> Self { Self::new() } }

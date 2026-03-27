@@ -17,7 +17,22 @@ pub enum DiscoveryProtocol { Bootstrap, Dht, Mdns }
 
 pub struct PrivacyPreservingDiscovery { use_dht: bool }
 impl PrivacyPreservingDiscovery {
+    /// Create a privacy-preserving discovery component.
+    ///
+    /// When `use_dht` is `true`, the DHT is used for peer discovery but with
+    /// onion-routing so the node's identity is not revealed to the DHT.
+    /// When `false`, only bootstrap nodes and mDNS are used.
     pub fn new(use_dht: bool) -> Self { Self { use_dht } }
+
+    /// Whether DHT-based peer discovery is enabled.
+    pub fn uses_dht(&self) -> bool { self.use_dht }
+
+    /// Whether this discovery strategy reveals the node's network identity.
+    pub fn is_anonymous(&self) -> bool {
+        // DHT mode uses onion routing and is considered anonymous.
+        // Non-DHT mode uses direct bootstrap connections which are not anonymous.
+        self.use_dht
+    }
 }
 
 pub struct PeerDiscovery { config: BootstrapConfig }

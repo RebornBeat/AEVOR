@@ -1,8 +1,8 @@
-//! AevorVM instruction set: encoding, decoding, and gas cost lookup.
+//! `AevorVM` instruction set: encoding, decoding, and gas cost lookup.
 
 use serde::{Deserialize, Serialize};
 
-/// A single AevorVM bytecode instruction.
+/// A single `AevorVM` bytecode instruction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Instruction {
     // ── Stack ──────────────────────────────────────────────────
@@ -52,8 +52,7 @@ impl Instruction {
         match self {
             Self::Nop                          =>   0,
             Self::Pop | Self::Ld(_)            =>   1,
-            Self::St                           =>   3,
-            Self::Add | Self::Sub              =>   3,
+            Self::St | Self::Add | Self::Sub   =>   3,
             Self::Mul                          =>   5,
             Self::Div                          =>   8,
             Self::Call | Self::Ret             =>  20,

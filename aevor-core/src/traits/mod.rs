@@ -22,6 +22,9 @@ pub trait MathematicallyVerifiable {
     ///
     /// Returns `Ok(())` if verification passes, `Err(...)` with a descriptive
     /// error if any aspect of the proof is invalid.
+    ///
+    /// # Errors
+    /// Returns an error if any part of the cryptographic proof fails to verify.
     fn verify_mathematically(&self) -> AevorResult<()>;
 
     /// Returns `true` if verification would succeed without actually running it.
@@ -43,6 +46,9 @@ pub trait MathematicallyVerifiable {
 /// `MathematicallyVerifiable` checks cryptographic proof validity.
 pub trait Verifiable {
     /// Verify structural validity of this value.
+    ///
+    /// # Errors
+    /// Returns an error if any field is out of bounds or required data is missing.
     fn verify(&self) -> AevorResult<()>;
 
     /// Returns `true` if the value is structurally valid.
@@ -62,9 +68,15 @@ pub trait Verifiable {
 /// requirements they impose.
 pub trait TeeCompatible {
     /// Serialize this value for transmission through a TEE secure channel.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be serialized to the TEE wire format.
     fn to_tee_bytes(&self) -> AevorResult<Vec<u8>>;
 
     /// Deserialize from TEE secure channel bytes.
+    ///
+    /// # Errors
+    /// Returns an error if the bytes are malformed or represent an incompatible version.
     fn from_tee_bytes(bytes: &[u8]) -> AevorResult<Self>
     where
         Self: Sized;
@@ -179,9 +191,15 @@ pub trait Attestable {
     ///
     /// The commitment is suitable for inclusion in a TEE attestation report's
     /// user data field, binding this value to the TEE execution.
+    ///
+    /// # Errors
+    /// Returns an error if the TEE is unavailable or commitment generation fails.
     fn attestation_commitment(&self) -> AevorResult<Hash256>;
 
     /// Verify an attestation commitment matches this value.
+    ///
+    /// # Errors
+    /// Returns an error if commitment recomputation fails.
     fn verify_attestation_commitment(&self, commitment: &Hash256) -> AevorResult<bool> {
         Ok(&self.attestation_commitment()? == commitment)
     }
@@ -197,9 +215,15 @@ pub trait Attestable {
 /// Commitments can be opened later to prove the original value.
 pub trait Committable {
     /// Create a binding, hiding commitment to this value.
+    ///
+    /// # Errors
+    /// Returns an error if the commitment scheme fails (e.g. hash function error).
     fn commit(&self, randomness: &[u8; 32]) -> AevorResult<Hash256>;
 
     /// Verify that a commitment was created from this value.
+    ///
+    /// # Errors
+    /// Returns an error if verification computation fails.
     fn verify_commitment(&self, commitment: &Hash256, randomness: &[u8; 32]) -> AevorResult<bool>;
 }
 
@@ -216,9 +240,15 @@ pub trait Executable {
     type Context;
 
     /// Execute this operation in the given context.
+    ///
+    /// # Errors
+    /// Returns an error if execution fails (gas exhausted, VM fault, TEE error).
     fn execute(&self, ctx: &Self::Context) -> AevorResult<Self::Output>;
 
     /// Estimate the gas cost of executing this operation without executing it.
+    ///
+    /// # Errors
+    /// Returns an error if gas estimation is not possible for this operation.
     fn estimate_gas(&self) -> AevorResult<crate::primitives::GasAmount>;
 }
 
@@ -264,14 +294,23 @@ pub enum ComplexityClass {
 /// across all platforms, languages, and time.
 pub trait Serializable {
     /// Serialize to canonical bytes.
+    ///
+    /// # Errors
+    /// Returns an error if the value cannot be encoded (e.g. contains non-serializable data).
     fn to_canonical_bytes(&self) -> AevorResult<Vec<u8>>;
 
     /// Deserialize from canonical bytes.
+    ///
+    /// # Errors
+    /// Returns an error if the bytes are malformed, truncated, or incompatible.
     fn from_canonical_bytes(bytes: &[u8]) -> AevorResult<Self>
     where
         Self: Sized;
 
     /// Compute the canonical hash (BLAKE3 of canonical bytes).
+    ///
+    /// # Errors
+    /// Returns an error if serialization fails (same conditions as `to_canonical_bytes`).
     fn canonical_hash(&self) -> AevorResult<Hash256> {
         let bytes = self.to_canonical_bytes()?;
         Ok(Hash256(*blake3::hash(&bytes).as_bytes()))
@@ -285,9 +324,15 @@ pub trait Serializable {
 /// Implemented by types that can read and write the blockchain state.
 pub trait StateAccessible {
     /// Read a value from storage by key.
+    ///
+    /// # Errors
+    /// Returns an error if the storage backend fails or the key is inaccessible.
     fn read_state(&self, key: &crate::storage::StorageKey) -> AevorResult<crate::storage::StorageValue>;
 
     /// Write a value to storage.
+    ///
+    /// # Errors
+    /// Returns an error if the storage backend fails or the write is rejected.
     fn write_state(
         &mut self,
         key: crate::storage::StorageKey,
@@ -295,6 +340,9 @@ pub trait StateAccessible {
     ) -> AevorResult<()>;
 
     /// Delete a value from storage.
+    ///
+    /// # Errors
+    /// Returns an error if the storage backend fails.
     fn delete_state(&mut self, key: &crate::storage::StorageKey) -> AevorResult<()>;
 }
 
@@ -321,14 +369,17 @@ pub trait NetworkPropagatable: Serializable {
 // ============================================================
 
 /// Implemented by computations that must produce identical results on all
-/// TEE platforms (SGX, SEV, TrustZone, Keystone, Nitro).
+/// TEE platforms (SGX, SEV, `TrustZone`, Keystone, Nitro).
 ///
-/// Cross-platform consistency is fundamental to the PoU consensus mechanism —
+/// Cross-platform consistency is fundamental to the `PoU` consensus mechanism —
 /// if validators on different TEE hardware reach different results for the
 /// same computation, the system cannot achieve mathematical certainty.
 pub trait CrossPlatformConsistent {
     /// Verify that this computation would produce the same result on all
     /// supported TEE platforms.
+    ///
+    /// # Errors
+    /// Returns an error if cross-platform verification fails or is unavailable.
     fn verify_cross_platform_consistency(&self) -> AevorResult<()>;
 
     /// The expected computation hash that all platforms should agree on.

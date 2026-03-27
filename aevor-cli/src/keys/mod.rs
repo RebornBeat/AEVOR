@@ -15,7 +15,11 @@ pub struct KeyInfo { pub algorithm: String, pub public_key: String, pub address:
 #[derive(Debug, Subcommand)]
 pub enum KeysCommand { Generate(GenerateArgs), Import(ImportArgs), Export(ExportArgs), List }
 impl KeysCommand {
-    pub async fn run(&self, _ctx: &CliContext, _output: &OutputWriter) -> CliResult<()> {
+    /// Execute this key management command.
+    ///
+    /// # Errors
+    /// Returns an error if key generation, import, or export fails.
+    pub fn run(&self, _ctx: &CliContext, _output: &OutputWriter) -> CliResult<()> {
         println!("keys command");
         Ok(())
     }

@@ -15,7 +15,11 @@ pub struct TeeStatusDisplay { pub platform: String, pub available: bool, pub is_
 #[derive(Debug, Subcommand)]
 pub enum TeeCommand { Detect(DetectArgs), Attest(AttestArgs), Configure(ConfigureArgs), Status }
 impl TeeCommand {
-    pub async fn run(&self, _ctx: &CliContext, _output: &OutputWriter) -> CliResult<()> {
+    /// Execute this TEE command.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying TEE operation fails.
+    pub fn run(&self, _ctx: &CliContext, _output: &OutputWriter) -> CliResult<()> {
         println!("tee command");
         Ok(())
     }

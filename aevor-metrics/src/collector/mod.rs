@@ -20,6 +20,8 @@ pub struct RetentionPolicy { pub duration_hours: u64, pub downsample_after_hours
 pub struct MetricsCollector { series: Vec<MetricSeries>, config: CollectorConfig }
 impl MetricsCollector {
     pub fn new(config: CollectorConfig) -> Self { Self { series: Vec::new(), config } }
+    pub fn config(&self) -> &CollectorConfig { &self.config }
+    pub fn sampling_interval_ms(&self) -> u64 { self.config.sampling_interval_ms }
     pub fn record(&mut self, point: MetricPoint) {
         if let Some(s) = self.series.iter_mut().find(|s| s.name == point.name) {
             s.points.push(point);

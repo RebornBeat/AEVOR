@@ -19,7 +19,7 @@
 //! intelligence subscriptions, no third-party dependencies.
 //!
 //! **Cross-Platform Consistency**: Identical security guarantees across Intel SGX,
-//! AMD SEV, ARM TrustZone, RISC-V Keystone, and AWS Nitro Enclaves through behavioral
+//! AMD SEV, ARM `TrustZone`, RISC-V Keystone, and AWS Nitro Enclaves through behavioral
 //! standardization and cross-platform verification protocols.
 //!
 //! ## Scope
@@ -162,10 +162,10 @@ pub enum SecurityError {
         reason: String,
     },
 
-    /// DDoS attack threshold exceeded.
+    /// `DDoS` attack threshold exceeded.
     #[error("DDoS threshold exceeded: {attack_type}")]
     DdosThresholdExceeded {
-        /// Type of DDoS attack detected.
+        /// Type of `DDoS` attack detected.
         attack_type: String,
     },
 
@@ -176,6 +176,16 @@ pub enum SecurityError {
         policy: String,
         /// Description of the violation.
         description: String,
+    },
+
+    /// Cryptographic signature verification failed.
+    ///
+    /// Raised when a validator's signature over an attestation, proposal, or
+    /// vote cannot be verified against their registered public key.
+    #[error("invalid signature: {reason}")]
+    InvalidSignature {
+        /// Reason for signature failure (e.g. "key mismatch", "malformed").
+        reason: String,
     },
 }
 
@@ -195,7 +205,7 @@ pub const AUTH_RATE_LIMIT_WINDOW_SECONDS: u64 = 60;
 /// Minimum cross-platform consistency score (0.0–1.0).
 pub const MIN_CROSS_PLATFORM_CONSISTENCY_SCORE: f64 = 0.999;
 
-/// DDoS connection rate threshold (connections per second per IP).
+/// `DDoS` connection rate threshold (connections per second per IP).
 pub const DDOS_CONNECTION_RATE_THRESHOLD: u64 = 100;
 
 /// Maximum audit log entries before rotation.
@@ -219,5 +229,58 @@ mod tests {
     fn auth_rate_limit_values_are_reasonable() {
         assert!(MAX_AUTH_FAILURES_BEFORE_THROTTLE >= 3);
         assert!(AUTH_RATE_LIMIT_WINDOW_SECONDS >= 30);
+    }
+
+
+    #[test]
+    fn security_error_formats() {
+        let e = SecurityError::InvalidSignature { reason: "bad key".into() };
+        assert!(e.to_string().contains("bad key"));
+
+        let e2 = SecurityError::InvalidSlashingEvidence { reason: "missing proof".into() };
+        assert!(e2.to_string().contains("missing proof"));
+    }
+
+    #[test]
+    fn slashing_evidence_type_variants_exist() {
+        use aevor_consensus::slashing::SlashingEvidenceType;
+        let _ = SlashingEvidenceType::DoubleSign;
+        let _ = SlashingEvidenceType::Liveness;
+    }
+
+    #[test]
+    fn byzantine_report_coordinated_when_many_faults() {
+        use byzantine::ByzantineAnalyzer;
+        use aevor_core::consensus::{ByzantineFaultProof, ByzantineFaultType, ConsensusTimestamp};
+        use aevor_core::primitives::Hash256;
+
+        let make_fault = |n: u8| -> ByzantineFaultProof {
+            ByzantineFaultProof {
+                offender: Hash256([n; 32]),
+                fault_type: ByzantineFaultType::Equivocation,
+                evidence_a: vec![n],
+                evidence_b: Some(vec![n + 1]),
+                timestamp: ConsensusTimestamp::GENESIS,
+            }
+        };
+
+        // 0 faults → not coordinated
+        let report = ByzantineAnalyzer::analyze(&[]);
+        assert!(!report.is_coordinated_attack);
+
+        // 3+ faults from distinct validators → coordinated
+        let faults = [make_fault(1), make_fault(2), make_fault(3)];
+        let report3 = ByzantineAnalyzer::analyze(&faults);
+        assert!(report3.is_coordinated_attack);
+        assert_eq!(report3.affected_validators.len(), 3);
+    }
+
+    #[test]
+    fn network_security_monitor_reports_status() {
+        use network_security::NetworkSecurityMonitor;
+        let monitor = NetworkSecurityMonitor::new(100, aevor_core::primitives::Amount::ZERO, 8);
+        let status = monitor.status(100, 10);
+        // Status should always return a valid value
+        let _ = status;
     }
 }

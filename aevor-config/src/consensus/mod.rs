@@ -170,3 +170,57 @@ impl Default for AttestationConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::consensus::SecurityLevel;
+
+    #[test]
+    fn consensus_config_default_validators() {
+        let cfg = ConsensusConfig::default();
+        assert_eq!(cfg.max_validators, 256);
+        assert_eq!(cfg.blocks_per_epoch, 10_000);
+        assert!(cfg.min_validator_stake > 0);
+    }
+
+    #[test]
+    fn security_level_config_default_levels() {
+        let cfg = SecurityLevelConfig::default();
+        assert_eq!(cfg.default_level, SecurityLevel::Basic);
+        assert_eq!(cfg.governance_level, SecurityLevel::Full);
+        assert!(cfg.allow_custom_levels);
+    }
+
+    #[test]
+    fn validator_set_config_default_unbonding() {
+        let cfg = ValidatorSetConfig::default();
+        assert_eq!(cfg.unbonding_epochs, 14);
+        assert!(cfg.dynamic_set);
+        assert!(cfg.stake_weighted);
+    }
+
+    #[test]
+    fn finality_timeouts_are_ordered() {
+        let cfg = FinalityConfig::default();
+        assert!(cfg.minimal_timeout_ms < cfg.basic_timeout_ms);
+        assert!(cfg.basic_timeout_ms < cfg.strong_timeout_ms);
+        assert!(cfg.strong_timeout_ms <= cfg.full_timeout_ms);
+    }
+
+    #[test]
+    fn round_timing_config_proposal_less_than_round() {
+        let cfg = RoundTimingConfig::default();
+        assert!(cfg.proposal_timeout_ms < cfg.round_timeout_ms);
+        assert!(cfg.vote_timeout_ms <= cfg.round_timeout_ms);
+    }
+
+    #[test]
+    fn attestation_config_default_is_required_and_parallel() {
+        let cfg = AttestationConfig::default();
+        assert!(cfg.required_for_finality);
+        assert!(cfg.parallel_collection);
+        assert!(cfg.aggregate_attestations);
+        assert!(cfg.min_attestations >= 1);
+    }
+}

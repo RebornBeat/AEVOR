@@ -21,9 +21,20 @@ pub struct ByzantineReport {
 
 pub struct CoordinatedAttackDetector { window_rounds: u64 }
 impl CoordinatedAttackDetector {
+    /// Create a detector that looks for coordination within `window_rounds` rounds.
     pub fn new(window_rounds: u64) -> Self { Self { window_rounds } }
+
+    /// The round window within which faults are considered potentially coordinated.
+    pub fn window_rounds(&self) -> u64 { self.window_rounds }
+
+    /// Returns `true` if the fault set suggests a coordinated attack.
+    ///
+    /// Uses the `window_rounds` threshold to determine how many distinct faults
+    /// constitute evidence of coordination: more rounds inspected = lower threshold.
     pub fn is_coordinated(&self, faults: &[ExtendedByzantineEvidence]) -> bool {
-        faults.len() >= 3
+        // Larger windows give adversaries more time to coordinate — require fewer faults.
+        let threshold = if self.window_rounds >= 100 { 2 } else { 3 };
+        faults.len() >= threshold
     }
 }
 

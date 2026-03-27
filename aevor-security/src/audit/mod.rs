@@ -26,7 +26,7 @@ impl ImmutableAuditTrail {
     pub fn entry_count(&self) -> usize { self.entries.len() }
     pub fn query(&self, q: &AuditQuery) -> Vec<&AuditEntry> {
         self.entries.iter()
-            .filter(|e| q.event_type.as_deref().map(|t| e.event_type == t).unwrap_or(true))
+            .filter(|e| q.event_type.as_deref().is_none_or(|t| e.event_type == t))
             .take(q.limit)
             .collect()
     }

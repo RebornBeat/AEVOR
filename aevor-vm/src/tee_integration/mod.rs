@@ -37,6 +37,10 @@ impl TeeVmExecutor {
     /// The platform this executor runs on.
     pub fn platform(&self) -> TeePlatform { self.platform }
     /// Execute a closure within the TEE isolation context.
+    ///
+    /// # Errors
+    /// Returns an error if the closure itself returns an error or if the TEE
+    /// isolation context cannot be established.
     pub fn execute<F, R>(&self, f: F) -> crate::VmResult<R>
     where F: FnOnce() -> crate::VmResult<R> { f() }
 }

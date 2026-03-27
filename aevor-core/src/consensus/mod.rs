@@ -33,11 +33,11 @@ pub enum SecurityLevel {
     Basic = 1,
 
     /// >33% of validators, 500–800ms confirmation (Byzantine fault tolerant).
-    /// Use for: high-value transactions, enterprise operations.
+    /// > Use for: high-value transactions, enterprise operations.
     Strong = 2,
 
     /// >67% of validators, <1s confirmation.
-    /// Use for: critical operations, large financial transfers.
+    /// > Use for: critical operations, large financial transfers.
     Full = 3,
 }
 
@@ -266,6 +266,7 @@ pub struct ValidatorSet {
 
 impl ValidatorSet {
     /// Compute the fraction of total weight held by a set of validators.
+    #[allow(clippy::cast_precision_loss)] // f64 precision is sufficient for quorum ratios
     pub fn participation_fraction(&self, validators: &[ValidatorId]) -> f64 {
         if self.total_weight.as_u64() == 0 {
             return 0.0;
@@ -330,7 +331,7 @@ pub enum TeeAttestationPlatform {
     IntelSgx,
     /// AMD Secure Encrypted Virtualization.
     AmdSev,
-    /// ARM TrustZone.
+    /// ARM `TrustZone`.
     ArmTrustZone,
     /// RISC-V Keystone.
     RiscvKeystone,
@@ -388,7 +389,7 @@ pub struct ExecutionAttestation {
 // PROOF TYPES
 // ============================================================
 
-/// Mathematical certainty — the result of successful PoU consensus.
+/// Mathematical certainty — the result of successful `PoU` consensus.
 ///
 /// Provides cryptographic proof that a transaction or block has been
 /// finalized with mathematical certainty through TEE attestation.
@@ -478,7 +479,7 @@ pub struct ByzantineFaultProof {
     pub timestamp: ConsensusTimestamp,
 }
 
-/// Types of Byzantine faults detectable by PoU.
+/// Types of Byzantine faults detectable by `PoU`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ByzantineFaultType {
     /// Validator signed two different blocks at the same height.

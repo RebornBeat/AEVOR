@@ -1,7 +1,7 @@
 //! Hardware acceleration integration: cryptographic offload per TEE platform.
 //!
 //! Each TEE platform can leverage platform-specific crypto acceleration
-//! (AES-NI on x86_64, ARM Crypto Extensions on AArch64) to improve
+//! (AES-NI on `x86_64`, ARM Crypto Extensions on `AArch64`) to improve
 //! throughput without sacrificing the security guarantees of the enclave.
 
 use aevor_core::tee::TeePlatform;
@@ -9,8 +9,8 @@ use aevor_core::tee::TeePlatform;
 /// Returns `true` if the given TEE platform has hardware crypto acceleration
 /// available on the current CPU.
 ///
-/// This performs a runtime CPU feature check. For SGX on x86_64 it checks
-/// for AES-NI; for TrustZone on AArch64 it checks for ARM Crypto Extensions.
+/// This performs a runtime CPU feature check. For SGX on `x86_64` it checks
+/// for AES-NI; for `TrustZone` on `AArch64` it checks for ARM Crypto Extensions.
 pub fn has_crypto_acceleration(platform: TeePlatform) -> bool {
     match platform {
         TeePlatform::IntelSgx => {
@@ -86,9 +86,9 @@ impl PlatformAcceleration {
 
     /// Returns the preferred cipher given available acceleration.
     ///
-    /// If AES hardware is available, prefers AES-256-GCM over ChaCha20-Poly1305
+    /// If AES hardware is available, prefers AES-256-GCM over `ChaCha20`-Poly1305
     /// since AES-NI makes it significantly faster. Without hardware AES,
-    /// ChaCha20 is preferred as it has no timing side-channels in software.
+    /// `ChaCha20` is preferred as it has no timing side-channels in software.
     pub fn preferred_cipher(&self) -> &'static str {
         if self.aes_hardware { "aes-256-gcm" } else { "chacha20-poly1305" }
     }

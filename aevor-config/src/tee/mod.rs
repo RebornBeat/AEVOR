@@ -127,3 +127,68 @@ pub struct TeeServiceConfig {
     /// Price per request in nanoAEVOR.
     pub price_per_request: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::tee::{TeePlatform, TeeServiceType};
+
+    #[test]
+    fn tee_config_default_required_for_validator_not_fail_if_unavailable() {
+        let cfg = TeeConfig::default();
+        assert!(cfg.required_for_validator);
+        assert!(!cfg.fail_if_unavailable);
+        assert!(cfg.services.is_empty());
+        assert_eq!(cfg.platform_preference, PlatformPreference::Auto);
+    }
+
+    #[test]
+    fn platform_preference_default_is_auto() {
+        let p = PlatformPreference::default();
+        assert_eq!(p, PlatformPreference::Auto);
+    }
+
+    #[test]
+    fn platform_preference_prefer_stores_platform() {
+        let p = PlatformPreference::Prefer(TeePlatform::IntelSgx);
+        assert_eq!(p, PlatformPreference::Prefer(TeePlatform::IntelSgx));
+        assert_ne!(p, PlatformPreference::Auto);
+    }
+
+    #[test]
+    fn attestation_config_default_is_local_no_production() {
+        let cfg = TeeAttestationConfig::default();
+        assert_eq!(cfg.mode, AttestationMode::Local);
+        assert!(!cfg.require_production);
+        assert!(cfg.service_url.is_none());
+        assert!(cfg.verify_peer_attestations);
+        assert_eq!(cfg.min_svn, 0);
+    }
+
+    #[test]
+    fn attestation_mode_simulation_is_not_local() {
+        assert_ne!(AttestationMode::Simulation, AttestationMode::Local);
+        assert_ne!(AttestationMode::Remote, AttestationMode::CrossPlatform);
+    }
+
+    #[test]
+    fn isolation_config_default_uses_encrypted_memory() {
+        let cfg = TeeIsolationConfig::default();
+        assert!(cfg.use_encrypted_memory);
+        assert!(cfg.max_memory_bytes > 0);
+        assert!(!cfg.timing_protection);
+    }
+
+    #[test]
+    fn tee_service_config_stores_all_fields() {
+        let svc = TeeServiceConfig {
+            service_type: TeeServiceType::Compute,
+            max_concurrent: 8,
+            memory_bytes: 64 * 1024 * 1024,
+            price_per_request: 1_000_000,
+        };
+        assert!(matches!(svc.service_type, TeeServiceType::Compute));
+        assert_eq!(svc.max_concurrent, 8);
+        assert_eq!(svc.price_per_request, 1_000_000);
+    }
+}
