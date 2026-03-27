@@ -57,3 +57,76 @@ impl RecursiveVerifier {
         Hash256(h) == *commitment
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // proof(n) produces a 32-byte array where byte j = n.wrapping_add(j as u8).
+    // Non-uniform bytes ensure XOR accumulation never fully cancels — a single
+    // proof of this form always produces a non-zero commitment hash.
+    fn proof(n: u8) -> Vec<u8> {
+        (0u8..32).map(|j| n.wrapping_add(j)).collect()
+    }
+
+    #[test]
+    fn proof_accumulator_count_and_aggregate() {
+        let mut acc = ProofAccumulator::new();
+        acc.accumulate(proof(1));
+        acc.accumulate(proof(2));
+        assert_eq!(acc.count(), 2);
+        let agg = acc.aggregate();
+        assert_eq!(agg.count, 2);
+        assert_eq!(agg.proofs.len(), 2);
+    }
+
+    #[test]
+    fn proof_accumulator_empty_aggregate() {
+        let acc = ProofAccumulator::default();
+        let agg = acc.aggregate();
+        assert_eq!(agg.count, 0);
+        assert!(agg.proofs.is_empty());
+    }
+
+    #[test]
+    fn recursive_prover_aggregate_returns_commitment() {
+        let proofs = vec![proof(1), proof(2)];
+        let (agg, commitment) = RecursiveProver::aggregate(&proofs);
+        assert_eq!(agg.count, 2);
+        assert_ne!(commitment, Hash256::ZERO);
+    }
+
+    #[test]
+    fn recursive_prover_empty_set_produces_zero_commitment() {
+        let (agg, commitment) = RecursiveProver::aggregate(&[]);
+        assert_eq!(agg.count, 0);
+        assert_eq!(commitment, Hash256::ZERO);
+    }
+
+    #[test]
+    fn recursive_verifier_accepts_nonempty_aggregated_proof() {
+        let proofs = vec![proof(1)];
+        let (agg, _) = RecursiveProver::aggregate(&proofs);
+        assert!(RecursiveVerifier::verify(&agg));
+    }
+
+    #[test]
+    fn recursive_verifier_rejects_empty_proof_set() {
+        let agg = AggregatedProof { proofs: vec![], aggregate: vec![], count: 0 };
+        assert!(!RecursiveVerifier::verify(&agg));
+    }
+
+    #[test]
+    fn verify_with_commitment_roundtrip() {
+        let proofs = vec![proof(5), proof(6)];
+        let (agg, commitment) = RecursiveProver::aggregate(&proofs);
+        assert!(RecursiveVerifier::verify_with_commitment(&agg, &commitment));
+    }
+
+    #[test]
+    fn verify_with_commitment_rejects_wrong_commitment() {
+        let proofs = vec![proof(1)];
+        let (agg, _) = RecursiveProver::aggregate(&proofs);
+        assert!(!RecursiveVerifier::verify_with_commitment(&agg, &Hash256([0xFF; 32])));
+    }
+}

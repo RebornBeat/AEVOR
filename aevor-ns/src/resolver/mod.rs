@@ -60,3 +60,85 @@ impl DnsResolver {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── ResolverConfig ──────────────────────────────────────────
+
+    #[test]
+    fn resolver_config_default_upstream_and_dnssec() {
+        let cfg = ResolverConfig::default();
+        assert_eq!(cfg.upstream, vec!["8.8.8.8"]);
+        assert!(cfg.enable_dnssec);
+        assert_eq!(cfg.cache_ttl, 300);
+    }
+
+    // ── RecursiveResolver ───────────────────────────────────────
+
+    #[test]
+    fn recursive_resolver_stores_config() {
+        let cfg = ResolverConfig { upstream: vec!["1.1.1.1".into()], cache_ttl: 60, enable_dnssec: false };
+        let r = RecursiveResolver::new(cfg);
+        assert_eq!(r.upstream_servers(), &["1.1.1.1"]);
+        assert!(!r.config().enable_dnssec);
+    }
+
+    #[test]
+    fn recursive_resolver_resolve_returns_ok() {
+        let r = RecursiveResolver::new(ResolverConfig::default());
+        let result = r.resolve("example.com").unwrap();
+        assert_eq!(result.name, "example.com");
+        assert!(!result.authenticated); // stub always returns false
+    }
+
+    // ── AuthoritativeResolver ───────────────────────────────────
+
+    #[test]
+    fn authoritative_resolver_add_zone_and_check() {
+        let mut r = AuthoritativeResolver::new();
+        r.add_zone(".aevor".into());
+        assert!(r.is_authoritative("node1.aevor"));
+        assert!(r.is_authoritative("sub.node1.aevor"));
+        assert!(!r.is_authoritative("example.com"));
+    }
+
+    #[test]
+    fn authoritative_resolver_empty_is_not_authoritative() {
+        let r = AuthoritativeResolver::default();
+        assert!(!r.is_authoritative("example.com"));
+    }
+
+    // ── CachingResolver ─────────────────────────────────────────
+
+    #[test]
+    fn caching_resolver_miss_returns_none() {
+        let r = CachingResolver::new();
+        assert!(r.get("example.com").is_none());
+    }
+
+    #[test]
+    fn caching_resolver_insert_and_get() {
+        let mut r = CachingResolver::default();
+        let result = ResolveResult {
+            name: "example.com".into(),
+            records: crate::records::DnsRecordSet::new(),
+            authenticated: false,
+        };
+        r.insert("example.com".into(), result);
+        assert_eq!(r.get("example.com").unwrap().name, "example.com");
+    }
+
+    // ── DnsResolver ─────────────────────────────────────────────
+
+    #[test]
+    fn dns_resolver_first_resolve_caches_result() {
+        let mut r = DnsResolver::new(ResolverConfig::default());
+        let result = r.resolve("example.com").unwrap();
+        assert_eq!(result.name, "example.com");
+        // Second call should hit cache
+        let cached = r.resolve("example.com").unwrap();
+        assert_eq!(cached.name, "example.com");
+    }
+}

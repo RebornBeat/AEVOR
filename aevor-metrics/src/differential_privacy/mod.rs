@@ -60,3 +60,56 @@ impl LaplaceMechanism {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dp_config_consensus_defaults_moderate_epsilon() {
+        let cfg = DpConfig::consensus_defaults();
+        assert!((cfg.epsilon - 1.0).abs() < 1e-9);
+        assert!(cfg.delta > 0.0);
+        assert!((cfg.sensitivity - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn dp_config_validator_defaults_stronger_privacy() {
+        let consensus = DpConfig::consensus_defaults();
+        let validator = DpConfig::validator_defaults();
+        // Smaller epsilon = stronger privacy
+        assert!(validator.epsilon < consensus.epsilon);
+        assert!(validator.delta < consensus.delta);
+    }
+
+    #[test]
+    fn laplace_mechanism_scale_is_sensitivity_over_epsilon() {
+        let cfg = DpConfig { epsilon: 2.0, delta: 0.0, sensitivity: 4.0 };
+        let mech = LaplaceMechanism::new(cfg);
+        assert!((mech.scale() - 2.0).abs() < 1e-9); // 4.0 / 2.0
+    }
+
+    #[test]
+    fn laplace_mechanism_scale_with_epsilon_1_equals_sensitivity() {
+        let cfg = DpConfig { epsilon: 1.0, delta: 0.0, sensitivity: 5.0 };
+        let mech = LaplaceMechanism::new(cfg);
+        assert!((mech.scale() - 5.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn laplace_mechanism_apply_preserves_true_value_in_stub() {
+        let mech = LaplaceMechanism::new(DpConfig::consensus_defaults());
+        let result = mech.apply(42.5);
+        // Stub implementation: noised_value == true_value
+        assert!((result.noised_value - 42.5).abs() < 1e-9);
+        assert!((result.epsilon_consumed - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn laplace_mechanism_consumes_epsilon_from_config() {
+        let cfg = DpConfig { epsilon: 0.5, delta: 0.0, sensitivity: 1.0 };
+        let mech = LaplaceMechanism::new(cfg);
+        let result = mech.apply(100.0);
+        assert!((result.epsilon_consumed - 0.5).abs() < 1e-9);
+    }
+}

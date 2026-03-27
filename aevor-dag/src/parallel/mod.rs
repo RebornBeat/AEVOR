@@ -60,3 +60,79 @@ impl ConcurrencyEstimator {
         dag.root_entries().len().max(1)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{Hash256, TransactionHash};
+
+    fn tx(n: u8) -> TransactionHash { Hash256([n; 32]) }
+
+    #[test]
+    fn distribute_single_lane_gets_all_transactions() {
+        let txs = vec![tx(1), tx(2), tx(3)];
+        let lanes = WorkloadDistributor::distribute(&txs, 1);
+        assert_eq!(lanes.len(), 1);
+        assert_eq!(lanes[0].transactions.len(), 3);
+        assert_eq!(lanes[0].lane.id(), 0);
+    }
+
+    #[test]
+    fn distribute_even_split_across_lanes() {
+        let txs: Vec<TransactionHash> = (1..=4).map(tx).collect();
+        let lanes = WorkloadDistributor::distribute(&txs, 2);
+        assert_eq!(lanes.len(), 2);
+        assert_eq!(lanes[0].transactions.len(), 2);
+        assert_eq!(lanes[1].transactions.len(), 2);
+        assert_eq!(lanes[0].lane.id(), 0);
+        assert_eq!(lanes[1].lane.id(), 1);
+    }
+
+    #[test]
+    fn distribute_more_lanes_than_transactions() {
+        let txs = vec![tx(1), tx(2)];
+        let lanes = WorkloadDistributor::distribute(&txs, 5);
+        // Each tx goes to its own lane; only 2 lanes produced
+        assert_eq!(lanes.len(), 2);
+        for lane in &lanes {
+            assert_eq!(lane.transactions.len(), 1);
+        }
+    }
+
+    #[test]
+    fn distribute_preserves_all_transactions() {
+        let txs: Vec<TransactionHash> = (0..=9).map(tx).collect();
+        let lanes = WorkloadDistributor::distribute(&txs, 3);
+        let total: usize = lanes.iter().map(|l| l.transactions.len()).sum();
+        assert_eq!(total, 10);
+    }
+
+    #[test]
+    fn distribute_no_dependencies_initially() {
+        let txs = vec![tx(1), tx(2)];
+        let lanes = WorkloadDistributor::distribute(&txs, 2);
+        assert!(lanes.iter().all(|l| l.dependencies_on_lanes.is_empty()));
+    }
+
+    #[test]
+    fn parallelism_factor_all_parallel() {
+        // 0 serial transactions → factor = 1.0 + n/n = 2.0
+        let pf = ParallelismFactor::compute(10, 0);
+        assert_eq!(pf.parallel_transactions, 10);
+        assert!((pf.factor - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn parallelism_factor_all_serial() {
+        // All 10 serial → 0 parallel → factor = 1.0 + 0/10 = 1.0
+        let pf = ParallelismFactor::compute(10, 10);
+        assert_eq!(pf.parallel_transactions, 0);
+        assert!((pf.factor - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn parallelism_factor_zero_total_returns_one() {
+        let pf = ParallelismFactor::compute(0, 0);
+        assert!((pf.factor - 1.0).abs() < 1e-9);
+    }
+}

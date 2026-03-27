@@ -58,3 +58,82 @@ impl ExecutionPipeline {
     /// Maximum depth of nested pipeline calls.
     pub fn max_depth(&self) -> usize { self.config.max_pipeline_depth }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::execution::{ExecutionLog, ExecutionResult};
+    use aevor_core::primitives::GasAmount;
+
+    fn success_result() -> ExecutionResult {
+        ExecutionResult::success(GasAmount::from_u64(21_000), vec![], ExecutionLog::default(), vec![])
+    }
+
+    fn failure_result() -> ExecutionResult {
+        ExecutionResult::failure(GasAmount::from_u64(5_000), "revert")
+    }
+
+    // ── PipelineConfig ──────────────────────────────────────────
+
+    #[test]
+    fn pipeline_config_default_parallel_not_tee_required() {
+        let cfg = PipelineConfig::default();
+        assert!(cfg.parallel_stages);
+        assert!(!cfg.tee_required);
+        assert_eq!(cfg.max_pipeline_depth, 256);
+    }
+
+    // ── PipelineStage ───────────────────────────────────────────
+
+    #[test]
+    fn pipeline_stage_variants_are_distinct() {
+        assert_ne!(PipelineStage::Validation, PipelineStage::Execution);
+        assert_ne!(PipelineStage::GasCheck, PipelineStage::StateCommit);
+        assert_ne!(PipelineStage::TeeAttestation, PipelineStage::PrivacyVerification);
+    }
+
+    // ── PostExecutionCommit ─────────────────────────────────────
+
+    #[test]
+    fn post_execution_commit_true_for_success() {
+        assert!(PostExecutionCommit::commit(&success_result()));
+    }
+
+    #[test]
+    fn post_execution_commit_false_for_failure() {
+        assert!(!PostExecutionCommit::commit(&failure_result()));
+    }
+
+    // ── PipelineResult ──────────────────────────────────────────
+
+    #[test]
+    fn pipeline_result_stores_fields() {
+        let pr = PipelineResult {
+            stage: PipelineStage::Execution,
+            success: true,
+            duration_ms: 42,
+            execution_result: Some(success_result()),
+        };
+        assert_eq!(pr.stage, PipelineStage::Execution);
+        assert!(pr.success);
+        assert_eq!(pr.duration_ms, 42);
+        assert!(pr.execution_result.is_some());
+    }
+
+    // ── ExecutionPipeline ───────────────────────────────────────
+
+    #[test]
+    fn execution_pipeline_stage_count_is_seven() {
+        let p = ExecutionPipeline::new(PipelineConfig::default());
+        assert_eq!(p.stage_count(), 7);
+    }
+
+    #[test]
+    fn execution_pipeline_reflects_config() {
+        let cfg = PipelineConfig { parallel_stages: false, tee_required: true, max_pipeline_depth: 64 };
+        let p = ExecutionPipeline::new(cfg);
+        assert!(!p.is_parallel());
+        assert_eq!(p.max_depth(), 64);
+        assert!(p.config().tee_required);
+    }
+}

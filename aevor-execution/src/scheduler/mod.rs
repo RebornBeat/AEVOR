@@ -55,3 +55,88 @@ impl ParallelScheduler {
         }).collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{GasAmount, Hash256, TransactionHash};
+    use aevor_core::execution::ExecutionLane;
+
+    fn tx(n: u8) -> TransactionHash { Hash256([n; 32]) }
+
+    // ── ExecutionQueue ──────────────────────────────────────────
+
+    #[test]
+    fn execution_queue_push_and_pop_fifo() {
+        let mut q = ExecutionQueue::new();
+        q.push(tx(1));
+        q.push(tx(2));
+        assert_eq!(q.pop(), Some(tx(1)));
+        assert_eq!(q.pop(), Some(tx(2)));
+        assert_eq!(q.pop(), None);
+    }
+
+    #[test]
+    fn execution_queue_len_and_is_empty() {
+        let mut q = ExecutionQueue::default();
+        assert!(q.is_empty());
+        q.push(tx(1));
+        assert_eq!(q.len(), 1);
+        assert!(!q.is_empty());
+    }
+
+    // ── ResourceBudget ──────────────────────────────────────────
+
+    #[test]
+    fn resource_budget_stores_limits() {
+        let budget = ResourceBudget {
+            max_gas: GasAmount::from_u64(1_000_000),
+            max_tee_slots: 4,
+            max_memory_bytes: 256 * 1024 * 1024,
+        };
+        assert_eq!(budget.max_gas.as_u64(), 1_000_000);
+        assert_eq!(budget.max_tee_slots, 4);
+        assert_eq!(budget.max_memory_bytes, 256 * 1024 * 1024);
+    }
+
+    // ── SchedulerMetrics ─────────────────────────────────────────
+
+    #[test]
+    fn scheduler_metrics_default_is_zero() {
+        let m = SchedulerMetrics::default();
+        assert_eq!(m.total_scheduled, 0);
+        assert_eq!(m.avg_lane_utilization, 0.0);
+        assert_eq!(m.conflict_rate, 0.0);
+    }
+
+    // ── ParallelScheduler ────────────────────────────────────────
+
+    #[test]
+    fn scheduler_assigns_all_transactions() {
+        let sched = ParallelScheduler::new(4);
+        let txs: Vec<_> = (1..=8).map(tx).collect();
+        let decisions = sched.schedule(txs);
+        assert_eq!(decisions.len(), 8);
+    }
+
+    #[test]
+    fn scheduler_round_robins_lanes() {
+        let sched = ParallelScheduler::new(3);
+        let txs: Vec<_> = (0..6).map(tx).collect();
+        let decisions = sched.schedule(txs);
+        assert_eq!(decisions[0].lane, ExecutionLane(0));
+        assert_eq!(decisions[1].lane, ExecutionLane(1));
+        assert_eq!(decisions[2].lane, ExecutionLane(2));
+        assert_eq!(decisions[3].lane, ExecutionLane(0)); // wraps
+    }
+
+    #[test]
+    fn scheduler_priority_increases_with_index() {
+        let sched = ParallelScheduler::new(2);
+        let txs: Vec<_> = (0..4).map(tx).collect();
+        let d = sched.schedule(txs);
+        assert_eq!(d[0].priority, 0);
+        assert_eq!(d[1].priority, 1);
+        assert_eq!(d[2].priority, 2);
+    }
+}

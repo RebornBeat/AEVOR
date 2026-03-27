@@ -1,6 +1,6 @@
 ============================================================
   AEVOR Blockchain — Verification Suite
-  Thu Mar 26 11:04:56 PM AST 2026
+  Fri Mar 27 08:00:09 AM AST 2026
 ============================================================
 
 [0;34m[STEP 1] Environment Check[0m
@@ -41,7 +41,7 @@ RAM:   15868MB
 ------------------------------------------------------------
   .rs files:    272   (expected ≥ 270)
   Cargo.toml:   23   (expected  23)
-  Test fns:     837  (expected ≥ 270)
+  Test fns:     908  (expected ≥ 270)
   [0;32m✓ .rs count OK[0m
   [0;32m✓ Cargo.toml count OK[0m
   [0;32m✓ Test count OK[0m
@@ -49,11 +49,11 @@ RAM:   15868MB
 [0;34m[STEP 4] Workspace Type Check (cargo check)[0m
 ------------------------------------------------------------
 First run: 30-120s. Subsequent: <10s (cached).
-    Checking aevor-dag v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-dag)
-    Checking aevor-execution v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-execution)
-    Checking aevor-api v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-api)
+    Checking aevor-zk v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-zk)
+    Checking aevor-governance v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-governance)
+    Checking aevor-bridge v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-bridge)
     Checking node v0.1.0 (/home/rebornbeat/Projects/AEVOR/node)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.02s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.53s
   [0;32m✓ cargo check --workspace PASSED[0m
 
 [0;34m[STEP 5] Per-Crate Type Check[0m
@@ -101,192 +101,192 @@ First run: 30-120s. Subsequent: <10s (cached).
 running 124 tests
 test block::tests::block_header_genesis_detection ... ok
 test block::tests::block_status_finalized_detection ... ok
-test block::tests::micro_dag_conflict_detection ... ok
 test block::tests::block_status_in_progress ... ok
+test block::tests::micro_dag_conflict_detection ... ok
 test consensus::tests::consensus_timestamp_genesis_is_zero ... ok
+test block::tests::micro_dag_entry_root_detection ... ok
 test consensus::tests::consensus_timestamp_precedes ... ok
 test consensus::tests::logical_sequence_independence ... ok
 test consensus::tests::security_level_bft_threshold ... ok
-test block::tests::micro_dag_entry_root_detection ... ok
 test consensus::tests::security_level_display ... ok
 test consensus::tests::security_level_thresholds_are_ordered ... ok
-test coordination::tests::dependency_graph_empty_is_fully_independent ... ok
-test coordination::tests::parallel_coordination_all_lanes_complete ... ok
-test coordination::tests::coordination_context_participant_count ... ok
 test consensus::tests::validation_result_constructors ... ok
-test coordination::tests::sync_point_blocks_unblocked_lane_when_not_reached ... ok
+test coordination::tests::coordination_context_participant_count ... ok
 test coordination::tests::parallel_coordination_conflict_marks_dirty ... ok
+test coordination::tests::sync_point_blocks_unblocked_lane_when_not_reached ... ok
+test coordination::tests::dependency_graph_empty_is_fully_independent ... ok
 test coordination::tests::sync_point_does_not_block_after_reaching ... ok
-test crypto::tests::aggregate_signature_signer_count ... ok
-test crypto::tests::cross_platform_consistency_with_matching_measurements ... ok
+test coordination::tests::parallel_coordination_all_lanes_complete ... ok
 test crypto::tests::crypto_proof_zk_detection ... ok
 test crypto::tests::groth16_has_smallest_proof_size ... ok
+test crypto::tests::aggregate_signature_signer_count ... ok
 test crypto::tests::groth16_requires_trusted_setup ... ok
+test crypto::tests::cross_platform_consistency_with_matching_measurements ... ok
 test crypto::tests::security_claims_minimum_production ... ok
 test crypto::tests::stark_is_post_quantum ... ok
 test economics::tests::balance_credit_overflow_returns_none ... ok
 test economics::tests::balance_debit_success ... ok
 test economics::tests::balance_debit_insufficient_returns_none ... ok
-test economics::tests::fee_free_has_zero_max_fee ... ok
 test economics::tests::fee_policy_free_estimates_zero ... ok
-test economics::tests::stake_begins_inactive_when_unstaking ... ok
-test economics::tests::validator_reward_compute_total ... ok
-test error::tests::connection_failure_is_transient ... ok
-test error::tests::error_from_consensus_wraps_correctly ... ok
-test error::tests::insufficient_balance_error_displays_values ... ok
-test error::tests::internal_error_is_not_transient_and_not_security ... ok
-test error::tests::tee_integrity_violation_is_security_violation ... ok
-test execution::tests::access_tracker_delete_removes_from_writes ... ok
 test error::tests::byzantine_behavior_is_security_violation ... ok
+test economics::tests::fee_free_has_zero_max_fee ... ok
+test economics::tests::stake_begins_inactive_when_unstaking ... ok
+test error::tests::connection_failure_is_transient ... ok
+test economics::tests::validator_reward_compute_total ... ok
+test error::tests::internal_error_is_not_transient_and_not_security ... ok
+test error::tests::error_from_consensus_wraps_correctly ... ok
+test execution::tests::access_tracker_delete_removes_from_writes ... ok
+test error::tests::insufficient_balance_error_displays_values ... ok
 test execution::tests::access_tracker_read_deduplication ... ok
+test error::tests::tee_integrity_violation_is_security_violation ... ok
 test execution::tests::execution_lane_sequential_is_zero ... ok
+test execution::tests::execution_result_success_fields ... ok
 test execution::tests::execution_result_failure_fields ... ok
 test execution::tests::parallel_plan_single_lane_not_parallel ... ok
 test execution::tests::state_change_creation_detection ... ok
 test network::tests::geographic_region_all_known_excludes_unknown ... ok
 test network::tests::grpc_default_port_matches_api_constant ... ok
-test execution::tests::execution_result_success_fields ... ok
-test network::tests::geographic_region_known_flag ... ok
 test network::tests::network_protocol_default_ports_nonzero ... ok
-test network::tests::topology_metrics_needs_three_active_peers ... ok
 test network::tests::node_id_from_public_key_is_deterministic ... ok
 test network::tests::topology_empty_is_not_geographically_diverse ... ok
-test network::tests::subnet_mainnet_is_zero ... ok
+test network::tests::topology_metrics_needs_three_active_peers ... ok
 test primitives::tests::address_from_hex_and_display ... ok
-test primitives::tests::amount_checked_add_overflow_returns_none ... ok
+test network::tests::subnet_mainnet_is_zero ... ok
+test network::tests::geographic_region_known_flag ... ok
 test primitives::tests::amount_checked_sub_underflow_returns_none ... ok
 test primitives::tests::amount_display_fractional_aevor ... ok
+test primitives::tests::amount_checked_add_overflow_returns_none ... ok
+test primitives::tests::chain_id_mainnet ... ok
 test primitives::tests::amount_display_whole_aevor ... ok
 test primitives::tests::block_height_increments ... ok
 test primitives::tests::hash256_roundtrip_hex ... ok
-test primitives::tests::chain_id_mainnet ... ok
 test primitives::tests::hash256_zero_is_all_zeros ... ok
-test primitives::tests::nonce_increments ... ok
 test primitives::tests::gas_price_total_fee ... ok
+test primitives::tests::nonce_increments ... ok
 test primitives::tests::public_key_to_address_is_deterministic ... ok
+test privacy::tests::mixed_privacy_effective_level ... ok
 test primitives::tests::validator_index_ordering ... ok
 test privacy::tests::access_policy_explicit_allows_listed ... ok
 test privacy::tests::access_policy_public_allows_all ... ok
-test privacy::tests::mixed_privacy_effective_level ... ok
-test privacy::tests::privacy_level_anti_snooping ... ok
 test privacy::tests::privacy_level_gas_multiplier_increases ... ok
+test privacy::tests::privacy_level_anti_snooping ... ok
 test privacy::tests::privacy_level_max ... ok
-test privacy::tests::privacy_level_ordering ... ok
 test privacy::tests::privacy_policy_public_default ... ok
+test privacy::tests::privacy_level_ordering ... ok
 test privacy::tests::privacy_level_tee_requirements ... ok
+test protocol::tests::checkpoint_full_security_check ... ok
 test privacy::tests::selective_disclosure_disabled_by_default ... ok
+test protocol::tests::network_epoch_current_has_no_end ... ok
 test protocol::tests::consensus_round_bft_check ... ok
 test protocol::tests::protocol_version_compatibility ... ok
-test protocol::tests::checkpoint_full_security_check ... ok
-test protocol::tests::protocol_version_display ... ok
-test protocol::tests::network_epoch_current_has_no_end ... ok
-test protocol::tests::protocol_version_ordering ... ok
-test state::tests::state_transition_noop_detection ... ok
-test state::tests::uncorrupted_frontier_multiple_blocks_not_canonical ... ok
-test state::tests::state_version_genesis_is_zero ... ok
 test state::tests::state_version_advances ... ok
+test state::tests::state_transition_noop_detection ... ok
+test protocol::tests::protocol_version_display ... ok
+test protocol::tests::protocol_version_ordering ... ok
+test state::tests::uncorrupted_frontier_multiple_blocks_not_canonical ... ok
 test state::tests::uncorrupted_frontier_single_block_is_canonical ... ok
-test state::tests::world_state_genesis_is_empty ... ok
 test storage::tests::merkle_proof_empty_siblings_fails_verification ... ok
-test storage::tests::storage_key_domain_separation_produces_different_keys ... ok
-test storage::tests::merkle_root_empty_is_zero ... ok
-test storage::tests::storage_key_from_hash_is_deterministic ... ok
+test state::tests::state_version_genesis_is_zero ... ok
+test state::tests::world_state_genesis_is_empty ... ok
 test storage::tests::storage_commitment_unchanged_when_roots_equal ... ok
+test storage::tests::merkle_root_empty_is_zero ... ok
+test storage::tests::versioned_state_advance_increments_version ... ok
+test storage::tests::storage_key_domain_separation_produces_different_keys ... ok
 test storage::tests::versioned_state_genesis_version_is_zero ... ok
+test storage::tests::storage_key_from_hash_is_deterministic ... ok
 test tee::tests::all_platforms_support_remote_attestation ... ok
+test tee::tests::keystone_is_only_open_hardware ... ok
 test tee::tests::anti_snooping_level_ordering ... ok
 test tee::tests::attestation_report_nonce_check ... ok
-test storage::tests::versioned_state_advance_increments_version ... ok
-test tee::tests::enclave_identity_same_code_and_signer ... ok
-test tee::tests::keystone_is_only_open_hardware ... ok
-test tests::hash_and_address_sizes_are_correct ... ok
 test tee::tests::sgx_memory_limit_is_256_mib ... ok
-test tests::bls_constants_are_correct ... ok
+test tee::tests::enclave_identity_same_code_and_signer ... ok
 test tests::confirmation_ceilings_are_ordered ... ok
+test tests::bls_constants_are_correct ... ok
 test tests::validator_participation_thresholds_are_ordered ... ok
-test traits::tests::complexity_class_ordering ... ok
 test tests::security_and_platform_counts_are_correct ... ok
-test traits::tests::read_read_no_conflict ... ok
+test tests::hash_and_address_sizes_are_correct ... ok
 test traits::tests::independent_op_has_no_conflicts ... ok
+test traits::tests::read_read_no_conflict ... ok
+test traits::tests::complexity_class_ordering ... ok
 test traits::tests::write_read_conflict_detected ... ok
 test traits::tests::write_write_conflict_detected ... ok
+test transaction::tests::transaction_status_pending_checks ... ok
+test transaction::tests::transaction_status_security_level ... ok
 test transaction::tests::signed_transaction_is_not_multi_sig_by_default ... ok
 test transaction::tests::transaction_status_finality_progression ... ok
-test transaction::tests::transaction_status_security_level ... ok
 test transaction::tests::transaction_type_contract_modification ... ok
 test validator::tests::active_can_vote ... ok
 test validator::tests::capabilities_can_provide_service ... ok
-test transaction::tests::transaction_status_pending_checks ... ok
-test validator::tests::full_role_participates_and_provides_tee ... ok
 test validator::tests::jailed_cannot_vote ... ok
-test validator::tests::validator_performance_below_minimum ... ok
 test validator::tests::tombstoned_is_permanent ... ok
 test validator::tests::consensus_role_does_not_provide_tee ... ok
+test validator::tests::full_role_participates_and_provides_tee ... ok
 test validator::tests::validator_performance_participation_rate ... ok
+test validator::tests::validator_performance_below_minimum ... ok
 
-test result: ok. 124 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 124 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
   [0;32m✓ passed[0m
   aevor-config          
 running 62 tests
 test consensus::tests::attestation_config_default_is_required_and_parallel ... ok
+test consensus::tests::consensus_config_default_validators ... ok
 test consensus::tests::finality_timeouts_are_ordered ... ok
 test consensus::tests::round_timing_config_proposal_less_than_round ... ok
-test consensus::tests::consensus_config_default_validators ... ok
-test consensus::tests::validator_set_config_default_unbonding ... ok
 test consensus::tests::security_level_config_default_levels ... ok
 test defaults::tests::enterprise_defaults_no_fees_no_stake_requirement ... ok
-test defaults::tests::devnet_defaults_lowest_stake_and_smallest_epoch ... ok
 test defaults::tests::mainnet_defaults_chain_id_and_mode ... ok
-test defaults::tests::mainnet_defaults_validator_stake_is_nonzero ... ok
+test consensus::tests::validator_set_config_default_unbonding ... ok
+test defaults::tests::devnet_defaults_lowest_stake_and_smallest_epoch ... ok
 test defaults::tests::mainnet_defaults_requires_production_attestation ... ok
-test defaults::tests::testnet_defaults_lower_stake_than_mainnet ... ok
-test defaults::tests::testnet_defaults_simulation_attestation_not_production ... ok
 test defaults::tests::testnet_defaults_chain_id_and_mode ... ok
+test defaults::tests::mainnet_defaults_validator_stake_is_nonzero ... ok
+test defaults::tests::testnet_defaults_simulation_attestation_not_production ... ok
 test deployment::tests::default_data_dir_contains_aevor ... ok
+test defaults::tests::testnet_defaults_lower_stake_than_mainnet ... ok
+test deployment::tests::deployment_config_default_is_mainnet ... ok
 test deployment::tests::default_log_dir_contains_aevor_logs ... ok
 test deployment::tests::deployment_mode_enables_faucet_only_for_test_and_dev ... ok
 test deployment::tests::deployment_mode_is_production ... ok
-test deployment::tests::deployment_config_default_is_mainnet ... ok
+test deployment::tests::deployment_mode_is_public ... ok
 test deployment::tests::enterprise_config_audit_and_kyc_defaults ... ok
 test deployment::tests::hybrid_deployment_config_fields ... ok
 test economics::tests::fee_config_min_less_than_base ... ok
 test economics::tests::economics_default_supply_less_than_max ... ok
-test deployment::tests::deployment_mode_is_public ... ok
 test economics::tests::reward_shares_sum_to_ten_thousand_bps ... ok
-test economics::tests::slashing_double_sign_harsher_than_downtime ... ok
 test economics::tests::staking_min_validator_greater_than_delegation ... ok
-test loader::tests::config_loader_defaults_source_loads_mainnet ... ok
+test economics::tests::slashing_double_sign_harsher_than_downtime ... ok
 test loader::tests::config_loader_defaults_source_loads_devnet ... ok
+test loader::tests::config_loader_defaults_source_loads_mainnet ... ok
 test loader::tests::config_loader_defaults_source_loads_testnet ... ok
-test loader::tests::config_loader_empty_override_field_returns_error ... ok
 test loader::tests::config_loader_nonexistent_file_returns_error ... ok
 test loader::tests::config_override_new_stores_field_and_value ... ok
+test loader::tests::config_loader_empty_override_field_returns_error ... ok
 test loader::tests::config_source_debug_shows_variant ... ok
-test network::tests::network_config_default_has_listen_address ... ok
 test network::tests::genesis_default_has_supply ... ok
+test network::tests::network_config_default_has_listen_address ... ok
 test network::tests::network_config_default_is_mainnet ... ok
 test network::tests::network_type_is_production_only_for_mainnet ... ok
 test network::tests::peer_discovery_default_enables_dht ... ok
 test network::tests::topology_default_enables_routing ... ok
 test privacy::tests::anti_snooping_default_is_minimal ... ok
 test privacy::tests::cross_privacy_default_requires_auth_and_audits ... ok
-test privacy::tests::selective_disclosure_default_enabled_no_zk ... ok
-test privacy::tests::default_privacy_level_is_public ... ok
 test privacy::tests::privacy_config_default_is_enabled_and_strict ... ok
-test tee::tests::attestation_mode_simulation_is_not_local ... ok
-test tee::tests::platform_preference_default_is_auto ... ok
+test privacy::tests::default_privacy_level_is_public ... ok
+test privacy::tests::selective_disclosure_default_enabled_no_zk ... ok
 test tee::tests::attestation_config_default_is_local_no_production ... ok
+test tee::tests::attestation_mode_simulation_is_not_local ... ok
 test tee::tests::isolation_config_default_uses_encrypted_memory ... ok
+test tee::tests::platform_preference_default_is_auto ... ok
 test tee::tests::platform_preference_prefer_stores_platform ... ok
 test tee::tests::tee_config_default_required_for_validator_not_fail_if_unavailable ... ok
 test tee::tests::tee_service_config_stores_all_fields ... ok
 test tests::default_config_validates ... ok
-test tests::testnet_defaults_validate ... ok
 test tests::devnet_defaults_validate ... ok
-test validation::tests::config_validation_error_formats_field_and_message ... ok
-test validation::tests::invalid_result_has_error ... ok
+test tests::testnet_defaults_validate ... ok
 test validation::tests::mainnet_defaults_pass_full_validation ... ok
+test validation::tests::invalid_result_has_error ... ok
+test validation::tests::config_validation_error_formats_field_and_message ... ok
 test validation::tests::mismatched_reward_bps_fails_validation ... ok
 test validation::tests::valid_result_has_no_errors ... ok
 test validation::tests::validate_config_trait_returns_valid_for_defaults ... ok
@@ -298,65 +298,65 @@ test result: ok. 62 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
   aevor-crypto          
 running 58 tests
 test acceleration::tests::detect_does_not_panic ... ok
-test acceleration::tests::has_any_is_false_when_no_features ... ok
 test acceleration::tests::prefer_aes_reflects_aes_ni ... ok
-test bls::tests::bls_aggregator_empty_fails ... ok
 test bls::tests::bls_batch_verifier_empty_succeeds ... ok
+test bls::tests::bls_aggregator_empty_fails ... ok
 test bls::tests::participant_bitmap_out_of_bounds_is_false ... ok
-test bls::tests::participant_bitmap_participation_fraction ... ok
-test bls::tests::participant_bitmap_set_and_check ... ok
+test acceleration::tests::has_any_is_false_when_no_features ... ok
 test commitment::tests::hash_commitment_different_values_different_commitments ... ok
+test bls::tests::participant_bitmap_participation_fraction ... ok
 test commitment::tests::hash_commitment_randomness_provides_hiding ... ok
 test commitment::tests::hash_commitment_verify_roundtrip ... ok
+test bls::tests::participant_bitmap_set_and_check ... ok
 test commitment::tests::pedersen_commitment_deterministic_with_same_blinding ... ok
-test commitment::tests::pedersen_different_values_different_points ... ok
 test encryption::tests::aes_gcm_roundtrip ... ok
 test encryption::tests::aes_gcm_tampered_ciphertext_fails ... ok
-test encryption::tests::chacha20_wrong_aad_fails ... ok
+test commitment::tests::pedersen_different_values_different_points ... ok
 test encryption::tests::chacha20_roundtrip ... ok
+test hash::tests::blake3_is_deterministic ... ok
 test encryption::tests::nonce_generate_is_unique ... ok
 test hash::tests::blake3_incremental_matches_oneshot ... ok
-test hash::tests::domain_separation_produces_different_hashes ... ok
-test hash::tests::blake3_is_deterministic ... ok
 test hash::tests::different_inputs_different_hashes ... ok
+test hash::tests::domain_separation_produces_different_hashes ... ok
+test hash::tests::sha256_output_size ... ok
+test encryption::tests::chacha20_wrong_aad_fails ... ok
 test hash::tests::keccak256_is_deterministic ... ok
 test keys::tests::hkdf_derive_key_is_deterministic ... ok
 test hash::tests::sha512_output_size ... ok
-test hash::tests::sha256_output_size ... ok
-test keys::tests::hkdf_different_domains_produce_different_keys ... ok
 test keys::tests::hkdf_different_masters_produce_different_keys ... ok
 test keys::tests::validator_key_path_is_hardened ... ok
 test keys::tests::rfc7748_known_vector ... ok
+test keys::tests::hkdf_different_domains_produce_different_keys ... ok
 test keys::tests::x25519_public_key_from_basepoint ... ok
 test keys::tests::x25519_ecdh_agreement ... ok
 test keys::tests::x25519_different_peers_different_secrets ... ok
-test merkle::tests::incremental_tree_appends ... ok
-test merkle::tests::incremental_tree_full_returns_error ... ok
-test keys::tests::x25519_reusable_multiple_exchanges ... ok
 test merkle::tests::merkle_tree_empty_has_empty_root ... ok
+test merkle::tests::incremental_tree_appends ... ok
+test keys::tests::x25519_reusable_multiple_exchanges ... ok
+test merkle::tests::incremental_tree_full_returns_error ... ok
 test merkle::tests::merkle_tree_root_changes_with_different_leaves ... ok
 test merkle::tests::merkle_tree_same_leaves_same_root ... ok
-test merkle::tests::sparse_tree_get_returns_inserted_value ... ok
 test merkle::tests::sparse_tree_insert_changes_root ... ok
-test post_quantum::tests::hybrid_keypair_generates ... ok
-test post_quantum::tests::quantum_resistance_levels ... ok
-test post_quantum::tests::hybrid_sign_verify_roundtrip ... ok
 test post_quantum::tests::hybrid_wrong_message_fails ... ok
-test proofs::tests::proof_system_trusted_setup_flags ... ok
+test post_quantum::tests::quantum_resistance_levels ... ok
+test merkle::tests::sparse_tree_get_returns_inserted_value ... ok
+test post_quantum::tests::hybrid_keypair_generates ... ok
 test proofs::tests::groth16_verify_mismatched_system_fails ... ok
+test post_quantum::tests::hybrid_sign_verify_roundtrip ... ok
+test proofs::tests::proof_system_trusted_setup_flags ... ok
 test proofs::tests::verifying_key_hash_is_deterministic ... ok
-test signatures::tests::ed25519_sign_verify_roundtrip ... ok
 test signatures::tests::ed25519_wrong_message_fails ... ok
 test tests::crypto_error_display_is_informative ... ok
+test signatures::tests::ed25519_sign_verify_roundtrip ... ok
 test tests::crypto_result_ok_and_err ... ok
 test tests::encryption_constants_are_correct ... ok
-test tests::hash_output_sizes_are_correct ... ok
 test tests::key_sizes_are_correct ... ok
+test tests::hash_output_sizes_are_correct ... ok
+test signatures::tests::bls_sign_verify_roundtrip ... ok
 test tests::x25519_key_size_matches_constant ... ok
 test signatures::tests::bls_wrong_message_fails ... ok
-test signatures::tests::bls_sign_verify_roundtrip ... ok
 
-test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
   [0;32m✓ passed[0m
   aevor-tee             
@@ -364,75 +364,75 @@ running 63 tests
 test acceleration::tests::detect_does_not_panic_on_any_platform ... ok
 test acceleration::tests::keystone_has_no_assumed_acceleration ... ok
 test acceleration::tests::preferred_cipher_with_aes_is_aes_gcm ... ok
-test acceleration::tests::preferred_cipher_without_aes_is_chacha ... ok
 test anti_snooping::tests::maximum_config_all_features_enabled ... ok
+test acceleration::tests::preferred_cipher_without_aes_is_chacha ... ok
 test anti_snooping::tests::none_config_no_features ... ok
+test attestation::tests::attestation_verifier_accepts_nonempty_report ... ok
+test attestation::tests::attestation_verifier_rejects_empty_report ... ok
 test anti_snooping::tests::side_channel_protection_levels ... ok
+test attestation::tests::remote_attestation_freshness_check ... ok
 test anti_snooping::tests::traffic_obfuscation_leaves_large_messages ... ok
 test anti_snooping::tests::traffic_obfuscation_pads_short_messages ... ok
-test attestation::tests::attestation_verifier_rejects_empty_report ... ok
-test attestation::tests::attestation_verifier_accepts_nonempty_report ... ok
-test attestation::tests::remote_attestation_freshness_check ... ok
+test isolation::tests::isolation_level_ordering ... ok
 test isolation::tests::isolation_level_hardware_check ... ok
 test isolation::tests::memory_protection_full_is_protected ... ok
-test isolation::tests::isolation_level_ordering ... ok
 test isolation::tests::secure_channel_establish ... ok
 test keystone::tests::detect_capabilities_fails_gracefully_without_keystone ... ok
-test keystone::tests::generate_report_measurement_is_deterministic ... ok
-test keystone::tests::generate_report_valid_structure ... ok
 test keystone::tests::capabilities_no_sealing_no_crypto_accel ... ok
 test keystone::tests::generate_report_different_eapps_different_measurements ... ok
+test keystone::tests::generate_report_measurement_is_deterministic ... ok
 test keystone::tests::is_available_does_not_panic ... ok
+test keystone::tests::generate_report_valid_structure ... ok
 test multi_tee::tests::coordinator_platform_diversity ... ok
-test multi_tee::tests::distributed_execution_threshold_check ... ok
-test nitro::tests::capabilities_nitro_is_production_fused ... ok
 test multi_tee::tests::fault_tolerant_tee_health_check ... ok
-test nitro::tests::detect_capabilities_fails_gracefully_outside_nitro ... ok
 test nitro::tests::capabilities_max_one_concurrent_instance ... ok
+test nitro::tests::capabilities_nitro_is_production_fused ... ok
 test nitro::tests::generate_report_different_images_different_pcr0 ... ok
+test multi_tee::tests::distributed_execution_threshold_check ... ok
+test nitro::tests::detect_capabilities_fails_gracefully_outside_nitro ... ok
+test nitro::tests::is_available_does_not_panic ... ok
 test nitro::tests::generate_report_pcr0_is_deterministic ... ok
 test nitro::tests::generate_report_valid_structure ... ok
-test nitro::tests::is_available_does_not_panic ... ok
-test platform::tests::generate_report_works_for_all_platforms ... ok
+test runtime::tests::cross_platform_runtime_supports_check ... ok
 test platform::tests::platform_detection_fails_gracefully_on_ci ... ok
 test platform::tests::supported_platforms_detect_does_not_panic ... ok
-test runtime::tests::cross_platform_runtime_supports_check ... ok
-test runtime::tests::runtime_environment_is_compliant_by_default ... ok
 test runtime::tests::default_standards_all_met ... ok
+test platform::tests::generate_report_works_for_all_platforms ... ok
+test runtime::tests::runtime_environment_is_compliant_by_default ... ok
 test service::tests::allocator_returns_error_with_no_providers ... ok
+test sev::tests::capabilities_sealing_not_available ... ok
 test service::tests::allocator_returns_handle_when_provider_matches ... ok
 test service::tests::service_quality_score_prefers_high_availability ... ok
+test sev::tests::detect_capabilities_fails_gracefully_without_sev ... ok
 test sev::tests::generate_report_different_inputs_different_measurements ... ok
 test sev::tests::generate_report_measurement_is_deterministic ... ok
-test sev::tests::capabilities_sealing_not_available ... ok
-test sev::tests::detect_capabilities_fails_gracefully_without_sev ... ok
 test sev::tests::generate_report_measurement_non_zero ... ok
 test sev::tests::generate_report_produces_valid_structure ... ok
-test sev::tests::is_available_does_not_panic ... ok
-test sgx::tests::capabilities_version_platform_matches ... ok
-test sgx::tests::detect_capabilities_fails_gracefully_without_sgx ... ok
 test sgx::tests::generate_report_different_inputs_different_measurements ... ok
+test sev::tests::is_available_does_not_panic ... ok
+test sgx::tests::detect_capabilities_fails_gracefully_without_sgx ... ok
+test sgx::tests::capabilities_version_platform_matches ... ok
 test sgx::tests::generate_report_measurement_is_deterministic ... ok
 test sgx::tests::generate_report_measurement_is_not_zero ... ok
-test sgx::tests::generate_report_produces_valid_structure ... ok
 test sgx::tests::is_available_does_not_panic ... ok
 test tests::attestation_constants_are_correct ... ok
-test trustzone::tests::capabilities_supports_sealing ... ok
 test trustzone::tests::detect_capabilities_fails_gracefully_without_trustzone ... ok
-test trustzone::tests::generate_report_deterministic_measurement ... ok
-test trustzone::tests::generate_report_different_ta_different_measurement ... ok
 test tests::memory_limit_is_reasonable ... ok
-test trustzone::tests::generate_report_valid_structure ... ok
+test trustzone::tests::capabilities_supports_sealing ... ok
+test trustzone::tests::generate_report_different_ta_different_measurement ... ok
+test trustzone::tests::generate_report_deterministic_measurement ... ok
+test sgx::tests::generate_report_produces_valid_structure ... ok
 test trustzone::tests::is_available_does_not_panic ... ok
+test trustzone::tests::generate_report_valid_structure ... ok
 
-test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
   [0;32m✓ passed[0m
   aevor-consensus       
-running 43 tests
-test attestation::tests::collector_complete_after_required_count ... ok
-test attestation::tests::collector_matching_attestations_filters_by_code_measurement ... ok
+running 59 tests
 test attestation::tests::collector_starts_empty_not_complete ... ok
+test attestation::tests::collector_matching_attestations_filters_by_code_measurement ... ok
+test attestation::tests::collector_complete_after_required_count ... ok
 test attestation::tests::cross_platform_set_consistent_when_measurements_match ... ok
 test attestation::tests::cross_platform_set_inconsistent_when_measurement_differs ... ok
 test attestation::tests::verifier_returns_false_for_non_production ... ok
@@ -440,259 +440,300 @@ test attestation::tests::verifier_returns_true_for_production_non_empty_report .
 test byzantine::tests::byzantine_detector_boundary ... ok
 test byzantine::tests::byzantine_detector_flags_low_participation ... ok
 test byzantine::tests::byzantine_isolation_idempotent ... ok
-test byzantine::tests::byzantine_isolation_starts_empty ... ok
-test byzantine::tests::corruption_proof_stores_misbehavior ... ok
 test byzantine::tests::byzantine_isolation_isolate_and_check ... ok
-test byzantine::tests::misbehavior_variants_are_distinct ... ok
-test checkpoint::tests::long_range_protection_starts_empty ... ok
-test checkpoint::tests::long_range_protection_verify_chain ... ok
+test byzantine::tests::byzantine_isolation_starts_empty ... ok
 test checkpoint::tests::long_range_protection_latest_is_highest ... ok
+test byzantine::tests::misbehavior_variants_are_distinct ... ok
+test byzantine::tests::corruption_proof_stores_misbehavior ... ok
 test checkpoint::tests::checkpoint_creator_should_checkpoint_at_interval ... ok
+test checkpoint::tests::long_range_protection_starts_empty ... ok
 test checkpoint::tests::new_checkpoint_is_unverified ... ok
 test checkpoint::tests::verifier_rejects_without_finality_proof ... ok
-test engine::tests::attestation_collection_meets_level_after_sufficient_weight ... ok
+test checkpoint::tests::long_range_protection_verify_chain ... ok
 test checkpoint::tests::verifier_rejects_zero_content_hash ... ok
-test checkpoint::tests::with_proof_marks_verified ... ok
 test engine::tests::attestation_collection_zero_total_weight_returns_zero_fraction ... ok
+test checkpoint::tests::with_proof_marks_verified ... ok
+test engine::tests::attestation_collection_meets_level_after_sufficient_weight ... ok
 test engine::tests::attestation_collection_starts_empty ... ok
 test engine::tests::consensus_engine_advance_round_increments ... ok
-test engine::tests::round_result_is_successful_on_valid_validation ... ok
 test engine::tests::consensus_engine_finalize_round_no_attestations ... ok
-test security_levels::tests::accelerator_all_levels_accessible ... ok
+test frontier::tests::frontier_block_stores_fields ... ok
+test engine::tests::round_result_is_successful_on_valid_validation ... ok
+test frontier::tests::frontier_corruption_stores_description ... ok
 test engine::tests::consensus_engine_starts_at_round_zero ... ok
+test frontier::tests::verifier_rejects_lower_than_required ... ok
+test security_levels::tests::accelerator_all_levels_accessible ... ok
+test frontier::tests::frontier_state_no_corruption_initially ... ok
+test frontier::tests::verifier_accepts_higher_than_required ... ok
+test security_levels::tests::security_level_config_for_level_participation_ordered ... ok
 test security_levels::tests::accelerator_config_for_returns_matching_level ... ok
+test frontier::tests::verifier_accepts_matching_security_level ... ok
 test security_levels::tests::security_level_config_for_level_timing_ordered ... ok
 test security_levels::tests::validator_participation_fraction_zero_when_no_weight ... ok
-test security_levels::tests::security_level_config_for_level_participation_ordered ... ok
 test security_levels::tests::validator_participation_fraction_half ... ok
 test slashing::tests::attestation_collector_reaches_required_count ... ok
 test slashing::tests::double_sign_slash_is_percentage_of_stake ... ok
-test slashing::tests::zero_stake_slash_is_zero ... ok
-test tests::byzantine_threshold_is_below_strong_security ... ok
-test tests::confirmation_times_are_ordered ... ok
-test tests::security_thresholds_are_ordered ... ok
 test slashing::tests::penalty_accessors_match_constructor ... ok
+test slashing::tests::zero_stake_slash_is_zero ... ok
 test slashing::tests::liveness_slash_scales_with_epochs_missed ... ok
+test tests::byzantine_threshold_is_below_strong_security ... ok
+test timing::tests::consensus_clock_advance_round_resets_sequence ... ok
+test tests::security_thresholds_are_ordered ... ok
+test tests::confirmation_times_are_ordered ... ok
+test timing::tests::consensus_clock_advance_sequence_increments ... ok
+test timing::tests::consensus_clock_starts_at_zero ... ok
+test timing::tests::epoch_reference_stores_fields ... ok
+test timing::tests::consensus_clock_multiple_rounds ... ok
+test timing::tests::round_duration_complete_when_ended_at_set ... ok
+test validator_set::tests::validator_rotation_stores_epoch_and_lists ... ok
+test validator_set::tests::weighted_selection_single_validator_always_selected ... ok
+test validator_set::tests::weighted_selection_empty_set_returns_none ... ok
+test validator_set::tests::weighted_selection_returns_a_validator_from_the_set ... ok
 
-test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 59 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
   [0;32m✓ passed[0m
   aevor-dag             
-running 33 tests
-test conflict::tests::conflict_resolver_equal_hashes_first_wins ... ok
+running 44 tests
 test conflict::tests::conflict_edge_read_after_write_does_not_require_sequential ... ok
+test conflict::tests::conflict_resolver_equal_hashes_first_wins ... ok
 test conflict::tests::conflict_resolver_lower_hash_wins ... ok
 test conflict::tests::conflict_edge_write_after_write_requires_sequential ... ok
 test conflict::tests::conflict_resolver_preserves_conflict_type ... ok
-test conflict::tests::read_write_conflict_stores_reader_and_writer ... ok
 test conflict::tests::write_write_conflict_stores_txs_and_object ... ok
-test dependency::tests::analyzer_detects_edge_for_conflicting_transactions ... ok
-test dependency::tests::analyzer_no_edges_for_independent_transactions ... ok
-test dependency::tests::conflict_write_after_read_detected ... ok
+test conflict::tests::read_write_conflict_stores_reader_and_writer ... ok
 test dependency::tests::analyzer_produces_graph_with_correct_vertex_count ... ok
+test dependency::tests::analyzer_detects_edge_for_conflicting_transactions ... ok
 test dependency::tests::conflict_read_after_write_detected ... ok
+test dependency::tests::conflict_write_after_read_detected ... ok
 test dependency::tests::conflict_write_after_write_detected ... ok
-test macro_dag::tests::dag_snapshot_canonical_with_one_tip ... ok
-test dependency::tests::no_conflict_for_read_read_sharing ... ok
 test dependency::tests::no_conflict_for_disjoint_sets ... ok
+test dependency::tests::no_conflict_for_read_read_sharing ... ok
+test macro_dag::tests::dag_snapshot_canonical_with_one_tip ... ok
 test macro_dag::tests::empty_builder_produces_empty_dag ... ok
+test dependency::tests::analyzer_no_edges_for_independent_transactions ... ok
+test macro_dag::tests::fork_resolution_empty_returns_none ... ok
 test macro_dag::tests::fork_resolution_picks_lexicographically_smallest ... ok
 test macro_dag::tests::macro_dag_multiple_tips_not_canonical ... ok
-test macro_dag::tests::fork_resolution_empty_returns_none ... ok
-test macro_dag::tests::macro_dag_single_tip_is_canonical ... ok
-test micro_dag::tests::dag_hash_differs_for_different_tx_sets ... ok
-test micro_dag::tests::conflict_edge_sequential_for_write_after_write ... ok
 test micro_dag::tests::conflict_edge_not_sequential_for_read_after_write ... ok
-test micro_dag::tests::empty_dag_hash_is_zero ... ok
+test micro_dag::tests::conflict_edge_sequential_for_write_after_write ... ok
+test macro_dag::tests::macro_dag_single_tip_is_canonical ... ok
 test ordering::tests::causal_order_roots_and_transactions ... ok
+test micro_dag::tests::empty_dag_hash_is_zero ... ok
 test ordering::tests::dependency_order_fields ... ok
-test ordering::tests::ordering_commitment_differs_for_different_sets ... ok
-test ordering::tests::ordering_commitment_empty_ordering_is_zero_root ... ok
-test ordering::tests::ordering_commitment_is_set_commitment_not_order_sensitive ... ok
-test ordering::tests::ordering_commitment_nonzero_with_transactions ... ok
-test tests::concurrent_producer_limits_scale_with_network ... ok
+test micro_dag::tests::dag_hash_differs_for_different_tx_sets ... ok
+test ordering::tests::dependency_sequence_empty_is_zero_root ... ok
+test ordering::tests::dependency_sequence_same_order_is_deterministic ... ok
+test ordering::tests::parallel_and_sequence_commitments_differ_for_same_transactions ... ok
+test ordering::tests::parallel_group_empty_is_zero_root ... ok
+test ordering::tests::dependency_sequence_is_position_sensitive ... ok
+test ordering::tests::parallel_group_differs_for_different_transaction_sets ... ok
+test ordering::tests::parallel_group_is_set_commitment_order_insensitive ... ok
+test parallel::tests::distribute_even_split_across_lanes ... ok
+test parallel::tests::distribute_more_lanes_than_transactions ... ok
+test parallel::tests::distribute_preserves_all_transactions ... ok
+test parallel::tests::distribute_no_dependencies_initially ... ok
+test parallel::tests::distribute_single_lane_gets_all_transactions ... ok
+test parallel::tests::parallelism_factor_all_parallel ... ok
+test parallel::tests::parallelism_factor_all_serial ... ok
 test tests::parallel_lanes_exceed_concurrent_producers ... ok
+test parallel::tests::parallelism_factor_zero_total_returns_one ... ok
+test tests::concurrent_producer_limits_scale_with_network ... ok
 
-test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
   [0;32m✓ passed[0m
   aevor-storage         
 running 75 tests
 test backend::tests::backend_config_default_path_and_sizes ... ok
-test backend::tests::memory_backend_flush_is_noop_ok ... ok
-test backend::tests::memory_backend_delete_removes_key ... ok
 test backend::tests::memory_backend_delete_missing_key_is_noop ... ok
 test backend::tests::memory_backend_get_missing_returns_none ... ok
-test backend::tests::memory_backend_put_and_get ... ok
 test backend::tests::memory_backend_overwrite_existing_key ... ok
-test backend::tests::read_options_default_verify_checksums_and_fill_cache ... ok
+test backend::tests::memory_backend_flush_is_noop_ok ... ok
+test backend::tests::memory_backend_delete_removes_key ... ok
+test backend::tests::memory_backend_put_and_get ... ok
 test backend::tests::rocksdb_get_returns_none_stub ... ok
 test backend::tests::rocksdb_open_returns_ok ... ok
-test blocks::tests::block_index_insert_and_get ... ok
 test backend::tests::write_options_default_no_sync_no_wal_disable ... ok
+test blocks::tests::block_index_insert_and_get ... ok
+test backend::tests::read_options_default_verify_checksums_and_fill_cache ... ok
 test blocks::tests::block_store_count ... ok
-test blocks::tests::block_store_get_by_height ... ok
-test blocks::tests::block_store_get_required_returns_error_for_missing ... ok
 test blocks::tests::block_store_mark_finalized ... ok
+test blocks::tests::block_store_get_required_returns_error_for_missing ... ok
+test blocks::tests::block_store_get_by_height ... ok
 test blocks::tests::block_store_mark_finalized_missing_returns_error ... ok
 test blocks::tests::block_store_store_and_get_by_hash ... ok
 test cache::tests::cache_metrics_hit_rate_zero_when_empty ... ok
-test cache::tests::hot_cache_get_returns_none_before_put ... ok
 test cache::tests::hot_cache_put_and_get ... ok
 test cache::tests::hot_cache_respects_max_objects ... ok
 test cache::tests::object_id_cache_put_contains_get ... ok
 test cache::tests::state_root_cache_put_and_get ... ok
 test encrypted::tests::delete_missing_returns_error ... ok
 test encrypted::tests::delete_removes_record ... ok
+test cache::tests::hot_cache_get_returns_none_before_put ... ok
 test encrypted::tests::encrypted_commitment_changes_with_version ... ok
-test encrypted::tests::encrypted_commitment_non_zero_when_records_present ... ok
 test encrypted::tests::encrypted_commitment_zero_when_empty ... ok
 test encrypted::tests::get_missing_returns_none ... ok
+test encrypted::tests::encrypted_commitment_non_zero_when_records_present ... ok
 test encrypted::tests::get_required_missing_returns_error ... ok
+test encrypted::tests::record_count_tracks_puts ... ok
 test encrypted::tests::put_and_get ... ok
+test indexing::tests::index_manager_index_by_owner_and_retrieve ... ok
 test indexing::tests::index_manager_index_by_type ... ok
 test indexing::tests::index_manager_objects_for_unknown_owner_is_empty ... ok
-test encrypted::tests::record_count_tracks_puts ... ok
-test indexing::tests::index_manager_index_by_owner_and_retrieve ... ok
 test indexing::tests::owner_index_add_and_get ... ok
 test indexing::tests::owner_index_get_missing_returns_empty_slice ... ok
 test indexing::tests::privacy_index_groups_by_level ... ok
-test indexing::tests::type_index_add_groups_by_type ... ok
 test merkle::tests::prove_returns_exclusion_for_absent_key ... ok
+test indexing::tests::type_index_add_groups_by_type ... ok
 test merkle::tests::prove_returns_inclusion_for_present_key ... ok
 test merkle::tests::prover_root_changes_after_insert ... ok
 test objects::tests::delete_removes_object ... ok
 test objects::tests::exists_false_before_put ... ok
 test objects::tests::put_returns_correct_version_and_hash ... ok
-test objects::tests::get_nonexistent_returns_none ... ok
 test objects::tests::exists_true_after_put ... ok
+test objects::tests::get_nonexistent_returns_none ... ok
+test tests::object_size_limit_is_reasonable ... ok
+test objects::tests::put_then_get_returns_record ... ok
 test tests::key_prefixes_are_distinct ... ok
 test tests::merkle_tree_depth_supports_full_address_space ... ok
-test tests::object_size_limit_is_reasonable ... ok
-test transactions::tests::count_tracks_unique_receipts ... ok
 test transactions::tests::get_missing_returns_none ... ok
-test transactions::tests::receipt_root_is_zero_when_empty ... ok
 test transactions::tests::receipt_root_is_non_zero_with_receipts ... ok
+test transactions::tests::receipt_root_is_zero_when_empty ... ok
+test transactions::tests::count_tracks_unique_receipts ... ok
 test transactions::tests::receipt_root_same_for_same_set_different_insertion_order ... ok
 test transactions::tests::store_and_get_by_hash ... ok
-test transactions::tests::store_is_idempotent_for_same_hash ... ok
-test validators::tests::active_validators_filters_correctly ... ok
 test validators::tests::get_missing_returns_none ... ok
+test validators::tests::active_validators_filters_correctly ... ok
+test transactions::tests::store_is_idempotent_for_same_hash ... ok
 test validators::tests::get_required_missing_returns_error ... ok
-test objects::tests::put_then_get_returns_record ... ok
 test validators::tests::remove_missing_returns_error ... ok
-test validators::tests::update_stake_changes_stake ... ok
-test validators::tests::store_and_get_by_id ... ok
 test validators::tests::remove_existing_validator ... ok
+test validators::tests::store_and_get_by_id ... ok
+test validators::tests::update_stake_changes_stake ... ok
 test validators::tests::update_stake_missing_returns_error ... ok
-test versioned::tests::conflict_resolution_first_write_wins_lower_version ... ok
-test versioned::tests::detect_conflict_finds_differing_values ... ok
-test versioned::tests::conflict_resolution_same_version_both_same ... ok
 test versioned::tests::advance_increments_version_and_stores_root ... ok
-test versioned::tests::detect_conflict_no_conflict_for_same_value ... ok
+test versioned::tests::conflict_resolution_first_write_wins_lower_version ... ok
+test versioned::tests::conflict_resolution_same_version_both_same ... ok
+test versioned::tests::detect_conflict_finds_differing_values ... ok
 test versioned::tests::optimistic_lock_check_passes_when_version_matches ... ok
 test versioned::tests::read_at_returns_written_value ... ok
 test versioned::tests::versioned_store_starts_at_zero ... ok
+test versioned::tests::detect_conflict_no_conflict_for_same_value ... ok
 
-test result: ok. 75 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 75 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
   [0;32m✓ passed[0m
   aevor-vm              
 running 50 tests
 test cross_contract::tests::depth_guard_allows_up_to_max ... ok
-test cross_contract::tests::receipt_failure_has_empty_return ... ok
 test cross_contract::tests::depth_guard_allows_reentry_after_exit ... ok
+test cross_contract::tests::receipt_failure_has_empty_return ... ok
 test cross_contract::tests::receipt_success_has_correct_flag ... ok
+test gas::tests::gas_meter_charges_correctly ... ok
 test gas::tests::estimator_fee_is_gas_times_price ... ok
 test gas::tests::estimator_tee_call_greater_than_base ... ok
-test gas::tests::gas_meter_charges_correctly ... ok
-test gas::tests::gas_meter_fee_calculation ... ok
 test gas::tests::tee_premium_multiplier ... ok
 test instructions::tests::nop_costs_zero_gas ... ok
-test gas::tests::gas_meter_rejects_over_limit ... ok
 test instructions::tests::branch_instructions_are_branches ... ok
-test instructions::tests::tee_instructions_require_tee ... ok
+test gas::tests::gas_meter_fee_calculation ... ok
+test gas::tests::gas_meter_rejects_over_limit ... ok
 test memory::tests::memory_isolation_add_and_count_regions ... ok
 test memory::tests::memory_manager_capacities ... ok
-test memory::tests::private_heap_capacity ... ok
 test instructions::tests::tee_attest_costs_most ... ok
-test memory::tests::public_heap_capacity ... ok
+test instructions::tests::tee_instructions_require_tee ... ok
 test memory::tests::tee_protected_memory_is_encrypted_and_protected ... ok
-test move_runtime::tests::move_runtime_load_and_get_module ... ok
-test move_runtime::tests::move_function_is_public_and_entry_flags ... ok
+test memory::tests::private_heap_capacity ... ok
+test memory::tests::public_heap_capacity ... ok
 test move_runtime::tests::move_runtime_load_replaces_existing ... ok
+test move_runtime::tests::move_function_is_public_and_entry_flags ... ok
 test move_runtime::tests::move_runtime_get_missing_returns_none ... ok
-test move_runtime::tests::move_value_variants_roundtrip ... ok
+test move_runtime::tests::move_runtime_load_and_get_module ... ok
 test move_runtime::tests::resource_table_get_missing_returns_none ... ok
-test move_runtime::tests::resource_table_insert_and_get ... ok
 test move_runtime::tests::move_type_vector_wraps_inner ... ok
-test objects::tests::vm_object_version_increments ... ok
+test move_runtime::tests::move_value_variants_roundtrip ... ok
+test move_runtime::tests::resource_table_insert_and_get ... ok
 test objects::tests::object_type_qualified_name ... ok
+test objects::tests::vm_object_version_increments ... ok
+test objects::tests::resource_size_matches_bytes ... ok
 test privacy::tests::all_public_stays_public ... ok
 test privacy::tests::effective_level_is_max ... ok
 test privacy::tests::build_plan_captures_effective_level ... ok
-test objects::tests::resource_size_matches_bytes ... ok
 test privacy::tests::lenient_enforcer_allows_downgrade ... ok
 test privacy::tests::requires_tee_when_private ... ok
 test privacy::tests::strict_enforcer_rejects_downgrade ... ok
 test stdlib::tests::hash_blake3_is_crypto_category ... ok
-test stdlib::tests::non_tee_functions_do_not_require_tee ... ok
 test stdlib::tests::registry_has_expected_count ... ok
+test stdlib::tests::non_tee_functions_do_not_require_tee ... ok
 test stdlib::tests::tee_functions_require_tee ... ok
 test stdlib::tests::unknown_function_returns_none ... ok
 test tests::call_depth_limit_is_reasonable ... ok
 test tests::gas_constants_are_positive ... ok
-test vm::tests::aevor_vm_capabilities_match_default ... ok
 test vm::tests::aevor_vm_deploy_and_lookup ... ok
+test vm::tests::aevor_vm_capabilities_match_default ... ok
 test vm::tests::contract_registry_get_missing_returns_none ... ok
 test vm::tests::contract_registry_overwrite_on_redeploy ... ok
 test vm::tests::contract_registry_register_and_get ... ok
-test vm::tests::vm_config_default_values ... ok
 test vm::tests::vm_capabilities_default_all_enabled ... ok
+test vm::tests::vm_config_default_values ... ok
 
-test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
   [0;32m✓ passed[0m
   aevor-execution       
-running 12 tests
+running 26 tests
+test pipeline::tests::execution_pipeline_reflects_config ... ok
+test pipeline::tests::execution_pipeline_stage_count_is_seven ... ok
+test pipeline::tests::pipeline_config_default_parallel_not_tee_required ... ok
+test pipeline::tests::pipeline_result_stores_fields ... ok
+test pipeline::tests::pipeline_stage_variants_are_distinct ... ok
+test pipeline::tests::post_execution_commit_true_for_success ... ok
+test pipeline::tests::post_execution_commit_false_for_failure ... ok
+test scheduler::tests::execution_queue_len_and_is_empty ... ok
+test scheduler::tests::execution_queue_push_and_pop_fifo ... ok
+test scheduler::tests::resource_budget_stores_limits ... ok
+test scheduler::tests::scheduler_assigns_all_transactions ... ok
+test scheduler::tests::scheduler_metrics_default_is_zero ... ok
+test scheduler::tests::scheduler_priority_increases_with_index ... ok
+test scheduler::tests::scheduler_round_robins_lanes ... ok
 test tests::execution_constants_are_reasonable ... ok
+test tests::execution_result_err_is_err ... ok
 test tests::execution_metrics_default_zero ... ok
 test tests::execution_result_ok_is_ok ... ok
+test tests::privacy_violation_error_formats ... ok
 test tests::gas_limit_exceeded_contains_values ... ok
-test tests::execution_result_err_is_err ... ok
-test tests::rollback_reason_variants_exist ... ok
 test tests::pipeline_config_default_enables_parallel ... ok
+test tests::rollback_reason_variants_exist ... ok
 test tests::scheduling_decision_lane_assigned ... ok
 test tests::speculative_metrics_default_zero ... ok
 test tests::tee_allocation_failed_formats ... ok
-test tests::privacy_violation_error_formats ... ok
 test tests::vm_failed_error_formats_correctly ... ok
 
-test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
   [0;32m✓ passed[0m
   aevor-network         
 running 26 tests
-test availability::tests::data_reconstruction_concatenates_shards ... ok
-test availability::tests::erasure_encode_handles_small_data ... ok
-test availability::tests::erasure_encode_produces_shards ... ok
-test availability::tests::data_reconstruction_returns_none_for_empty_shards ... ok
 test availability::tests::data_availability_encode_and_reconstruct_roundtrip ... ok
+test availability::tests::data_reconstruction_concatenates_shards ... ok
+test availability::tests::data_reconstruction_returns_none_for_empty_shards ... ok
+test availability::tests::erasure_encode_handles_small_data ... ok
 test tests::bandwidth_target_is_reasonable ... ok
-test tests::erasure_encode_produces_shards ... ok
-test tests::erasure_coding_parameters_are_valid ... ok
-test tests::ports_are_distinct ... ok
+test availability::tests::erasure_encode_produces_shards ... ok
 test tests::bandwidth_utilization_default_is_zero ... ok
-test tests::network_error_display_connection_failed ... ok
+test tests::erasure_coding_parameters_are_valid ... ok
+test tests::erasure_encode_produces_shards ... ok
+test tests::ports_are_distinct ... ok
 test tests::propagation_announcement_block ... ok
+test tests::network_error_display_connection_failed ... ok
+test tests::privacy_discovery_uses_dht_flag ... ok
 test tests::rate_limiter_default_max_bps ... ok
 test tests::router_add_and_lookup_route ... ok
-test tests::privacy_discovery_uses_dht_flag ... ok
 test topology::tests::peer_score_saturates_at_zero ... ok
 test tests::router_unknown_dest_returns_none ... ok
-test topology::tests::peer_score_total_subtracts_latency ... ok
-test topology::tests::topology_manager_counts_connected_peers ... ok
 test topology::tests::topology_manager_default_is_empty ... ok
+test topology::tests::topology_manager_counts_connected_peers ... ok
+test topology::tests::peer_score_total_subtracts_latency ... ok
 test transport::tests::connection_pool_add_respects_max_size ... ok
 test transport::tests::connection_pool_starts_empty ... ok
 test transport::tests::secure_channel_default_is_unestablished ... ok
@@ -700,93 +741,109 @@ test transport::tests::secure_channel_establish_marks_it_live ... ok
 test transport::tests::secure_channel_starts_unestablished ... ok
 test transport::tests::transport_reports_protocol ... ok
 
-test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
   [0;32m✓ passed[0m
   aevor-security        
 running 19 tests
+test network_security::tests::monitor_passes_sybil_check ... ok
 test network_security::tests::ddos_protection_rate_limited_above_threshold ... ok
 test network_security::tests::eclipse_prevention_protected_when_enough_peers ... ok
-test network_security::tests::monitor_passes_sybil_check ... ok
 test network_security::tests::monitor_status_ddos_active_when_over_limit ... ok
 test network_security::tests::monitor_status_eclipse_risk_100_below_min_peers ... ok
-test network_security::tests::sybil_resistance_passes_sufficient_stake ... ok
 test network_security::tests::monitor_status_eclipse_risk_zero_with_enough_peers ... ok
 test network_security::tests::monitor_status_no_ddos_under_limit ... ok
+test network_security::tests::sybil_resistance_passes_sufficient_stake ... ok
 test slashing::tests::coordinator_records_and_counts ... ok
 test slashing::tests::coordinator_zero_for_unknown_validator ... ok
-test slashing::tests::penalty_calculator_percentage_of_stake ... ok
-test tests::auth_rate_limit_values_are_reasonable ... ok
 test slashing::tests::penalty_zero_for_zero_stake ... ok
 test slashing::tests::slashing_decision_fields ... ok
+test tests::auth_rate_limit_values_are_reasonable ... ok
 test tests::byzantine_report_coordinated_when_many_faults ... ok
-test tests::network_security_monitor_reports_status ... ok
 test tests::consistency_score_threshold_is_near_perfect ... ok
+test slashing::tests::penalty_calculator_percentage_of_stake ... ok
+test tests::network_security_monitor_reports_status ... ok
 test tests::security_error_formats ... ok
 test tests::slashing_evidence_type_variants_exist ... ok
 
-test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
   [0;32m✓ passed[0m
   aevor-move            
 running 17 tests
+test compiler::tests::full_pipeline_succeeds ... ok
+test compiler::tests::type_check_preserves_parsed_module ... ok
 test compiler::tests::parse_preserves_module_name ... ok
 test compiler::tests::compile_options_default_is_enabled ... ok
-test compiler::tests::type_check_preserves_parsed_module ... ok
-test compiler::tests::full_pipeline_succeeds ... ok
-test compiler::tests::verify_reflects_privacy_option ... ok
 test runtime::tests::function_dispatch_formats_correctly ... ok
-test runtime::tests::function_dispatch_handles_empty_strings ... ok
-test runtime::tests::module_loader_stores_and_retrieves ... ok
-test runtime::tests::module_loader_returns_none_for_missing ... ok
 test runtime::tests::module_loader_count_tracks_entries ... ok
-test tests::move_error_display_resource_not_found ... ok
-test tests::move_error_display_type_error ... ok
+test runtime::tests::function_dispatch_handles_empty_strings ... ok
+test compiler::tests::verify_reflects_privacy_option ... ok
+test runtime::tests::module_loader_returns_none_for_missing ... ok
 test runtime::tests::runtime_adapter_loader_accessible ... ok
+test runtime::tests::module_loader_stores_and_retrieves ... ok
+test tests::move_error_display_type_error ... ok
+test tests::move_error_display_resource_not_found ... ok
 test tests::move_result_ok_value ... ok
-test tests::privacy_level_ordering ... ok
 test tests::verifier_returns_report_for_empty_bytecode ... ok
+test tests::privacy_level_ordering ... ok
 test tests::verifier_security_flags_are_consistent ... ok
 
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
   [0;32m✓ passed[0m
   aevor-zk              
-running 23 tests
+running 39 tests
 test circuits::tests::merkle_circuit_constraint_count_scales_with_depth ... ok
 test circuits::tests::privacy_circuit_op_count ... ok
 test circuits::tests::range_circuit_bit_width ... ok
+test commitments::tests::inner_product_argument_stores_proof ... ok
+test commitments::tests::kzg_commitment_stores_point ... ok
+test commitments::tests::kzg_verifier_accepts_nonempty_commitment_and_proof ... ok
+test commitments::tests::kzg_verifier_rejects_empty_commitment_point ... ok
+test commitments::tests::kzg_verifier_rejects_empty_proof ... ok
+test commitments::tests::pedersen_commitment_incompatible_with_different_params ... ok
+test commitments::tests::pedersen_commitment_new_stores_fields ... ok
 test plonk::tests::plonk_prover_can_prove_within_srs_degree ... ok
+test commitments::tests::pedersen_commitment_compatible_with_same_params ... ok
 test plonk::tests::plonk_prover_generates_nonempty_proof ... ok
 test plonk::tests::plonk_verifier_accepts_matching_vkey_hash ... ok
 test plonk::tests::plonk_verifier_rejects_wrong_vkey_hash ... ok
-test plonk::tests::proving_key_is_universal_flag ... ok
 test plonk::tests::universal_srs_supports_degree ... ok
+test recursive::tests::proof_accumulator_count_and_aggregate ... ok
+test recursive::tests::proof_accumulator_empty_aggregate ... ok
+test recursive::tests::recursive_prover_aggregate_returns_commitment ... ok
+test recursive::tests::recursive_verifier_accepts_nonempty_aggregated_proof ... ok
+test plonk::tests::proving_key_is_universal_flag ... ok
+test recursive::tests::recursive_verifier_rejects_empty_proof_set ... ok
+test recursive::tests::verify_with_commitment_rejects_wrong_commitment ... ok
+test recursive::tests::verify_with_commitment_roundtrip ... ok
 test stark::tests::stark_circuit_id_as_hash ... ok
-test stark::tests::stark_prover_estimate_proof_size_is_nonzero ... ok
-test stark::tests::stark_prover_encodes_blowup_and_queries_in_fri_params ... ok
 test stark::tests::stark_config_default_values ... ok
-test stark::tests::stark_prover_produces_nonempty_proof ... ok
+test recursive::tests::recursive_prover_empty_set_produces_zero_commitment ... ok
+test stark::tests::stark_prover_estimate_proof_size_is_nonzero ... ok
 test stark::tests::stark_verifier_accepts_valid_proof ... ok
-test stark::tests::stark_verifier_rejects_empty_proof_bytes ... ok
+test stark::tests::stark_prover_produces_nonempty_proof ... ok
 test tests::circuit_gate_limit_is_practical ... ok
-test tests::proof_size_constants_are_positive ... ok
+test stark::tests::stark_prover_encodes_blowup_and_queries_in_fri_params ... ok
+test stark::tests::stark_verifier_rejects_empty_proof_bytes ... ok
 test trusted_setup::tests::ceremony_starts_open ... ok
+test tests::proof_size_constants_are_positive ... ok
 test trusted_setup::tests::ceremony_status_variants_distinct ... ok
-test trusted_setup::tests::contribute_adds_until_min_then_finalizes ... ok
 test trusted_setup::tests::contribute_rejected_when_not_open ... ok
+test trusted_setup::tests::contribute_adds_until_min_then_finalizes ... ok
 test trusted_setup::tests::contribution_stores_all_fields ... ok
 
-test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
   [0;32m✓ passed[0m
   aevor-bridge          
 running 8 tests
 test message_queue::tests::deduplication_tracks_seen_ids ... ok
 test message_queue::tests::queue_enqueue_dequeue_fifo ... ok
-test message_queue::tests::queue_is_empty_initially ... ok
-test tests::bridge_error_display ... ok
 test message_queue::tests::queue_is_not_empty_after_enqueue ... ok
+test tests::bridge_error_display ... ok
+test message_queue::tests::queue_is_empty_initially ... ok
 test tests::bridge_result_ok ... ok
 test tests::chain_connection_fields ... ok
 test tests::cross_chain_message_has_payload ... ok
@@ -798,195 +855,209 @@ test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 17 tests
 test tests::epoch_number_ordering_for_voting ... ok
 test tests::governance_error_display ... ok
+test tests::time_lock_is_less_than_voting_period ... ok
 test tests::governance_fractions_are_in_range ... ok
 test tests::governance_result_ok ... ok
 test tests::governance_timing_defaults ... ok
-test tests::time_lock_is_less_than_voting_period ... ok
 test tests::treasury_balance_total ... ok
 test tests::treasury_can_fund_within_available ... ok
-test tests::vote_construction_with_and_without_validator_id ... ok
-test tests::treasury_manager_rejects_over_available ... ok
 test tests::treasury_manager_queue_spend_reserves_funds ... ok
+test tests::vote_construction_with_and_without_validator_id ... ok
 test treasury::tests::treasury_balance_can_fund_exact_amount ... ok
-test treasury::tests::treasury_manager_multiple_queued_spends ... ok
-test treasury::tests::treasury_manager_queue_spend_reserves_funds ... ok
 test treasury::tests::treasury_balance_total_is_sum ... ok
+test tests::treasury_manager_rejects_over_available ... ok
+test treasury::tests::treasury_manager_multiple_queued_spends ... ok
 test treasury::tests::treasury_manager_queue_spend_rejects_if_insufficient_funds ... ok
+test treasury::tests::treasury_manager_queue_spend_reserves_funds ... ok
 test treasury::tests::treasury_spend_new_stores_fields ... ok
 
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
   [0;32m✓ passed[0m
   aevor-ns              
-running 23 tests
+running 31 tests
 test cache::tests::cache_entry_expired_after_ttl ... ok
 test cache::tests::cache_entry_not_expired_during_ttl ... ok
 test cache::tests::dns_cache_hit_rate_half ... ok
 test cache::tests::dns_cache_hit_rate_all_hits ... ok
 test cache::tests::dns_cache_hit_rate_zero_when_empty ... ok
-test cache::tests::response_cache_get_expired_returns_none ... ok
 test cache::tests::response_cache_evict_expired_removes_stale_entries ... ok
-test cache::tests::response_cache_insert_and_get ... ok
-test protocol::tests::dns_rcode_variants_are_distinct ... ok
 test cache::tests::response_cache_get_missing_returns_none_and_increments_misses ... ok
+test cache::tests::response_cache_get_expired_returns_none ... ok
+test protocol::tests::dns_rcode_variants_are_distinct ... ok
+test cache::tests::response_cache_insert_and_get ... ok
 test protocol::tests::is_success_false_for_nxdomain ... ok
-test protocol::tests::nxdomain_response_mirrors_query_id_and_opcode ... ok
-test protocol::tests::is_success_false_for_query ... ok
 test protocol::tests::is_success_true_for_no_error_response ... ok
+test protocol::tests::is_success_false_for_query ... ok
+test protocol::tests::nxdomain_response_mirrors_query_id_and_opcode ... ok
+test resolver::tests::authoritative_resolver_empty_is_not_authoritative ... ok
+test resolver::tests::authoritative_resolver_add_zone_and_check ... ok
 test protocol::tests::query_message_is_not_response ... ok
-test tests::cache_hit_rate_zero_when_empty ... ok
+test resolver::tests::caching_resolver_insert_and_get ... ok
+test resolver::tests::caching_resolver_miss_returns_none ... ok
+test resolver::tests::resolver_config_default_upstream_and_dnssec ... ok
+test resolver::tests::dns_resolver_first_resolve_caches_result ... ok
 test tests::aevor_record_type_is_in_private_range ... ok
+test resolver::tests::recursive_resolver_resolve_returns_ok ... ok
+test resolver::tests::recursive_resolver_stores_config ... ok
 test tests::cache_hit_rate_calculation ... ok
-test tests::cache_starts_empty ... ok
+test tests::cache_hit_rate_zero_when_empty ... ok
 test tests::dns_constants_match_rfc ... ok
-test tests::dns_message_query_is_not_response ... ok
+test tests::cache_starts_empty ... ok
 test tests::dns_message_nxdomain_is_response ... ok
 test tests::ns_error_display ... ok
+test tests::dns_message_query_is_not_response ... ok
 
-test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
   [0;32m✓ passed[0m
   aevor-metrics         
-running 17 tests
-test aggregation::tests::counter_increment_and_add ... ok
+running 23 tests
 test aggregation::tests::gauge_set_and_get ... ok
+test aggregation::tests::counter_increment_and_add ... ok
 test aggregation::tests::histogram_mean_empty_is_zero ... ok
 test aggregation::tests::histogram_mean_with_values ... ok
 test aggregation::tests::moving_average_tracks_correct_average ... ok
 test aggregation::tests::percentiles_empty_are_zero ... ok
 test aggregation::tests::percentiles_ordered_values ... ok
 test aggregation::tests::percentiles_single_value ... ok
+test differential_privacy::tests::dp_config_consensus_defaults_moderate_epsilon ... ok
+test differential_privacy::tests::dp_config_validator_defaults_stronger_privacy ... ok
+test differential_privacy::tests::laplace_mechanism_apply_preserves_true_value_in_stub ... ok
+test differential_privacy::tests::laplace_mechanism_scale_is_sensitivity_over_epsilon ... ok
+test differential_privacy::tests::laplace_mechanism_scale_with_epsilon_1_equals_sensitivity ... ok
 test tests::anomaly_sigma_is_reasonable ... ok
-test tests::collector_records_and_counts_series ... ok
-test tests::laplace_mechanism_epsilon_consumed_matches_config ... ok
-test tests::collector_sampling_interval_from_config ... ok
-test tests::laplace_mechanism_scale_is_sensitivity_over_epsilon ... ok
 test tests::dp_consensus_defaults_are_sane ... ok
-test tests::metrics_error_display ... ok
+test tests::laplace_mechanism_epsilon_consumed_matches_config ... ok
+test tests::laplace_mechanism_scale_is_sensitivity_over_epsilon ... ok
+test differential_privacy::tests::laplace_mechanism_consumes_epsilon_from_config ... ok
+test tests::collector_records_and_counts_series ... ok
 test tests::latency_percentiles_are_ascending ... ok
+test tests::collector_sampling_interval_from_config ... ok
+test tests::metrics_error_display ... ok
 test tests::metrics_result_ok ... ok
 
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
   [0;32m✓ passed[0m
   aevor-api             
 running 11 tests
-test middleware::tests::builder_default_has_no_rate_limiter_no_cors ... ok
-test middleware::tests::builder_request_logging_is_passthrough ... ok
 test middleware::tests::builder_with_cors_disabled ... ok
+test middleware::tests::builder_default_has_no_rate_limiter_no_cors ... ok
 test middleware::tests::builder_with_cors_enabled ... ok
+test middleware::tests::builder_request_logging_is_passthrough ... ok
 test middleware::tests::middleware_stack_builder_method ... ok
-test middleware::tests::builder_with_rate_limiter_sets_it ... ok
 test network_routing::tests::clone_is_independent ... ok
 test network_routing::tests::new_mainnet ... ok
 test network_routing::tests::new_stores_network_and_backend ... ok
 test tests::authenticated_rate_limit_exceeds_unauthenticated ... ok
+test middleware::tests::builder_with_rate_limiter_sets_it ... ok
 test tests::default_ports_are_distinct ... ok
 
-test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
   [0;32m✓ passed[0m
   aevor-client          
 running 91 tests
 test auth::tests::api_key_valid_when_non_empty ... ok
+test auth::tests::auth_credentials_empty_when_both_none ... ok
 test auth::tests::auth_credentials_from_api_key ... ok
 test auth::tests::auth_credentials_from_jwt ... ok
-test auth::tests::auth_credentials_empty_when_both_none ... ok
-test auth::tests::auth_token_invalid_when_empty ... ok
 test auth::tests::auth_token_valid_before_expiry ... ok
 test auth::tests::client_auth_from_api_key ... ok
 test auth::tests::client_auth_from_jwt ... ok
+test auth::tests::auth_token_invalid_when_empty ... ok
 test auth::tests::jwt_auth_valid_when_non_empty ... ok
 test connection::tests::builder_empty_endpoint_returns_error ... ok
 test connection::tests::builder_sets_endpoint ... ok
-test connection::tests::builder_sets_pool_size ... ok
 test connection::tests::builder_sets_timeout ... ok
+test connection::tests::builder_sets_pool_size ... ok
 test connection::tests::builder_sets_tls ... ok
 test connection::tests::connection_config_default_is_localhost ... ok
+test connection::tests::connection_pool_starts_empty ... ok
 test connection::tests::connection_pool_full_when_at_max ... ok
 test connection::tests::mark_connected_and_disconnected ... ok
 test connection::tests::new_connection_starts_disconnected ... ok
-test connection::tests::connection_pool_starts_empty ... ok
-test light_client::tests::header_sync_state_genesis_is_not_synced ... ok
 test light_client::tests::light_client_advance_rejects_non_increasing_height ... ok
+test light_client::tests::light_client_advance_updates_height_and_root ... ok
 test light_client::tests::light_client_config_default_no_checkpoint ... ok
 test light_client::tests::light_client_starts_unsynced ... ok
-test light_client::tests::light_client_advance_updates_height_and_root ... ok
 test light_client::tests::light_client_with_checkpoint_uses_it_as_root ... ok
 test light_client::tests::merkle_verified_response_is_verified_flag ... ok
+test light_client::tests::header_sync_state_genesis_is_not_synced ... ok
 test multi_network::tests::multi_client_bad_scheme_fails ... ok
 test multi_network::tests::multi_client_connect_and_get ... ok
-test multi_network::tests::multi_client_connect_replaces_existing ... ok
 test multi_network::tests::multi_client_disconnect_not_connected_returns_error ... ok
+test multi_network::tests::multi_client_connect_replaces_existing ... ok
 test multi_network::tests::multi_client_disconnect_removes_network ... ok
-test multi_network::tests::multi_client_empty_endpoint_fails ... ok
 test multi_network::tests::network_handle_is_mainnet ... ok
 test multi_network::tests::network_id_constants ... ok
-test multi_network::tests::network_selector_returns_none_for_missing ... ok
 test multi_network::tests::network_id_display ... ok
 test multi_network::tests::network_selector_finds_correct_handle ... ok
 test privacy::tests::anonymous_connection_default_is_three_hops ... ok
+test multi_network::tests::multi_client_empty_endpoint_fails ... ok
+test multi_network::tests::network_selector_returns_none_for_missing ... ok
 test privacy::tests::anonymous_connection_with_hops ... ok
-test privacy::tests::connection_obfuscation_new_stores_params ... ok
 test privacy::tests::connection_obfuscation_standard_pads_and_delays ... ok
 test privacy::tests::is_private_true_if_either_feature_on ... ok
 test privacy::tests::maximum_privacy_enables_all_features ... ok
+test privacy::tests::connection_obfuscation_new_stores_params ... ok
 test privacy::tests::onion_only_enables_routing_not_mixing ... ok
-test privacy::tests::privacy_routing_config_default_no_privacy ... ok
 test privacy::tests::privacy_connection_stores_config ... ok
-test query::tests::block_query_by_hash ... ok
+test privacy::tests::privacy_routing_config_default_no_privacy ... ok
 test query::tests::block_query_at_height ... ok
+test query::tests::block_query_by_hash ... ok
 test query::tests::object_query_by_id_sets_id_and_limit_one ... ok
 test query::tests::object_query_by_owner_sets_owner ... ok
-test query::tests::object_query_default_is_empty ... ok
 test query::tests::pagination_default_is_first_page_twenty ... ok
 test query::tests::pagination_offset_is_page_times_per_page ... ok
 test query::tests::query_client_returns_error_when_disconnected ... ok
+test query::tests::object_query_default_is_empty ... ok
 test query::tests::query_result_is_empty_when_no_items ... ok
+test signing::tests::different_seeds_produce_different_public_keys ... ok
+test query::tests::query_result_len_and_total_are_independent ... ok
 test query::tests::validator_query_active_sets_active_only ... ok
 test query::tests::validator_query_all_includes_inactive ... ok
-test query::tests::query_result_len_and_total_are_independent ... ok
-test signing::tests::public_key_is_32_bytes_and_deterministic ... ok
 test signing::tests::signing_key_from_seed_is_deterministic ... ok
 test signing::tests::signing_key_generate_produces_non_zero_key ... ok
-test signing::tests::different_seeds_produce_different_public_keys ... ok
+test signing::tests::public_key_is_32_bytes_and_deterministic ... ok
 test signing::tests::sign_and_verify_roundtrip ... ok
 test signing::tests::verify_with_wrong_length_key_returns_false ... ok
-test signing::tests::verify_with_wrong_key_returns_false ... ok
 test subscription::tests::block_subscription_new_stores_id ... ok
-test subscription::tests::event_filter_for_types_is_not_open ... ok
+test signing::tests::verify_with_wrong_key_returns_false ... ok
 test subscription::tests::event_filter_all_is_open ... ok
+test subscription::tests::event_filter_for_types_is_not_open ... ok
 test subscription::tests::event_filter_for_types_with_address_both_set ... ok
-test subscription::tests::event_filter_with_address_adds_address ... ok
 test subscription::tests::event_subscription_new_stores_id_and_filter ... ok
 test subscription::tests::subscription_client_returns_error_when_disconnected ... ok
-test tests::page_sizes_are_ordered ... ok
 test subscription::tests::transaction_subscription_new_stores_hash ... ok
+test tests::page_sizes_are_ordered ... ok
 test tests::reconnect_delays_are_ordered ... ok
-test transaction::tests::signed_transaction_request_wraps_tx ... ok
-test tests::timeout_values_are_ordered ... ok
+test subscription::tests::event_filter_with_address_adds_address ... ok
 test transaction::tests::minimal_signed_tx_inputs_and_outputs ... ok
 test transaction::tests::minimal_signed_tx_is_transfer_type ... ok
+test transaction::tests::signed_transaction_request_wraps_tx ... ok
 test transaction::tests::submit_result_stores_hash_and_status ... ok
 test transaction::tests::submit_returns_error_when_disconnected ... ok
 test transaction::tests::transaction_client_endpoint ... ok
+test transaction::tests::transaction_client_get_status_returns_error_when_disconnected ... ok
+test tests::timeout_values_are_ordered ... ok
 test transaction::tests::transaction_poller_stores_hash_and_interval ... ok
 test verification::tests::attestation_verifier_empty_report_returns_false ... ok
-test verification::tests::attestation_verifier_non_empty_report_with_non_zero_input_hash ... ok
 test verification::tests::merkle_verifier_empty_siblings_returns_false ... ok
+test verification::tests::attestation_verifier_non_empty_report_with_non_zero_input_hash ... ok
 test verification::tests::response_verifier_no_proof_returns_trusted ... ok
 test verification::tests::response_verifier_proof_no_root_returns_unverified ... ok
-test verification::tests::trusted_response_is_not_verified ... ok
 test verification::tests::verified_response_is_verified ... ok
-test transaction::tests::transaction_client_get_status_returns_error_when_disconnected ... ok
+test verification::tests::trusted_response_is_not_verified ... ok
 
-test result: ok. 91 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 91 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
   [0;32m✓ passed[0m
   aevor-cli             
 running 2 tests
-test tests::default_paths_are_nonempty ... ok
 test tests::cli_name_is_correct ... ok
+test tests::default_paths_are_nonempty ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
@@ -998,18 +1069,18 @@ test cooldown::tests::entry_not_expired_during_cooldown ... ok
 test cooldown::tests::remaining_seconds_after_expiry_is_zero ... ok
 test cooldown::tests::remaining_seconds_before_expiry ... ok
 test cooldown::tests::tracker_allows_address_not_in_cooldown ... ok
-test cooldown::tests::tracker_allows_after_expiry ... ok
 test cooldown::tests::tracker_blocks_address_in_cooldown ... ok
+test cooldown::tests::tracker_allows_after_expiry ... ok
+test pow::tests::verifier_rejects_wrong_challenge_hash ... ok
+test pow::tests::verifier_rejects_insufficient_leading_zeros ... ok
 test pow::tests::generator_produces_challenge_with_configured_difficulty ... ok
 test pow::tests::verifier_accepts_solution_with_enough_leading_zeros ... ok
-test pow::tests::verifier_rejects_insufficient_leading_zeros ... ok
-test pow::tests::verifier_rejects_wrong_challenge_hash ... ok
 test pow::tests::verify_solution_returns_error_for_bad_solution ... ok
-test tests::cooldown_is_reasonable ... ok
 test tests::quorum_requires_multiple_validators ... ok
+test tests::cooldown_is_reasonable ... ok
 test tests::pow_difficulty_is_feasible ... ok
 
-test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
   [0;32m✓ passed[0m
   node                  
@@ -1019,27 +1090,27 @@ test archive::tests::archive_node_start_sets_running ... ok
 test archive::tests::archive_node_starts_not_running ... ok
 test full_node::tests::full_node_start_sets_running ... ok
 test full_node::tests::full_node_starts_not_running ... ok
-test init::tests::run_all_counts_added_steps ... ok
 test init::tests::default_initializer_has_no_steps ... ok
+test init::tests::run_all_counts_added_steps ... ok
+test init::tests::run_all_empty_returns_zero_steps ... ok
 test orchestrator::tests::node_mode_display ... ok
 test orchestrator::tests::orchestrator_config_from_node_config ... ok
 test orchestrator::tests::orchestrator_new_accepts_valid_config ... ok
+test orchestrator::tests::node_handle_shutdown_succeeds ... ok
 test orchestrator::tests::orchestrator_new_rejects_empty_network ... ok
 test orchestrator::tests::orchestrator_start_returns_handle ... ok
 test shutdown::tests::execute_returns_state_preservation ... ok
 test shutdown::tests::graceful_shutdown_all_reasons_succeed ... ok
-test shutdown::tests::shutdown_reason_display ... ok
 test shutdown::tests::shutdown_sequence_count ... ok
-test orchestrator::tests::node_handle_shutdown_succeeds ... ok
+test shutdown::tests::shutdown_reason_display ... ok
 test shutdown::tests::shutdown_sequence_order_is_reversed ... ok
-test init::tests::run_all_empty_returns_zero_steps ... ok
 test tests::restart_backoff_is_reasonable ... ok
 test tests::shutdown_timeout_less_than_startup ... ok
-test validator::tests::orchestrator_with_active_consensus_is_active ... ok
 test tests::subsystem_count_matches_crate_count ... ok
 test validator::tests::activate_from_active_fails ... ok
 test validator::tests::activate_from_initializing_succeeds ... ok
 test validator::tests::orchestrator_with_inactive_consensus_is_not_active ... ok
+test validator::tests::orchestrator_with_active_consensus_is_active ... ok
 test validator::tests::orchestrator_without_consensus_is_inactive ... ok
 test validator::tests::validator_starts_in_initializing_state ... ok
 
@@ -1050,28 +1121,41 @@ test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 [0;34m[STEP 7] Full Workspace Test Run[0m
 ------------------------------------------------------------
 Running: cargo test --workspace --lib
+   Compiling aevor-execution v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-execution)
    Compiling aevor-bridge v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-bridge)
    Compiling aevor-governance v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-governance)
-   Compiling aevor-execution v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-execution)
+   Compiling aevor-faucet v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-faucet)
+   Compiling aevor-metrics v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-metrics)
+   Compiling aevor-security v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-security)
    Compiling aevor-dag v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-dag)
    Compiling aevor-zk v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-zk)
-    Finished `test` profile [optimized + debuginfo] target(s) in 6.10s
+   Compiling aevor-consensus v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-consensus)
+warning: unused import: `BlockHash`
+  --> aevor-consensus/src/frontier/mod.rs:56:34
+   |
+56 |     use aevor_core::primitives::{BlockHash, BlockHeight, Hash256, ValidatorWeight};
+   |                                  ^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: `aevor-consensus` (lib test) generated 1 warning (run `cargo fix --lib -p aevor-consensus --tests` to apply 1 suggestion)
+    Finished `test` profile [optimized + debuginfo] target(s) in 20.12s
      Running unittests src/lib.rs (target/debug/deps/aevor_api-bac3e47327e9bf02)
 
 running 11 tests
 test middleware::tests::builder_default_has_no_rate_limiter_no_cors ... ok
-test middleware::tests::builder_with_cors_enabled ... ok
-test middleware::tests::builder_with_rate_limiter_sets_it ... ok
 test middleware::tests::builder_with_cors_disabled ... ok
 test middleware::tests::builder_request_logging_is_passthrough ... ok
-test network_routing::tests::new_mainnet ... ok
+test middleware::tests::builder_with_cors_enabled ... ok
+test middleware::tests::builder_with_rate_limiter_sets_it ... ok
 test middleware::tests::middleware_stack_builder_method ... ok
 test network_routing::tests::clone_is_independent ... ok
+test network_routing::tests::new_mainnet ... ok
+test network_routing::tests::new_stores_network_and_backend ... ok
 test tests::authenticated_rate_limit_exceeds_unauthenticated ... ok
 test tests::default_ports_are_distinct ... ok
-test network_routing::tests::new_stores_network_and_backend ... ok
 
-test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_bridge-fd214b722a4d1465)
 
@@ -1080,234 +1164,250 @@ test message_queue::tests::deduplication_tracks_seen_ids ... ok
 test message_queue::tests::queue_enqueue_dequeue_fifo ... ok
 test message_queue::tests::queue_is_empty_initially ... ok
 test message_queue::tests::queue_is_not_empty_after_enqueue ... ok
-test tests::bridge_result_ok ... ok
 test tests::bridge_error_display ... ok
+test tests::bridge_result_ok ... ok
 test tests::chain_connection_fields ... ok
 test tests::cross_chain_message_has_payload ... ok
 
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_cli-5c873691e104c814)
 
 running 2 tests
-test tests::cli_name_is_correct ... ok
 test tests::default_paths_are_nonempty ... ok
+test tests::cli_name_is_correct ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_client-d580ff047ab5d096)
 
 running 91 tests
+test auth::tests::auth_credentials_empty_when_both_none ... ok
+test auth::tests::auth_credentials_from_api_key ... ok
 test auth::tests::api_key_valid_when_non_empty ... ok
 test auth::tests::auth_credentials_from_jwt ... ok
-test auth::tests::auth_credentials_from_api_key ... ok
-test auth::tests::auth_credentials_empty_when_both_none ... ok
-test auth::tests::auth_token_invalid_when_empty ... ok
-test auth::tests::jwt_auth_valid_when_non_empty ... ok
 test auth::tests::auth_token_valid_before_expiry ... ok
-test auth::tests::client_auth_from_api_key ... ok
 test auth::tests::client_auth_from_jwt ... ok
-test connection::tests::builder_empty_endpoint_returns_error ... ok
+test auth::tests::auth_token_invalid_when_empty ... ok
+test auth::tests::client_auth_from_api_key ... ok
+test auth::tests::jwt_auth_valid_when_non_empty ... ok
 test connection::tests::builder_sets_endpoint ... ok
 test connection::tests::builder_sets_pool_size ... ok
-test connection::tests::builder_sets_tls ... ok
-test connection::tests::connection_config_default_is_localhost ... ok
-test connection::tests::connection_pool_full_when_at_max ... ok
 test connection::tests::builder_sets_timeout ... ok
-test connection::tests::connection_pool_starts_empty ... ok
-test connection::tests::mark_connected_and_disconnected ... ok
+test connection::tests::builder_sets_tls ... ok
+test connection::tests::builder_empty_endpoint_returns_error ... ok
+test connection::tests::connection_pool_full_when_at_max ... ok
+test connection::tests::connection_config_default_is_localhost ... ok
 test connection::tests::new_connection_starts_disconnected ... ok
+test connection::tests::mark_connected_and_disconnected ... ok
 test light_client::tests::header_sync_state_genesis_is_not_synced ... ok
 test light_client::tests::light_client_advance_rejects_non_increasing_height ... ok
-test light_client::tests::light_client_starts_unsynced ... ok
 test light_client::tests::light_client_advance_updates_height_and_root ... ok
 test light_client::tests::light_client_config_default_no_checkpoint ... ok
+test light_client::tests::light_client_starts_unsynced ... ok
+test connection::tests::connection_pool_starts_empty ... ok
 test light_client::tests::light_client_with_checkpoint_uses_it_as_root ... ok
-test multi_network::tests::multi_client_connect_and_get ... ok
 test light_client::tests::merkle_verified_response_is_verified_flag ... ok
+test multi_network::tests::multi_client_connect_and_get ... ok
 test multi_network::tests::multi_client_bad_scheme_fails ... ok
 test multi_network::tests::multi_client_connect_replaces_existing ... ok
 test multi_network::tests::multi_client_disconnect_not_connected_returns_error ... ok
 test multi_network::tests::multi_client_disconnect_removes_network ... ok
-test multi_network::tests::multi_client_empty_endpoint_fails ... ok
-test multi_network::tests::network_id_display ... ok
 test multi_network::tests::network_handle_is_mainnet ... ok
 test multi_network::tests::network_id_constants ... ok
+test multi_network::tests::multi_client_empty_endpoint_fails ... ok
 test multi_network::tests::network_selector_finds_correct_handle ... ok
 test multi_network::tests::network_selector_returns_none_for_missing ... ok
-test privacy::tests::connection_obfuscation_new_stores_params ... ok
+test multi_network::tests::network_id_display ... ok
 test privacy::tests::anonymous_connection_default_is_three_hops ... ok
 test privacy::tests::anonymous_connection_with_hops ... ok
 test privacy::tests::connection_obfuscation_standard_pads_and_delays ... ok
 test privacy::tests::is_private_true_if_either_feature_on ... ok
 test privacy::tests::maximum_privacy_enables_all_features ... ok
-test privacy::tests::onion_only_enables_routing_not_mixing ... ok
+test privacy::tests::connection_obfuscation_new_stores_params ... ok
 test query::tests::block_query_at_height ... ok
-test privacy::tests::privacy_connection_stores_config ... ok
 test privacy::tests::privacy_routing_config_default_no_privacy ... ok
-test query::tests::block_query_by_hash ... ok
-test query::tests::object_query_default_is_empty ... ok
-test query::tests::object_query_by_id_sets_id_and_limit_one ... ok
+test privacy::tests::onion_only_enables_routing_not_mixing ... ok
+test privacy::tests::privacy_connection_stores_config ... ok
 test query::tests::object_query_by_owner_sets_owner ... ok
-test query::tests::pagination_default_is_first_page_twenty ... ok
-test query::tests::pagination_offset_is_page_times_per_page ... ok
+test query::tests::object_query_default_is_empty ... ok
+test query::tests::block_query_by_hash ... ok
+test query::tests::object_query_by_id_sets_id_and_limit_one ... ok
 test query::tests::query_client_returns_error_when_disconnected ... ok
+test query::tests::pagination_default_is_first_page_twenty ... ok
 test query::tests::query_result_is_empty_when_no_items ... ok
-test query::tests::query_result_len_and_total_are_independent ... ok
-test query::tests::validator_query_active_sets_active_only ... ok
+test query::tests::pagination_offset_is_page_times_per_page ... ok
 test query::tests::validator_query_all_includes_inactive ... ok
 test signing::tests::different_seeds_produce_different_public_keys ... ok
+test query::tests::query_result_len_and_total_are_independent ... ok
+test query::tests::validator_query_active_sets_active_only ... ok
 test signing::tests::public_key_is_32_bytes_and_deterministic ... ok
+test signing::tests::sign_and_verify_roundtrip ... ok
 test signing::tests::signing_key_from_seed_is_deterministic ... ok
 test signing::tests::signing_key_generate_produces_non_zero_key ... ok
-test signing::tests::sign_and_verify_roundtrip ... ok
-test signing::tests::verify_with_wrong_key_returns_false ... ok
 test signing::tests::verify_with_wrong_length_key_returns_false ... ok
-test subscription::tests::block_subscription_new_stores_id ... ok
-test subscription::tests::event_filter_for_types_with_address_both_set ... ok
+test signing::tests::verify_with_wrong_key_returns_false ... ok
 test subscription::tests::event_filter_all_is_open ... ok
+test subscription::tests::event_filter_for_types_with_address_both_set ... ok
 test subscription::tests::event_filter_for_types_is_not_open ... ok
 test subscription::tests::event_filter_with_address_adds_address ... ok
 test subscription::tests::event_subscription_new_stores_id_and_filter ... ok
 test subscription::tests::subscription_client_returns_error_when_disconnected ... ok
+test subscription::tests::block_subscription_new_stores_id ... ok
+test subscription::tests::transaction_subscription_new_stores_hash ... ok
 test tests::page_sizes_are_ordered ... ok
 test tests::reconnect_delays_are_ordered ... ok
 test tests::timeout_values_are_ordered ... ok
-test subscription::tests::transaction_subscription_new_stores_hash ... ok
 test transaction::tests::minimal_signed_tx_inputs_and_outputs ... ok
 test transaction::tests::signed_transaction_request_wraps_tx ... ok
-test transaction::tests::submit_returns_error_when_disconnected ... ok
-test transaction::tests::minimal_signed_tx_is_transfer_type ... ok
 test transaction::tests::submit_result_stores_hash_and_status ... ok
+test transaction::tests::minimal_signed_tx_is_transfer_type ... ok
+test transaction::tests::submit_returns_error_when_disconnected ... ok
 test transaction::tests::transaction_client_endpoint ... ok
-test verification::tests::attestation_verifier_empty_report_returns_false ... ok
-test verification::tests::attestation_verifier_non_empty_report_with_non_zero_input_hash ... ok
-test verification::tests::response_verifier_no_proof_returns_trusted ... ok
 test transaction::tests::transaction_client_get_status_returns_error_when_disconnected ... ok
 test transaction::tests::transaction_poller_stores_hash_and_interval ... ok
+test verification::tests::attestation_verifier_empty_report_returns_false ... ok
+test verification::tests::attestation_verifier_non_empty_report_with_non_zero_input_hash ... ok
 test verification::tests::merkle_verifier_empty_siblings_returns_false ... ok
+test verification::tests::response_verifier_no_proof_returns_trusted ... ok
 test verification::tests::response_verifier_proof_no_root_returns_unverified ... ok
 test verification::tests::trusted_response_is_not_verified ... ok
 test verification::tests::verified_response_is_verified ... ok
 
-test result: ok. 91 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 91 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_config-9cff8b50e348b9fb)
 
 running 62 tests
-test consensus::tests::attestation_config_default_is_required_and_parallel ... ok
 test consensus::tests::consensus_config_default_validators ... ok
-test consensus::tests::round_timing_config_proposal_less_than_round ... ok
+test consensus::tests::attestation_config_default_is_required_and_parallel ... ok
 test consensus::tests::security_level_config_default_levels ... ok
-test consensus::tests::finality_timeouts_are_ordered ... ok
+test consensus::tests::round_timing_config_proposal_less_than_round ... ok
 test consensus::tests::validator_set_config_default_unbonding ... ok
-test defaults::tests::devnet_defaults_lowest_stake_and_smallest_epoch ... ok
+test consensus::tests::finality_timeouts_are_ordered ... ok
 test defaults::tests::enterprise_defaults_no_fees_no_stake_requirement ... ok
 test defaults::tests::mainnet_defaults_requires_production_attestation ... ok
+test defaults::tests::mainnet_defaults_chain_id_and_mode ... ok
+test defaults::tests::devnet_defaults_lowest_stake_and_smallest_epoch ... ok
 test defaults::tests::mainnet_defaults_validator_stake_is_nonzero ... ok
 test defaults::tests::testnet_defaults_chain_id_and_mode ... ok
-test defaults::tests::mainnet_defaults_chain_id_and_mode ... ok
-test defaults::tests::testnet_defaults_lower_stake_than_mainnet ... ok
 test defaults::tests::testnet_defaults_simulation_attestation_not_production ... ok
-test deployment::tests::default_data_dir_contains_aevor ... ok
+test defaults::tests::testnet_defaults_lower_stake_than_mainnet ... ok
 test deployment::tests::default_log_dir_contains_aevor_logs ... ok
-test deployment::tests::deployment_mode_enables_faucet_only_for_test_and_dev ... ok
+test deployment::tests::default_data_dir_contains_aevor ... ok
 test deployment::tests::deployment_config_default_is_mainnet ... ok
+test deployment::tests::enterprise_config_audit_and_kyc_defaults ... ok
+test deployment::tests::deployment_mode_enables_faucet_only_for_test_and_dev ... ok
 test deployment::tests::deployment_mode_is_production ... ok
 test deployment::tests::deployment_mode_is_public ... ok
-test deployment::tests::enterprise_config_audit_and_kyc_defaults ... ok
-test economics::tests::economics_default_supply_less_than_max ... ok
 test deployment::tests::hybrid_deployment_config_fields ... ok
+test economics::tests::economics_default_supply_less_than_max ... ok
 test economics::tests::fee_config_min_less_than_base ... ok
 test economics::tests::reward_shares_sum_to_ten_thousand_bps ... ok
-test economics::tests::staking_min_validator_greater_than_delegation ... ok
-test loader::tests::config_loader_defaults_source_loads_devnet ... ok
-test loader::tests::config_loader_defaults_source_loads_mainnet ... ok
 test economics::tests::slashing_double_sign_harsher_than_downtime ... ok
-test loader::tests::config_loader_defaults_source_loads_testnet ... ok
-test loader::tests::config_loader_nonexistent_file_returns_error ... ok
+test economics::tests::staking_min_validator_greater_than_delegation ... ok
 test loader::tests::config_loader_empty_override_field_returns_error ... ok
+test loader::tests::config_loader_defaults_source_loads_mainnet ... ok
+test loader::tests::config_loader_defaults_source_loads_testnet ... ok
+test loader::tests::config_loader_defaults_source_loads_devnet ... ok
+test loader::tests::config_loader_nonexistent_file_returns_error ... ok
+test network::tests::genesis_default_has_supply ... ok
 test loader::tests::config_source_debug_shows_variant ... ok
 test loader::tests::config_override_new_stores_field_and_value ... ok
-test network::tests::genesis_default_has_supply ... ok
-test network::tests::network_config_default_has_listen_address ... ok
-test network::tests::network_config_default_is_mainnet ... ok
 test network::tests::network_type_is_production_only_for_mainnet ... ok
 test network::tests::peer_discovery_default_enables_dht ... ok
+test network::tests::network_config_default_has_listen_address ... ok
 test network::tests::topology_default_enables_routing ... ok
 test privacy::tests::anti_snooping_default_is_minimal ... ok
+test network::tests::network_config_default_is_mainnet ... ok
 test privacy::tests::cross_privacy_default_requires_auth_and_audits ... ok
-test privacy::tests::default_privacy_level_is_public ... ok
 test privacy::tests::privacy_config_default_is_enabled_and_strict ... ok
+test privacy::tests::default_privacy_level_is_public ... ok
 test privacy::tests::selective_disclosure_default_enabled_no_zk ... ok
 test tee::tests::attestation_mode_simulation_is_not_local ... ok
+test tee::tests::isolation_config_default_uses_encrypted_memory ... ok
 test tee::tests::attestation_config_default_is_local_no_production ... ok
 test tee::tests::platform_preference_default_is_auto ... ok
-test tee::tests::isolation_config_default_uses_encrypted_memory ... ok
-test tee::tests::platform_preference_prefer_stores_platform ... ok
 test tee::tests::tee_config_default_required_for_validator_not_fail_if_unavailable ... ok
-test tests::default_config_validates ... ok
+test tee::tests::platform_preference_prefer_stores_platform ... ok
 test tee::tests::tee_service_config_stores_all_fields ... ok
+test tests::default_config_validates ... ok
 test tests::devnet_defaults_validate ... ok
 test tests::testnet_defaults_validate ... ok
 test validation::tests::config_validation_error_formats_field_and_message ... ok
-test validation::tests::mainnet_defaults_pass_full_validation ... ok
-test validation::tests::valid_result_has_no_errors ... ok
-test validation::tests::invalid_result_has_error ... ok
 test validation::tests::mismatched_reward_bps_fails_validation ... ok
+test validation::tests::invalid_result_has_error ... ok
 test validation::tests::validate_config_trait_returns_valid_for_defaults ... ok
+test validation::tests::valid_result_has_no_errors ... ok
+test validation::tests::mainnet_defaults_pass_full_validation ... ok
 test validation::tests::zero_max_peers_fails_validation ... ok
 
-test result: ok. 62 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 62 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_consensus-ee0a9dbfead80ad8)
 
-running 43 tests
-test attestation::tests::collector_matching_attestations_filters_by_code_measurement ... ok
+running 59 tests
 test attestation::tests::collector_complete_after_required_count ... ok
 test attestation::tests::collector_starts_empty_not_complete ... ok
 test attestation::tests::cross_platform_set_consistent_when_measurements_match ... ok
-test attestation::tests::verifier_returns_false_for_non_production ... ok
 test attestation::tests::cross_platform_set_inconsistent_when_measurement_differs ... ok
-test byzantine::tests::byzantine_isolation_idempotent ... ok
-test byzantine::tests::byzantine_detector_boundary ... ok
+test attestation::tests::verifier_returns_false_for_non_production ... ok
+test attestation::tests::collector_matching_attestations_filters_by_code_measurement ... ok
 test attestation::tests::verifier_returns_true_for_production_non_empty_report ... ok
+test byzantine::tests::byzantine_detector_boundary ... ok
 test byzantine::tests::byzantine_detector_flags_low_participation ... ok
+test byzantine::tests::byzantine_isolation_idempotent ... ok
 test byzantine::tests::byzantine_isolation_isolate_and_check ... ok
 test byzantine::tests::corruption_proof_stores_misbehavior ... ok
 test byzantine::tests::byzantine_isolation_starts_empty ... ok
 test byzantine::tests::misbehavior_variants_are_distinct ... ok
 test checkpoint::tests::checkpoint_creator_should_checkpoint_at_interval ... ok
-test checkpoint::tests::long_range_protection_latest_is_highest ... ok
 test checkpoint::tests::long_range_protection_starts_empty ... ok
+test checkpoint::tests::long_range_protection_verify_chain ... ok
 test checkpoint::tests::new_checkpoint_is_unverified ... ok
 test checkpoint::tests::verifier_rejects_without_finality_proof ... ok
-test checkpoint::tests::long_range_protection_verify_chain ... ok
-test checkpoint::tests::verifier_rejects_zero_content_hash ... ok
+test checkpoint::tests::long_range_protection_latest_is_highest ... ok
 test checkpoint::tests::with_proof_marks_verified ... ok
 test engine::tests::attestation_collection_meets_level_after_sufficient_weight ... ok
+test checkpoint::tests::verifier_rejects_zero_content_hash ... ok
 test engine::tests::attestation_collection_starts_empty ... ok
-test engine::tests::attestation_collection_zero_total_weight_returns_zero_fraction ... ok
-test engine::tests::consensus_engine_finalize_round_no_attestations ... ok
 test engine::tests::consensus_engine_advance_round_increments ... ok
+test engine::tests::consensus_engine_finalize_round_no_attestations ... ok
+test engine::tests::attestation_collection_zero_total_weight_returns_zero_fraction ... ok
 test engine::tests::consensus_engine_starts_at_round_zero ... ok
+test frontier::tests::frontier_state_no_corruption_initially ... ok
+test frontier::tests::verifier_accepts_higher_than_required ... ok
+test frontier::tests::verifier_accepts_matching_security_level ... ok
+test frontier::tests::frontier_block_stores_fields ... ok
 test engine::tests::round_result_is_successful_on_valid_validation ... ok
+test frontier::tests::verifier_rejects_lower_than_required ... ok
+test frontier::tests::frontier_corruption_stores_description ... ok
 test security_levels::tests::accelerator_all_levels_accessible ... ok
 test security_levels::tests::accelerator_config_for_returns_matching_level ... ok
 test security_levels::tests::security_level_config_for_level_participation_ordered ... ok
 test security_levels::tests::security_level_config_for_level_timing_ordered ... ok
+test slashing::tests::attestation_collector_reaches_required_count ... ok
+test slashing::tests::double_sign_slash_is_percentage_of_stake ... ok
 test security_levels::tests::validator_participation_fraction_half ... ok
 test security_levels::tests::validator_participation_fraction_zero_when_no_weight ... ok
 test slashing::tests::liveness_slash_scales_with_epochs_missed ... ok
 test slashing::tests::penalty_accessors_match_constructor ... ok
-test slashing::tests::attestation_collector_reaches_required_count ... ok
-test slashing::tests::double_sign_slash_is_percentage_of_stake ... ok
 test slashing::tests::zero_stake_slash_is_zero ... ok
-test tests::byzantine_threshold_is_below_strong_security ... ok
 test tests::confirmation_times_are_ordered ... ok
+test tests::byzantine_threshold_is_below_strong_security ... ok
+test timing::tests::consensus_clock_advance_round_resets_sequence ... ok
 test tests::security_thresholds_are_ordered ... ok
+test timing::tests::consensus_clock_starts_at_zero ... ok
+test timing::tests::round_duration_complete_when_ended_at_set ... ok
+test validator_set::tests::validator_rotation_stores_epoch_and_lists ... ok
+test validator_set::tests::weighted_selection_empty_set_returns_none ... ok
+test validator_set::tests::weighted_selection_returns_a_validator_from_the_set ... ok
+test validator_set::tests::weighted_selection_single_validator_always_selected ... ok
+test timing::tests::consensus_clock_multiple_rounds ... ok
+test timing::tests::epoch_reference_stores_fields ... ok
+test timing::tests::consensus_clock_advance_sequence_increments ... ok
 
-test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 59 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_core-785f7e7e369279f0)
 
@@ -1319,147 +1419,147 @@ test block::tests::block_status_in_progress ... ok
 test block::tests::micro_dag_entry_root_detection ... ok
 test consensus::tests::consensus_timestamp_genesis_is_zero ... ok
 test consensus::tests::consensus_timestamp_precedes ... ok
-test consensus::tests::logical_sequence_independence ... ok
-test consensus::tests::security_level_thresholds_are_ordered ... ok
 test consensus::tests::security_level_bft_threshold ... ok
 test consensus::tests::security_level_display ... ok
+test consensus::tests::logical_sequence_independence ... ok
+test consensus::tests::security_level_thresholds_are_ordered ... ok
 test consensus::tests::validation_result_constructors ... ok
 test coordination::tests::coordination_context_participant_count ... ok
-test coordination::tests::parallel_coordination_conflict_marks_dirty ... ok
-test coordination::tests::sync_point_blocks_unblocked_lane_when_not_reached ... ok
-test coordination::tests::dependency_graph_empty_is_fully_independent ... ok
 test coordination::tests::parallel_coordination_all_lanes_complete ... ok
+test coordination::tests::dependency_graph_empty_is_fully_independent ... ok
+test coordination::tests::parallel_coordination_conflict_marks_dirty ... ok
 test coordination::tests::sync_point_does_not_block_after_reaching ... ok
+test coordination::tests::sync_point_blocks_unblocked_lane_when_not_reached ... ok
 test crypto::tests::cross_platform_consistency_with_matching_measurements ... ok
-test crypto::tests::crypto_proof_zk_detection ... ok
-test crypto::tests::aggregate_signature_signer_count ... ok
-test crypto::tests::groth16_requires_trusted_setup ... ok
 test crypto::tests::groth16_has_smallest_proof_size ... ok
-test crypto::tests::stark_is_post_quantum ... ok
-test economics::tests::balance_credit_overflow_returns_none ... ok
-test economics::tests::balance_debit_success ... ok
+test crypto::tests::aggregate_signature_signer_count ... ok
+test crypto::tests::crypto_proof_zk_detection ... ok
+test crypto::tests::groth16_requires_trusted_setup ... ok
 test crypto::tests::security_claims_minimum_production ... ok
+test crypto::tests::stark_is_post_quantum ... ok
+test economics::tests::balance_debit_success ... ok
+test economics::tests::fee_free_has_zero_max_fee ... ok
+test economics::tests::balance_credit_overflow_returns_none ... ok
 test economics::tests::balance_debit_insufficient_returns_none ... ok
 test economics::tests::fee_policy_free_estimates_zero ... ok
 test economics::tests::stake_begins_inactive_when_unstaking ... ok
 test economics::tests::validator_reward_compute_total ... ok
-test economics::tests::fee_free_has_zero_max_fee ... ok
-test error::tests::connection_failure_is_transient ... ok
 test error::tests::byzantine_behavior_is_security_violation ... ok
-test error::tests::internal_error_is_not_transient_and_not_security ... ok
+test error::tests::connection_failure_is_transient ... ok
 test error::tests::error_from_consensus_wraps_correctly ... ok
 test error::tests::insufficient_balance_error_displays_values ... ok
+test error::tests::internal_error_is_not_transient_and_not_security ... ok
 test error::tests::tee_integrity_violation_is_security_violation ... ok
-test execution::tests::execution_lane_sequential_is_zero ... ok
 test execution::tests::access_tracker_delete_removes_from_writes ... ok
 test execution::tests::access_tracker_read_deduplication ... ok
+test execution::tests::execution_lane_sequential_is_zero ... ok
 test execution::tests::execution_result_failure_fields ... ok
+test execution::tests::state_change_creation_detection ... ok
 test execution::tests::execution_result_success_fields ... ok
 test execution::tests::parallel_plan_single_lane_not_parallel ... ok
-test network::tests::geographic_region_known_flag ... ok
 test network::tests::geographic_region_all_known_excludes_unknown ... ok
-test execution::tests::state_change_creation_detection ... ok
-test network::tests::network_protocol_default_ports_nonzero ... ok
+test network::tests::geographic_region_known_flag ... ok
 test network::tests::grpc_default_port_matches_api_constant ... ok
+test network::tests::network_protocol_default_ports_nonzero ... ok
 test network::tests::node_id_from_public_key_is_deterministic ... ok
+test network::tests::topology_empty_is_not_geographically_diverse ... ok
 test network::tests::subnet_mainnet_is_zero ... ok
 test network::tests::topology_metrics_needs_three_active_peers ... ok
-test network::tests::topology_empty_is_not_geographically_diverse ... ok
-test primitives::tests::amount_checked_sub_underflow_returns_none ... ok
 test primitives::tests::address_from_hex_and_display ... ok
 test primitives::tests::amount_checked_add_overflow_returns_none ... ok
-test primitives::tests::amount_display_fractional_aevor ... ok
+test primitives::tests::amount_checked_sub_underflow_returns_none ... ok
 test primitives::tests::amount_display_whole_aevor ... ok
-test primitives::tests::chain_id_mainnet ... ok
+test primitives::tests::amount_display_fractional_aevor ... ok
 test primitives::tests::block_height_increments ... ok
 test primitives::tests::gas_price_total_fee ... ok
+test primitives::tests::chain_id_mainnet ... ok
 test primitives::tests::hash256_roundtrip_hex ... ok
-test primitives::tests::nonce_increments ... ok
-test primitives::tests::validator_index_ordering ... ok
-test privacy::tests::access_policy_explicit_allows_listed ... ok
-test primitives::tests::public_key_to_address_is_deterministic ... ok
-test privacy::tests::access_policy_public_allows_all ... ok
 test primitives::tests::hash256_zero_is_all_zeros ... ok
+test primitives::tests::nonce_increments ... ok
+test primitives::tests::public_key_to_address_is_deterministic ... ok
+test primitives::tests::validator_index_ordering ... ok
 test privacy::tests::mixed_privacy_effective_level ... ok
+test privacy::tests::access_policy_public_allows_all ... ok
+test privacy::tests::access_policy_explicit_allows_listed ... ok
 test privacy::tests::privacy_level_gas_multiplier_increases ... ok
-test privacy::tests::privacy_level_anti_snooping ... ok
 test privacy::tests::privacy_level_max ... ok
 test privacy::tests::privacy_level_ordering ... ok
+test privacy::tests::privacy_level_anti_snooping ... ok
 test privacy::tests::privacy_level_tee_requirements ... ok
-test protocol::tests::consensus_round_bft_check ... ok
 test privacy::tests::privacy_policy_public_default ... ok
-test privacy::tests::selective_disclosure_disabled_by_default ... ok
 test protocol::tests::checkpoint_full_security_check ... ok
-test protocol::tests::protocol_version_compatibility ... ok
+test protocol::tests::consensus_round_bft_check ... ok
 test protocol::tests::network_epoch_current_has_no_end ... ok
+test protocol::tests::protocol_version_compatibility ... ok
+test privacy::tests::selective_disclosure_disabled_by_default ... ok
 test protocol::tests::protocol_version_display ... ok
-test protocol::tests::protocol_version_ordering ... ok
 test state::tests::state_transition_noop_detection ... ok
 test state::tests::state_version_advances ... ok
 test state::tests::state_version_genesis_is_zero ... ok
 test state::tests::uncorrupted_frontier_multiple_blocks_not_canonical ... ok
-test state::tests::uncorrupted_frontier_single_block_is_canonical ... ok
+test protocol::tests::protocol_version_ordering ... ok
 test state::tests::world_state_genesis_is_empty ... ok
 test storage::tests::merkle_proof_empty_siblings_fails_verification ... ok
-test storage::tests::merkle_root_empty_is_zero ... ok
 test storage::tests::storage_commitment_unchanged_when_roots_equal ... ok
-test storage::tests::storage_key_from_hash_is_deterministic ... ok
+test state::tests::uncorrupted_frontier_single_block_is_canonical ... ok
+test storage::tests::merkle_root_empty_is_zero ... ok
 test storage::tests::storage_key_domain_separation_produces_different_keys ... ok
-test tee::tests::all_platforms_support_remote_attestation ... ok
-test storage::tests::versioned_state_advance_increments_version ... ok
+test storage::tests::storage_key_from_hash_is_deterministic ... ok
 test storage::tests::versioned_state_genesis_version_is_zero ... ok
+test tee::tests::all_platforms_support_remote_attestation ... ok
 test tee::tests::anti_snooping_level_ordering ... ok
 test tee::tests::enclave_identity_same_code_and_signer ... ok
 test tee::tests::keystone_is_only_open_hardware ... ok
-test tee::tests::attestation_report_nonce_check ... ok
 test tee::tests::sgx_memory_limit_is_256_mib ... ok
 test tests::bls_constants_are_correct ... ok
-test tests::hash_and_address_sizes_are_correct ... ok
 test tests::confirmation_ceilings_are_ordered ... ok
-test tests::validator_participation_thresholds_are_ordered ... ok
+test tests::hash_and_address_sizes_are_correct ... ok
 test tests::security_and_platform_counts_are_correct ... ok
+test tests::validator_participation_thresholds_are_ordered ... ok
+test traits::tests::complexity_class_ordering ... ok
 test traits::tests::independent_op_has_no_conflicts ... ok
 test traits::tests::read_read_no_conflict ... ok
-test traits::tests::complexity_class_ordering ... ok
 test traits::tests::write_read_conflict_detected ... ok
-test transaction::tests::signed_transaction_is_not_multi_sig_by_default ... ok
 test traits::tests::write_write_conflict_detected ... ok
+test transaction::tests::signed_transaction_is_not_multi_sig_by_default ... ok
+test storage::tests::versioned_state_advance_increments_version ... ok
+test tee::tests::attestation_report_nonce_check ... ok
 test transaction::tests::transaction_type_contract_modification ... ok
-test transaction::tests::transaction_status_finality_progression ... ok
+test transaction::tests::transaction_status_security_level ... ok
 test transaction::tests::transaction_status_pending_checks ... ok
+test transaction::tests::transaction_status_finality_progression ... ok
+test validator::tests::full_role_participates_and_provides_tee ... ok
 test validator::tests::active_can_vote ... ok
 test validator::tests::capabilities_can_provide_service ... ok
-test transaction::tests::transaction_status_security_level ... ok
 test validator::tests::consensus_role_does_not_provide_tee ... ok
-test validator::tests::full_role_participates_and_provides_tee ... ok
+test validator::tests::jailed_cannot_vote ... ok
 test validator::tests::tombstoned_is_permanent ... ok
 test validator::tests::validator_performance_below_minimum ... ok
 test validator::tests::validator_performance_participation_rate ... ok
-test validator::tests::jailed_cannot_vote ... ok
 
-test result: ok. 124 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 124 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_crypto-a8c4c21bee4bc0e0)
 
 running 58 tests
 test acceleration::tests::detect_does_not_panic ... ok
-test acceleration::tests::has_any_is_false_when_no_features ... ok
 test acceleration::tests::prefer_aes_reflects_aes_ni ... ok
-test bls::tests::bls_aggregator_empty_fails ... ok
 test bls::tests::bls_batch_verifier_empty_succeeds ... ok
+test bls::tests::bls_aggregator_empty_fails ... ok
 test bls::tests::participant_bitmap_out_of_bounds_is_false ... ok
+test acceleration::tests::has_any_is_false_when_no_features ... ok
 test bls::tests::participant_bitmap_participation_fraction ... ok
 test bls::tests::participant_bitmap_set_and_check ... ok
 test commitment::tests::hash_commitment_different_values_different_commitments ... ok
 test commitment::tests::hash_commitment_randomness_provides_hiding ... ok
+test commitment::tests::hash_commitment_verify_roundtrip ... ok
 test commitment::tests::pedersen_commitment_deterministic_with_same_blinding ... ok
 test encryption::tests::aes_gcm_roundtrip ... ok
-test commitment::tests::hash_commitment_verify_roundtrip ... ok
-test commitment::tests::pedersen_different_values_different_points ... ok
 test encryption::tests::aes_gcm_tampered_ciphertext_fails ... ok
-test encryption::tests::nonce_generate_is_unique ... ok
 test encryption::tests::chacha20_roundtrip ... ok
+test commitment::tests::pedersen_different_values_different_points ... ok
 test encryption::tests::chacha20_wrong_aad_fails ... ok
+test encryption::tests::nonce_generate_is_unique ... ok
 test hash::tests::blake3_incremental_matches_oneshot ... ok
 test hash::tests::blake3_is_deterministic ... ok
 test hash::tests::different_inputs_different_hashes ... ok
@@ -1468,61 +1568,61 @@ test hash::tests::keccak256_is_deterministic ... ok
 test hash::tests::sha256_output_size ... ok
 test hash::tests::sha512_output_size ... ok
 test keys::tests::hkdf_derive_key_is_deterministic ... ok
-test keys::tests::hkdf_different_domains_produce_different_keys ... ok
 test keys::tests::hkdf_different_masters_produce_different_keys ... ok
-test keys::tests::validator_key_path_is_hardened ... ok
+test keys::tests::hkdf_different_domains_produce_different_keys ... ok
 test keys::tests::rfc7748_known_vector ... ok
-test keys::tests::x25519_ecdh_agreement ... ok
-test keys::tests::x25519_different_peers_different_secrets ... ok
-test merkle::tests::incremental_tree_appends ... ok
+test keys::tests::validator_key_path_is_hardened ... ok
 test keys::tests::x25519_public_key_from_basepoint ... ok
+test keys::tests::x25519_ecdh_agreement ... ok
+test merkle::tests::incremental_tree_appends ... ok
 test merkle::tests::incremental_tree_full_returns_error ... ok
-test keys::tests::x25519_reusable_multiple_exchanges ... ok
 test merkle::tests::merkle_tree_empty_has_empty_root ... ok
 test merkle::tests::merkle_tree_root_changes_with_different_leaves ... ok
 test merkle::tests::merkle_tree_same_leaves_same_root ... ok
+test keys::tests::x25519_reusable_multiple_exchanges ... ok
 test merkle::tests::sparse_tree_get_returns_inserted_value ... ok
+test keys::tests::x25519_different_peers_different_secrets ... ok
 test merkle::tests::sparse_tree_insert_changes_root ... ok
 test post_quantum::tests::hybrid_keypair_generates ... ok
-test proofs::tests::groth16_verify_mismatched_system_fails ... ok
-test proofs::tests::proof_system_trusted_setup_flags ... ok
 test post_quantum::tests::hybrid_sign_verify_roundtrip ... ok
 test post_quantum::tests::hybrid_wrong_message_fails ... ok
+test proofs::tests::proof_system_trusted_setup_flags ... ok
 test proofs::tests::verifying_key_hash_is_deterministic ... ok
+test proofs::tests::groth16_verify_mismatched_system_fails ... ok
 test post_quantum::tests::quantum_resistance_levels ... ok
+test signatures::tests::ed25519_wrong_message_fails ... ok
 test signatures::tests::ed25519_sign_verify_roundtrip ... ok
 test tests::crypto_error_display_is_informative ... ok
 test tests::crypto_result_ok_and_err ... ok
-test tests::encryption_constants_are_correct ... ok
 test tests::hash_output_sizes_are_correct ... ok
-test tests::key_sizes_are_correct ... ok
-test signatures::tests::ed25519_wrong_message_fails ... ok
+test tests::encryption_constants_are_correct ... ok
 test tests::x25519_key_size_matches_constant ... ok
-test signatures::tests::bls_sign_verify_roundtrip ... ok
+test tests::key_sizes_are_correct ... ok
 test signatures::tests::bls_wrong_message_fails ... ok
+test signatures::tests::bls_sign_verify_roundtrip ... ok
 
-test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_dag-b6a595cf57d2d403)
 
-running 33 tests
+running 44 tests
 test conflict::tests::conflict_edge_read_after_write_does_not_require_sequential ... ok
 test conflict::tests::conflict_edge_write_after_write_requires_sequential ... ok
 test conflict::tests::conflict_resolver_equal_hashes_first_wins ... ok
-test conflict::tests::read_write_conflict_stores_reader_and_writer ... ok
 test conflict::tests::conflict_resolver_lower_hash_wins ... ok
 test conflict::tests::conflict_resolver_preserves_conflict_type ... ok
+test conflict::tests::read_write_conflict_stores_reader_and_writer ... ok
 test conflict::tests::write_write_conflict_stores_txs_and_object ... ok
 test dependency::tests::analyzer_detects_edge_for_conflicting_transactions ... ok
 test dependency::tests::analyzer_no_edges_for_independent_transactions ... ok
 test dependency::tests::analyzer_produces_graph_with_correct_vertex_count ... ok
 test dependency::tests::conflict_read_after_write_detected ... ok
+test dependency::tests::conflict_write_after_read_detected ... ok
 test dependency::tests::conflict_write_after_write_detected ... ok
 test dependency::tests::no_conflict_for_disjoint_sets ... ok
-test dependency::tests::conflict_write_after_read_detected ... ok
 test dependency::tests::no_conflict_for_read_read_sharing ... ok
-test macro_dag::tests::empty_builder_produces_empty_dag ... ok
 test macro_dag::tests::dag_snapshot_canonical_with_one_tip ... ok
+test macro_dag::tests::empty_builder_produces_empty_dag ... ok
 test macro_dag::tests::fork_resolution_empty_returns_none ... ok
 test macro_dag::tests::fork_resolution_picks_lexicographically_smallest ... ok
 test macro_dag::tests::macro_dag_multiple_tips_not_canonical ... ok
@@ -1533,637 +1633,692 @@ test micro_dag::tests::dag_hash_differs_for_different_tx_sets ... ok
 test micro_dag::tests::empty_dag_hash_is_zero ... ok
 test ordering::tests::causal_order_roots_and_transactions ... ok
 test ordering::tests::dependency_order_fields ... ok
-test ordering::tests::ordering_commitment_differs_for_different_sets ... ok
-test ordering::tests::ordering_commitment_empty_ordering_is_zero_root ... ok
-test ordering::tests::ordering_commitment_is_set_commitment_not_order_sensitive ... ok
+test ordering::tests::dependency_sequence_empty_is_zero_root ... ok
+test ordering::tests::dependency_sequence_is_position_sensitive ... ok
+test ordering::tests::dependency_sequence_same_order_is_deterministic ... ok
+test ordering::tests::parallel_and_sequence_commitments_differ_for_same_transactions ... ok
+test ordering::tests::parallel_group_differs_for_different_transaction_sets ... ok
+test ordering::tests::parallel_group_empty_is_zero_root ... ok
+test ordering::tests::parallel_group_is_set_commitment_order_insensitive ... ok
+test parallel::tests::distribute_even_split_across_lanes ... ok
+test parallel::tests::distribute_more_lanes_than_transactions ... ok
+test parallel::tests::distribute_no_dependencies_initially ... ok
+test parallel::tests::distribute_preserves_all_transactions ... ok
+test parallel::tests::distribute_single_lane_gets_all_transactions ... ok
+test parallel::tests::parallelism_factor_all_parallel ... ok
+test parallel::tests::parallelism_factor_all_serial ... ok
+test parallel::tests::parallelism_factor_zero_total_returns_one ... ok
 test tests::concurrent_producer_limits_scale_with_network ... ok
-test ordering::tests::ordering_commitment_nonzero_with_transactions ... ok
 test tests::parallel_lanes_exceed_concurrent_producers ... ok
 
-test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_execution-30db5e5f0e5d18c6)
 
-running 12 tests
+running 26 tests
+test pipeline::tests::pipeline_result_stores_fields ... ok
+test pipeline::tests::execution_pipeline_stage_count_is_seven ... ok
+test pipeline::tests::post_execution_commit_false_for_failure ... ok
+test pipeline::tests::post_execution_commit_true_for_success ... ok
+test pipeline::tests::pipeline_config_default_parallel_not_tee_required ... ok
+test pipeline::tests::execution_pipeline_reflects_config ... ok
+test scheduler::tests::execution_queue_push_and_pop_fifo ... ok
+test scheduler::tests::execution_queue_len_and_is_empty ... ok
+test scheduler::tests::resource_budget_stores_limits ... ok
+test scheduler::tests::scheduler_assigns_all_transactions ... ok
+test scheduler::tests::scheduler_metrics_default_is_zero ... ok
+test scheduler::tests::scheduler_priority_increases_with_index ... ok
+test scheduler::tests::scheduler_round_robins_lanes ... ok
+test pipeline::tests::pipeline_stage_variants_are_distinct ... ok
 test tests::execution_constants_are_reasonable ... ok
-test tests::execution_metrics_default_zero ... ok
+test tests::execution_result_err_is_err ... ok
 test tests::execution_result_ok_is_ok ... ok
-test tests::privacy_violation_error_formats ... ok
+test tests::execution_metrics_default_zero ... ok
 test tests::gas_limit_exceeded_contains_values ... ok
 test tests::pipeline_config_default_enables_parallel ... ok
-test tests::execution_result_err_is_err ... ok
+test tests::privacy_violation_error_formats ... ok
 test tests::rollback_reason_variants_exist ... ok
-test tests::scheduling_decision_lane_assigned ... ok
-test tests::tee_allocation_failed_formats ... ok
 test tests::speculative_metrics_default_zero ... ok
+test tests::tee_allocation_failed_formats ... ok
 test tests::vm_failed_error_formats_correctly ... ok
+test tests::scheduling_decision_lane_assigned ... ok
 
-test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_faucet-f83a309a339b38aa)
 
 running 15 tests
-test cooldown::tests::entry_expired_after_duration ... ok
 test cooldown::tests::entry_not_expired_during_cooldown ... ok
+test cooldown::tests::remaining_seconds_before_expiry ... ok
+test cooldown::tests::entry_expired_after_duration ... ok
+test cooldown::tests::tracker_allows_address_not_in_cooldown ... ok
 test cooldown::tests::remaining_seconds_after_expiry_is_zero ... ok
 test cooldown::tests::tracker_allows_after_expiry ... ok
-test cooldown::tests::remaining_seconds_before_expiry ... ok
 test cooldown::tests::tracker_blocks_address_in_cooldown ... ok
-test pow::tests::verifier_accepts_solution_with_enough_leading_zeros ... ok
-test cooldown::tests::tracker_allows_address_not_in_cooldown ... ok
-test pow::tests::verifier_rejects_wrong_challenge_hash ... ok
 test pow::tests::generator_produces_challenge_with_configured_difficulty ... ok
-test pow::tests::verify_solution_returns_error_for_bad_solution ... ok
+test pow::tests::verifier_accepts_solution_with_enough_leading_zeros ... ok
 test pow::tests::verifier_rejects_insufficient_leading_zeros ... ok
-test tests::quorum_requires_multiple_validators ... ok
-test tests::pow_difficulty_is_feasible ... ok
+test pow::tests::verifier_rejects_wrong_challenge_hash ... ok
+test pow::tests::verify_solution_returns_error_for_bad_solution ... ok
 test tests::cooldown_is_reasonable ... ok
+test tests::pow_difficulty_is_feasible ... ok
+test tests::quorum_requires_multiple_validators ... ok
 
-test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_governance-fc20bc1af76d0724)
 
 running 17 tests
 test tests::epoch_number_ordering_for_voting ... ok
-test tests::governance_error_display ... ok
-test tests::governance_fractions_are_in_range ... ok
 test tests::governance_result_ok ... ok
 test tests::governance_timing_defaults ... ok
+test tests::governance_error_display ... ok
+test tests::governance_fractions_are_in_range ... ok
 test tests::time_lock_is_less_than_voting_period ... ok
 test tests::treasury_balance_total ... ok
+test tests::treasury_manager_rejects_over_available ... ok
+test tests::vote_construction_with_and_without_validator_id ... ok
 test tests::treasury_can_fund_within_available ... ok
 test tests::treasury_manager_queue_spend_reserves_funds ... ok
-test tests::vote_construction_with_and_without_validator_id ... ok
+test treasury::tests::treasury_manager_multiple_queued_spends ... ok
 test treasury::tests::treasury_balance_can_fund_exact_amount ... ok
 test treasury::tests::treasury_balance_total_is_sum ... ok
-test tests::treasury_manager_rejects_over_available ... ok
-test treasury::tests::treasury_manager_multiple_queued_spends ... ok
-test treasury::tests::treasury_manager_queue_spend_reserves_funds ... ok
 test treasury::tests::treasury_manager_queue_spend_rejects_if_insufficient_funds ... ok
+test treasury::tests::treasury_manager_queue_spend_reserves_funds ... ok
 test treasury::tests::treasury_spend_new_stores_fields ... ok
 
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_metrics-8ecf2edeb6b75e74)
 
-running 17 tests
-test aggregation::tests::histogram_mean_with_values ... ok
+running 23 tests
 test aggregation::tests::counter_increment_and_add ... ok
 test aggregation::tests::gauge_set_and_get ... ok
-test aggregation::tests::histogram_mean_empty_is_zero ... ok
+test aggregation::tests::histogram_mean_with_values ... ok
 test aggregation::tests::moving_average_tracks_correct_average ... ok
 test aggregation::tests::percentiles_empty_are_zero ... ok
 test aggregation::tests::percentiles_single_value ... ok
+test differential_privacy::tests::dp_config_consensus_defaults_moderate_epsilon ... ok
+test differential_privacy::tests::dp_config_validator_defaults_stronger_privacy ... ok
+test differential_privacy::tests::laplace_mechanism_apply_preserves_true_value_in_stub ... ok
+test differential_privacy::tests::laplace_mechanism_consumes_epsilon_from_config ... ok
+test differential_privacy::tests::laplace_mechanism_scale_is_sensitivity_over_epsilon ... ok
+test differential_privacy::tests::laplace_mechanism_scale_with_epsilon_1_equals_sensitivity ... ok
+test aggregation::tests::histogram_mean_empty_is_zero ... ok
 test aggregation::tests::percentiles_ordered_values ... ok
 test tests::anomaly_sigma_is_reasonable ... ok
 test tests::collector_records_and_counts_series ... ok
-test tests::dp_consensus_defaults_are_sane ... ok
-test tests::laplace_mechanism_scale_is_sensitivity_over_epsilon ... ok
 test tests::collector_sampling_interval_from_config ... ok
-test tests::laplace_mechanism_epsilon_consumed_matches_config ... ok
-test tests::latency_percentiles_are_ascending ... ok
+test tests::laplace_mechanism_scale_is_sensitivity_over_epsilon ... ok
+test tests::dp_consensus_defaults_are_sane ... ok
 test tests::metrics_error_display ... ok
 test tests::metrics_result_ok ... ok
+test tests::laplace_mechanism_epsilon_consumed_matches_config ... ok
+test tests::latency_percentiles_are_ascending ... ok
 
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_move-b3bcae95fa64f1c9)
 
 running 17 tests
-test compiler::tests::compile_options_default_is_enabled ... ok
 test compiler::tests::full_pipeline_succeeds ... ok
+test compiler::tests::compile_options_default_is_enabled ... ok
+test compiler::tests::parse_preserves_module_name ... ok
 test compiler::tests::type_check_preserves_parsed_module ... ok
 test compiler::tests::verify_reflects_privacy_option ... ok
-test runtime::tests::function_dispatch_formats_correctly ... ok
-test compiler::tests::parse_preserves_module_name ... ok
-test runtime::tests::function_dispatch_handles_empty_strings ... ok
 test runtime::tests::module_loader_count_tracks_entries ... ok
+test runtime::tests::function_dispatch_formats_correctly ... ok
+test runtime::tests::function_dispatch_handles_empty_strings ... ok
 test runtime::tests::module_loader_returns_none_for_missing ... ok
-test runtime::tests::runtime_adapter_loader_accessible ... ok
 test runtime::tests::module_loader_stores_and_retrieves ... ok
 test tests::move_error_display_resource_not_found ... ok
 test tests::move_error_display_type_error ... ok
 test tests::move_result_ok_value ... ok
 test tests::privacy_level_ordering ... ok
-test tests::verifier_returns_report_for_empty_bytecode ... ok
+test runtime::tests::runtime_adapter_loader_accessible ... ok
 test tests::verifier_security_flags_are_consistent ... ok
+test tests::verifier_returns_report_for_empty_bytecode ... ok
 
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_network-e7c091ac7961f071)
 
 running 26 tests
 test availability::tests::data_availability_encode_and_reconstruct_roundtrip ... ok
-test availability::tests::data_reconstruction_concatenates_shards ... ok
-test availability::tests::data_reconstruction_returns_none_for_empty_shards ... ok
-test availability::tests::erasure_encode_handles_small_data ... ok
 test availability::tests::erasure_encode_produces_shards ... ok
 test tests::bandwidth_target_is_reasonable ... ok
 test tests::bandwidth_utilization_default_is_zero ... ok
 test tests::erasure_coding_parameters_are_valid ... ok
 test tests::erasure_encode_produces_shards ... ok
 test tests::network_error_display_connection_failed ... ok
-test tests::propagation_announcement_block ... ok
+test availability::tests::erasure_encode_handles_small_data ... ok
+test availability::tests::data_reconstruction_concatenates_shards ... ok
+test availability::tests::data_reconstruction_returns_none_for_empty_shards ... ok
 test tests::ports_are_distinct ... ok
-test tests::rate_limiter_default_max_bps ... ok
 test tests::privacy_discovery_uses_dht_flag ... ok
-test tests::router_add_and_lookup_route ... ok
-test tests::router_unknown_dest_returns_none ... ok
+test tests::propagation_announcement_block ... ok
+test tests::rate_limiter_default_max_bps ... ok
 test topology::tests::peer_score_total_subtracts_latency ... ok
 test topology::tests::topology_manager_counts_connected_peers ... ok
-test transport::tests::connection_pool_add_respects_max_size ... ok
-test transport::tests::connection_pool_starts_empty ... ok
-test topology::tests::topology_manager_default_is_empty ... ok
 test topology::tests::peer_score_saturates_at_zero ... ok
+test topology::tests::topology_manager_default_is_empty ... ok
+test tests::router_add_and_lookup_route ... ok
+test tests::router_unknown_dest_returns_none ... ok
+test transport::tests::connection_pool_starts_empty ... ok
+test transport::tests::connection_pool_add_respects_max_size ... ok
 test transport::tests::secure_channel_default_is_unestablished ... ok
 test transport::tests::secure_channel_establish_marks_it_live ... ok
 test transport::tests::secure_channel_starts_unestablished ... ok
 test transport::tests::transport_reports_protocol ... ok
 
-test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_ns-f1488153d43d5782)
 
-running 23 tests
+running 31 tests
 test cache::tests::cache_entry_expired_after_ttl ... ok
-test cache::tests::dns_cache_hit_rate_all_hits ... ok
 test cache::tests::cache_entry_not_expired_during_ttl ... ok
-test cache::tests::dns_cache_hit_rate_zero_when_empty ... ok
+test cache::tests::dns_cache_hit_rate_all_hits ... ok
 test cache::tests::dns_cache_hit_rate_half ... ok
+test cache::tests::dns_cache_hit_rate_zero_when_empty ... ok
 test cache::tests::response_cache_evict_expired_removes_stale_entries ... ok
 test cache::tests::response_cache_get_expired_returns_none ... ok
 test cache::tests::response_cache_get_missing_returns_none_and_increments_misses ... ok
-test protocol::tests::dns_rcode_variants_are_distinct ... ok
-test protocol::tests::is_success_false_for_nxdomain ... ok
 test cache::tests::response_cache_insert_and_get ... ok
+test protocol::tests::is_success_false_for_nxdomain ... ok
 test protocol::tests::is_success_false_for_query ... ok
+test protocol::tests::dns_rcode_variants_are_distinct ... ok
 test protocol::tests::is_success_true_for_no_error_response ... ok
 test protocol::tests::nxdomain_response_mirrors_query_id_and_opcode ... ok
 test protocol::tests::query_message_is_not_response ... ok
-test tests::cache_hit_rate_zero_when_empty ... ok
+test resolver::tests::authoritative_resolver_add_zone_and_check ... ok
+test resolver::tests::authoritative_resolver_empty_is_not_authoritative ... ok
+test resolver::tests::caching_resolver_insert_and_get ... ok
+test resolver::tests::caching_resolver_miss_returns_none ... ok
+test resolver::tests::dns_resolver_first_resolve_caches_result ... ok
+test resolver::tests::recursive_resolver_resolve_returns_ok ... ok
+test resolver::tests::recursive_resolver_stores_config ... ok
+test resolver::tests::resolver_config_default_upstream_and_dnssec ... ok
 test tests::aevor_record_type_is_in_private_range ... ok
 test tests::cache_hit_rate_calculation ... ok
+test tests::cache_hit_rate_zero_when_empty ... ok
+test tests::dns_message_query_is_not_response ... ok
 test tests::cache_starts_empty ... ok
 test tests::dns_constants_match_rfc ... ok
-test tests::dns_message_query_is_not_response ... ok
 test tests::dns_message_nxdomain_is_response ... ok
 test tests::ns_error_display ... ok
 
-test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_security-e8927f0bc858e29b)
 
 running 19 tests
 test network_security::tests::ddos_protection_rate_limited_above_threshold ... ok
-test network_security::tests::eclipse_prevention_protected_when_enough_peers ... ok
 test network_security::tests::monitor_passes_sybil_check ... ok
-test network_security::tests::monitor_status_ddos_active_when_over_limit ... ok
-test network_security::tests::monitor_status_eclipse_risk_100_below_min_peers ... ok
 test network_security::tests::monitor_status_eclipse_risk_zero_with_enough_peers ... ok
 test network_security::tests::monitor_status_no_ddos_under_limit ... ok
-test slashing::tests::coordinator_records_and_counts ... ok
+test network_security::tests::monitor_status_eclipse_risk_100_below_min_peers ... ok
+test network_security::tests::monitor_status_ddos_active_when_over_limit ... ok
 test network_security::tests::sybil_resistance_passes_sufficient_stake ... ok
+test slashing::tests::coordinator_records_and_counts ... ok
+test network_security::tests::eclipse_prevention_protected_when_enough_peers ... ok
 test slashing::tests::coordinator_zero_for_unknown_validator ... ok
 test slashing::tests::penalty_calculator_percentage_of_stake ... ok
 test slashing::tests::slashing_decision_fields ... ok
+test tests::byzantine_report_coordinated_when_many_faults ... ok
 test slashing::tests::penalty_zero_for_zero_stake ... ok
 test tests::auth_rate_limit_values_are_reasonable ... ok
-test tests::byzantine_report_coordinated_when_many_faults ... ok
-test tests::security_error_formats ... ok
 test tests::consistency_score_threshold_is_near_perfect ... ok
 test tests::network_security_monitor_reports_status ... ok
+test tests::security_error_formats ... ok
 test tests::slashing_evidence_type_variants_exist ... ok
 
-test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_storage-d33aaf6df897af46)
 
 running 75 tests
 test backend::tests::backend_config_default_path_and_sizes ... ok
+test backend::tests::memory_backend_flush_is_noop_ok ... ok
 test backend::tests::memory_backend_delete_missing_key_is_noop ... ok
 test backend::tests::memory_backend_delete_removes_key ... ok
-test backend::tests::memory_backend_flush_is_noop_ok ... ok
 test backend::tests::memory_backend_get_missing_returns_none ... ok
-test backend::tests::memory_backend_put_and_get ... ok
-test backend::tests::rocksdb_get_returns_none_stub ... ok
-test backend::tests::read_options_default_verify_checksums_and_fill_cache ... ok
-test backend::tests::rocksdb_open_returns_ok ... ok
-test blocks::tests::block_index_insert_and_get ... ok
-test backend::tests::write_options_default_no_sync_no_wal_disable ... ok
-test blocks::tests::block_store_count ... ok
 test backend::tests::memory_backend_overwrite_existing_key ... ok
+test backend::tests::rocksdb_open_returns_ok ... ok
+test backend::tests::write_options_default_no_sync_no_wal_disable ... ok
+test backend::tests::memory_backend_put_and_get ... ok
+test backend::tests::read_options_default_verify_checksums_and_fill_cache ... ok
+test backend::tests::rocksdb_get_returns_none_stub ... ok
+test blocks::tests::block_index_insert_and_get ... ok
+test blocks::tests::block_store_count ... ok
 test blocks::tests::block_store_get_by_height ... ok
 test blocks::tests::block_store_get_required_returns_error_for_missing ... ok
 test blocks::tests::block_store_mark_finalized ... ok
+test cache::tests::hot_cache_get_returns_none_before_put ... ok
 test blocks::tests::block_store_mark_finalized_missing_returns_error ... ok
 test blocks::tests::block_store_store_and_get_by_hash ... ok
 test cache::tests::cache_metrics_hit_rate_zero_when_empty ... ok
-test cache::tests::hot_cache_get_returns_none_before_put ... ok
 test cache::tests::hot_cache_put_and_get ... ok
-test cache::tests::hot_cache_respects_max_objects ... ok
-test cache::tests::object_id_cache_put_contains_get ... ok
 test cache::tests::state_root_cache_put_and_get ... ok
-test encrypted::tests::delete_missing_returns_error ... ok
+test cache::tests::hot_cache_respects_max_objects ... ok
 test encrypted::tests::delete_removes_record ... ok
+test encrypted::tests::delete_missing_returns_error ... ok
+test encrypted::tests::encrypted_commitment_changes_with_version ... ok
+test cache::tests::object_id_cache_put_contains_get ... ok
+test encrypted::tests::encrypted_commitment_zero_when_empty ... ok
 test encrypted::tests::encrypted_commitment_non_zero_when_records_present ... ok
 test encrypted::tests::get_missing_returns_none ... ok
 test encrypted::tests::get_required_missing_returns_error ... ok
 test encrypted::tests::put_and_get ... ok
-test encrypted::tests::encrypted_commitment_changes_with_version ... ok
 test encrypted::tests::record_count_tracks_puts ... ok
 test indexing::tests::index_manager_index_by_owner_and_retrieve ... ok
-test encrypted::tests::encrypted_commitment_zero_when_empty ... ok
-test indexing::tests::index_manager_index_by_type ... ok
 test indexing::tests::index_manager_objects_for_unknown_owner_is_empty ... ok
+test indexing::tests::index_manager_index_by_type ... ok
 test indexing::tests::owner_index_add_and_get ... ok
+test indexing::tests::privacy_index_groups_by_level ... ok
 test indexing::tests::owner_index_get_missing_returns_empty_slice ... ok
 test indexing::tests::type_index_add_groups_by_type ... ok
-test indexing::tests::privacy_index_groups_by_level ... ok
 test merkle::tests::prove_returns_exclusion_for_absent_key ... ok
-test merkle::tests::prove_returns_inclusion_for_present_key ... ok
 test merkle::tests::prover_root_changes_after_insert ... ok
 test objects::tests::delete_removes_object ... ok
 test objects::tests::exists_false_before_put ... ok
-test objects::tests::put_returns_correct_version_and_hash ... ok
+test merkle::tests::prove_returns_inclusion_for_present_key ... ok
 test objects::tests::exists_true_after_put ... ok
 test objects::tests::get_nonexistent_returns_none ... ok
 test objects::tests::put_then_get_returns_record ... ok
-test tests::merkle_tree_depth_supports_full_address_space ... ok
-test tests::object_size_limit_is_reasonable ... ok
+test objects::tests::put_returns_correct_version_and_hash ... ok
 test tests::key_prefixes_are_distinct ... ok
+test tests::merkle_tree_depth_supports_full_address_space ... ok
 test transactions::tests::count_tracks_unique_receipts ... ok
-test transactions::tests::get_missing_returns_none ... ok
-test transactions::tests::receipt_root_same_for_same_set_different_insertion_order ... ok
 test transactions::tests::receipt_root_is_non_zero_with_receipts ... ok
-test transactions::tests::store_and_get_by_hash ... ok
-test transactions::tests::store_is_idempotent_for_same_hash ... ok
+test tests::object_size_limit_is_reasonable ... ok
+test transactions::tests::get_missing_returns_none ... ok
 test transactions::tests::receipt_root_is_zero_when_empty ... ok
+test transactions::tests::store_and_get_by_hash ... ok
 test validators::tests::active_validators_filters_correctly ... ok
-test validators::tests::get_missing_returns_none ... ok
 test validators::tests::get_required_missing_returns_error ... ok
+test transactions::tests::receipt_root_same_for_same_set_different_insertion_order ... ok
+test transactions::tests::store_is_idempotent_for_same_hash ... ok
+test validators::tests::get_missing_returns_none ... ok
 test validators::tests::remove_missing_returns_error ... ok
 test validators::tests::remove_existing_validator ... ok
+test validators::tests::update_stake_missing_returns_error ... ok
 test validators::tests::store_and_get_by_id ... ok
 test validators::tests::update_stake_changes_stake ... ok
-test validators::tests::update_stake_missing_returns_error ... ok
 test versioned::tests::advance_increments_version_and_stores_root ... ok
 test versioned::tests::conflict_resolution_first_write_wins_lower_version ... ok
-test versioned::tests::detect_conflict_no_conflict_for_same_value ... ok
 test versioned::tests::conflict_resolution_same_version_both_same ... ok
-test versioned::tests::detect_conflict_finds_differing_values ... ok
+test versioned::tests::detect_conflict_no_conflict_for_same_value ... ok
 test versioned::tests::optimistic_lock_check_passes_when_version_matches ... ok
-test versioned::tests::read_at_returns_written_value ... ok
 test versioned::tests::versioned_store_starts_at_zero ... ok
+test versioned::tests::detect_conflict_finds_differing_values ... ok
+test versioned::tests::read_at_returns_written_value ... ok
 
-test result: ok. 75 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 75 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_tee-aaf94836585e74ae)
 
 running 63 tests
-test acceleration::tests::detect_does_not_panic_on_any_platform ... ok
 test acceleration::tests::keystone_has_no_assumed_acceleration ... ok
 test acceleration::tests::preferred_cipher_with_aes_is_aes_gcm ... ok
-test anti_snooping::tests::none_config_no_features ... ok
-test anti_snooping::tests::side_channel_protection_levels ... ok
+test acceleration::tests::detect_does_not_panic_on_any_platform ... ok
 test acceleration::tests::preferred_cipher_without_aes_is_chacha ... ok
 test anti_snooping::tests::maximum_config_all_features_enabled ... ok
+test anti_snooping::tests::none_config_no_features ... ok
+test anti_snooping::tests::side_channel_protection_levels ... ok
 test anti_snooping::tests::traffic_obfuscation_leaves_large_messages ... ok
 test anti_snooping::tests::traffic_obfuscation_pads_short_messages ... ok
-test attestation::tests::attestation_verifier_rejects_empty_report ... ok
 test attestation::tests::attestation_verifier_accepts_nonempty_report ... ok
-test isolation::tests::isolation_level_ordering ... ok
-test isolation::tests::isolation_level_hardware_check ... ok
+test attestation::tests::attestation_verifier_rejects_empty_report ... ok
 test attestation::tests::remote_attestation_freshness_check ... ok
+test isolation::tests::isolation_level_hardware_check ... ok
+test isolation::tests::isolation_level_ordering ... ok
 test isolation::tests::memory_protection_full_is_protected ... ok
 test isolation::tests::secure_channel_establish ... ok
-test keystone::tests::capabilities_no_sealing_no_crypto_accel ... ok
 test keystone::tests::detect_capabilities_fails_gracefully_without_keystone ... ok
-test keystone::tests::generate_report_valid_structure ... ok
+test keystone::tests::capabilities_no_sealing_no_crypto_accel ... ok
 test keystone::tests::generate_report_different_eapps_different_measurements ... ok
 test keystone::tests::generate_report_measurement_is_deterministic ... ok
+test keystone::tests::generate_report_valid_structure ... ok
 test keystone::tests::is_available_does_not_panic ... ok
-test multi_tee::tests::fault_tolerant_tee_health_check ... ok
 test multi_tee::tests::coordinator_platform_diversity ... ok
 test multi_tee::tests::distributed_execution_threshold_check ... ok
+test multi_tee::tests::fault_tolerant_tee_health_check ... ok
 test nitro::tests::capabilities_max_one_concurrent_instance ... ok
-test nitro::tests::generate_report_different_images_different_pcr0 ... ok
-test nitro::tests::generate_report_pcr0_is_deterministic ... ok
 test nitro::tests::capabilities_nitro_is_production_fused ... ok
 test nitro::tests::detect_capabilities_fails_gracefully_outside_nitro ... ok
+test nitro::tests::generate_report_different_images_different_pcr0 ... ok
+test nitro::tests::generate_report_pcr0_is_deterministic ... ok
 test nitro::tests::generate_report_valid_structure ... ok
 test nitro::tests::is_available_does_not_panic ... ok
-test platform::tests::supported_platforms_detect_does_not_panic ... ok
 test platform::tests::generate_report_works_for_all_platforms ... ok
 test platform::tests::platform_detection_fails_gracefully_on_ci ... ok
+test platform::tests::supported_platforms_detect_does_not_panic ... ok
 test runtime::tests::cross_platform_runtime_supports_check ... ok
-test service::tests::allocator_returns_error_with_no_providers ... ok
 test runtime::tests::default_standards_all_met ... ok
 test runtime::tests::runtime_environment_is_compliant_by_default ... ok
+test service::tests::allocator_returns_error_with_no_providers ... ok
 test service::tests::allocator_returns_handle_when_provider_matches ... ok
-test sev::tests::detect_capabilities_fails_gracefully_without_sev ... ok
 test service::tests::service_quality_score_prefers_high_availability ... ok
-test sev::tests::generate_report_different_inputs_different_measurements ... ok
 test sev::tests::capabilities_sealing_not_available ... ok
+test sev::tests::detect_capabilities_fails_gracefully_without_sev ... ok
+test sev::tests::generate_report_different_inputs_different_measurements ... ok
 test sev::tests::generate_report_measurement_is_deterministic ... ok
 test sev::tests::generate_report_measurement_non_zero ... ok
 test sev::tests::generate_report_produces_valid_structure ... ok
 test sev::tests::is_available_does_not_panic ... ok
 test sgx::tests::capabilities_version_platform_matches ... ok
-test sgx::tests::generate_report_measurement_is_not_zero ... ok
 test sgx::tests::detect_capabilities_fails_gracefully_without_sgx ... ok
 test sgx::tests::generate_report_different_inputs_different_measurements ... ok
 test sgx::tests::generate_report_measurement_is_deterministic ... ok
-test sgx::tests::is_available_does_not_panic ... ok
+test sgx::tests::generate_report_measurement_is_not_zero ... ok
 test sgx::tests::generate_report_produces_valid_structure ... ok
-test tests::memory_limit_is_reasonable ... ok
-test trustzone::tests::detect_capabilities_fails_gracefully_without_trustzone ... ok
-test trustzone::tests::capabilities_supports_sealing ... ok
+test sgx::tests::is_available_does_not_panic ... ok
 test tests::attestation_constants_are_correct ... ok
+test tests::memory_limit_is_reasonable ... ok
+test trustzone::tests::capabilities_supports_sealing ... ok
+test trustzone::tests::detect_capabilities_fails_gracefully_without_trustzone ... ok
 test trustzone::tests::generate_report_deterministic_measurement ... ok
 test trustzone::tests::generate_report_different_ta_different_measurement ... ok
-test trustzone::tests::is_available_does_not_panic ... ok
 test trustzone::tests::generate_report_valid_structure ... ok
+test trustzone::tests::is_available_does_not_panic ... ok
 
-test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_vm-f5f2271c9fce55f2)
 
 running 50 tests
 test cross_contract::tests::depth_guard_allows_reentry_after_exit ... ok
-test cross_contract::tests::receipt_failure_has_empty_return ... ok
-test cross_contract::tests::receipt_success_has_correct_flag ... ok
 test cross_contract::tests::depth_guard_allows_up_to_max ... ok
+test cross_contract::tests::receipt_success_has_correct_flag ... ok
+test cross_contract::tests::receipt_failure_has_empty_return ... ok
 test gas::tests::estimator_fee_is_gas_times_price ... ok
 test gas::tests::estimator_tee_call_greater_than_base ... ok
 test gas::tests::gas_meter_charges_correctly ... ok
 test gas::tests::gas_meter_fee_calculation ... ok
 test gas::tests::gas_meter_rejects_over_limit ... ok
 test gas::tests::tee_premium_multiplier ... ok
+test instructions::tests::tee_attest_costs_most ... ok
 test instructions::tests::branch_instructions_are_branches ... ok
 test instructions::tests::nop_costs_zero_gas ... ok
-test instructions::tests::tee_attest_costs_most ... ok
 test instructions::tests::tee_instructions_require_tee ... ok
-test memory::tests::memory_isolation_add_and_count_regions ... ok
-test memory::tests::memory_manager_capacities ... ok
 test memory::tests::private_heap_capacity ... ok
 test memory::tests::public_heap_capacity ... ok
 test memory::tests::tee_protected_memory_is_encrypted_and_protected ... ok
-test move_runtime::tests::move_function_is_public_and_entry_flags ... ok
+test memory::tests::memory_manager_capacities ... ok
 test move_runtime::tests::move_runtime_get_missing_returns_none ... ok
-test move_runtime::tests::move_runtime_load_replaces_existing ... ok
+test memory::tests::memory_isolation_add_and_count_regions ... ok
 test move_runtime::tests::move_runtime_load_and_get_module ... ok
+test move_runtime::tests::move_runtime_load_replaces_existing ... ok
 test move_runtime::tests::move_type_vector_wraps_inner ... ok
-test move_runtime::tests::move_value_variants_roundtrip ... ok
+test move_runtime::tests::move_function_is_public_and_entry_flags ... ok
+test objects::tests::object_type_qualified_name ... ok
 test move_runtime::tests::resource_table_insert_and_get ... ok
+test move_runtime::tests::move_value_variants_roundtrip ... ok
+test objects::tests::resource_size_matches_bytes ... ok
 test move_runtime::tests::resource_table_get_missing_returns_none ... ok
 test objects::tests::vm_object_version_increments ... ok
-test objects::tests::object_type_qualified_name ... ok
 test privacy::tests::all_public_stays_public ... ok
-test objects::tests::resource_size_matches_bytes ... ok
-test privacy::tests::lenient_enforcer_allows_downgrade ... ok
-test privacy::tests::build_plan_captures_effective_level ... ok
-test privacy::tests::requires_tee_when_private ... ok
 test privacy::tests::effective_level_is_max ... ok
+test privacy::tests::lenient_enforcer_allows_downgrade ... ok
 test privacy::tests::strict_enforcer_rejects_downgrade ... ok
-test stdlib::tests::registry_has_expected_count ... ok
+test privacy::tests::requires_tee_when_private ... ok
+test privacy::tests::build_plan_captures_effective_level ... ok
 test stdlib::tests::hash_blake3_is_crypto_category ... ok
+test stdlib::tests::non_tee_functions_do_not_require_tee ... ok
+test stdlib::tests::registry_has_expected_count ... ok
 test stdlib::tests::tee_functions_require_tee ... ok
 test stdlib::tests::unknown_function_returns_none ... ok
-test tests::call_depth_limit_is_reasonable ... ok
-test tests::gas_constants_are_positive ... ok
 test vm::tests::aevor_vm_deploy_and_lookup ... ok
-test vm::tests::aevor_vm_capabilities_match_default ... ok
-test stdlib::tests::non_tee_functions_do_not_require_tee ... ok
-test vm::tests::contract_registry_register_and_get ... ok
+test tests::gas_constants_are_positive ... ok
 test vm::tests::contract_registry_get_missing_returns_none ... ok
-test vm::tests::vm_capabilities_default_all_enabled ... ok
+test tests::call_depth_limit_is_reasonable ... ok
+test vm::tests::aevor_vm_capabilities_match_default ... ok
 test vm::tests::contract_registry_overwrite_on_redeploy ... ok
+test vm::tests::contract_registry_register_and_get ... ok
+test vm::tests::vm_capabilities_default_all_enabled ... ok
 test vm::tests::vm_config_default_values ... ok
 
-test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
      Running unittests src/lib.rs (target/debug/deps/aevor_zk-09b971b72eefdd07)
 
-running 23 tests
-test circuits::tests::privacy_circuit_op_count ... ok
+running 39 tests
 test circuits::tests::merkle_circuit_constraint_count_scales_with_depth ... ok
+test circuits::tests::privacy_circuit_op_count ... ok
 test circuits::tests::range_circuit_bit_width ... ok
-test plonk::tests::plonk_prover_generates_nonempty_proof ... ok
+test commitments::tests::inner_product_argument_stores_proof ... ok
+test commitments::tests::kzg_commitment_stores_point ... ok
+test commitments::tests::kzg_verifier_accepts_nonempty_commitment_and_proof ... ok
+test commitments::tests::kzg_verifier_rejects_empty_commitment_point ... ok
+test commitments::tests::kzg_verifier_rejects_empty_proof ... ok
+test commitments::tests::pedersen_commitment_new_stores_fields ... ok
+test commitments::tests::pedersen_commitment_compatible_with_same_params ... ok
+test commitments::tests::pedersen_commitment_incompatible_with_different_params ... ok
 test plonk::tests::plonk_prover_can_prove_within_srs_degree ... ok
+test plonk::tests::plonk_prover_generates_nonempty_proof ... ok
+test plonk::tests::plonk_verifier_rejects_wrong_vkey_hash ... ok
 test plonk::tests::plonk_verifier_accepts_matching_vkey_hash ... ok
 test plonk::tests::proving_key_is_universal_flag ... ok
-test plonk::tests::plonk_verifier_rejects_wrong_vkey_hash ... ok
+test recursive::tests::recursive_prover_aggregate_returns_commitment ... ok
+test recursive::tests::proof_accumulator_count_and_aggregate ... ok
+test recursive::tests::proof_accumulator_empty_aggregate ... ok
+test plonk::tests::universal_srs_supports_degree ... ok
+test recursive::tests::recursive_prover_empty_set_produces_zero_commitment ... ok
+test recursive::tests::recursive_verifier_accepts_nonempty_aggregated_proof ... ok
+test recursive::tests::recursive_verifier_rejects_empty_proof_set ... ok
+test recursive::tests::verify_with_commitment_rejects_wrong_commitment ... ok
 test stark::tests::stark_circuit_id_as_hash ... ok
 test stark::tests::stark_config_default_values ... ok
-test plonk::tests::universal_srs_supports_degree ... ok
 test stark::tests::stark_prover_encodes_blowup_and_queries_in_fri_params ... ok
+test recursive::tests::verify_with_commitment_roundtrip ... ok
 test stark::tests::stark_prover_estimate_proof_size_is_nonzero ... ok
-test stark::tests::stark_prover_produces_nonempty_proof ... ok
-test stark::tests::stark_verifier_rejects_empty_proof_bytes ... ok
 test stark::tests::stark_verifier_accepts_valid_proof ... ok
+test stark::tests::stark_verifier_rejects_empty_proof_bytes ... ok
 test tests::circuit_gate_limit_is_practical ... ok
-test trusted_setup::tests::contribute_adds_until_min_then_finalizes ... ok
 test tests::proof_size_constants_are_positive ... ok
 test trusted_setup::tests::ceremony_starts_open ... ok
 test trusted_setup::tests::ceremony_status_variants_distinct ... ok
+test stark::tests::stark_prover_produces_nonempty_proof ... ok
+test trusted_setup::tests::contribute_adds_until_min_then_finalizes ... ok
 test trusted_setup::tests::contribute_rejected_when_not_open ... ok
 test trusted_setup::tests::contribution_stores_all_fields ... ok
 
-test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
      Running unittests src/lib.rs (target/debug/deps/node-6e726b7857fce8ab)
 
 running 28 tests
 test archive::tests::archive_node_double_start_fails ... ok
 test archive::tests::archive_node_start_sets_running ... ok
-test archive::tests::archive_node_starts_not_running ... ok
 test full_node::tests::full_node_start_sets_running ... ok
 test full_node::tests::full_node_starts_not_running ... ok
 test init::tests::default_initializer_has_no_steps ... ok
 test init::tests::run_all_counts_added_steps ... ok
-test orchestrator::tests::node_handle_shutdown_succeeds ... ok
+test archive::tests::archive_node_starts_not_running ... ok
 test init::tests::run_all_empty_returns_zero_steps ... ok
+test orchestrator::tests::node_handle_shutdown_succeeds ... ok
 test orchestrator::tests::node_mode_display ... ok
 test orchestrator::tests::orchestrator_config_from_node_config ... ok
 test orchestrator::tests::orchestrator_new_accepts_valid_config ... ok
-test orchestrator::tests::orchestrator_start_returns_handle ... ok
 test orchestrator::tests::orchestrator_new_rejects_empty_network ... ok
+test orchestrator::tests::orchestrator_start_returns_handle ... ok
 test shutdown::tests::execute_returns_state_preservation ... ok
 test shutdown::tests::graceful_shutdown_all_reasons_succeed ... ok
 test shutdown::tests::shutdown_reason_display ... ok
-test shutdown::tests::shutdown_sequence_count ... ok
-test shutdown::tests::shutdown_sequence_order_is_reversed ... ok
 test tests::restart_backoff_is_reasonable ... ok
+test shutdown::tests::shutdown_sequence_order_is_reversed ... ok
 test tests::shutdown_timeout_less_than_startup ... ok
-test validator::tests::activate_from_initializing_succeeds ... ok
+test shutdown::tests::shutdown_sequence_count ... ok
 test validator::tests::activate_from_active_fails ... ok
+test validator::tests::activate_from_initializing_succeeds ... ok
 test tests::subsystem_count_matches_crate_count ... ok
 test validator::tests::orchestrator_with_active_consensus_is_active ... ok
 test validator::tests::orchestrator_with_inactive_consensus_is_not_active ... ok
 test validator::tests::orchestrator_without_consensus_is_inactive ... ok
 test validator::tests::validator_starts_in_initializing_state ... ok
 
-test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
   [0;32m✓ All workspace tests PASSED[0m
 
 [0;34m[STEP 8] Documentation Tests[0m
 ------------------------------------------------------------
    Compiling node v0.1.0 (/home/rebornbeat/Projects/AEVOR/node)
-    Finished `test` profile [optimized + debuginfo] target(s) in 0.83s
+    Finished `test` profile [optimized + debuginfo] target(s) in 1.88s
    Doc-tests aevor_api
 
 running 1 test
 test aevor-api/src/lib.rs - prelude (line 84) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.79s
 
    Doc-tests aevor_bridge
 
 running 1 test
 test aevor-bridge/src/lib.rs - prelude (line 83) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
 
    Doc-tests aevor_cli
 
 running 1 test
 test aevor-cli/src/lib.rs - prelude (line 87) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s
 
    Doc-tests aevor_client
 
 running 1 test
 test aevor-client/src/lib.rs - prelude (line 86) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
 
    Doc-tests aevor_config
 
 running 1 test
 test aevor-config/src/lib.rs - prelude (line 70) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.74s
 
    Doc-tests aevor_consensus
 
 running 1 test
 test aevor-consensus/src/lib.rs - prelude (line 89) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
 
    Doc-tests aevor_core
 
 running 1 test
 test aevor-core/src/lib.rs - prelude (line 103) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
 
    Doc-tests aevor_crypto
 
 running 1 test
 test aevor-crypto/src/lib.rs - prelude (line 83) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
 
    Doc-tests aevor_dag
 
 running 1 test
 test aevor-dag/src/lib.rs - prelude (line 93) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s
 
    Doc-tests aevor_execution
 
 running 1 test
 test aevor-execution/src/lib.rs - prelude (line 84) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
 
    Doc-tests aevor_faucet
 
 running 1 test
 test aevor-faucet/src/lib.rs - prelude (line 75) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
 
    Doc-tests aevor_governance
 
 running 1 test
 test aevor-governance/src/lib.rs - prelude (line 81) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
 
    Doc-tests aevor_metrics
 
 running 1 test
 test aevor-metrics/src/lib.rs - prelude (line 82) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
 
    Doc-tests aevor_move
 
 running 1 test
 test aevor-move/src/lib.rs - prelude (line 97) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
 
    Doc-tests aevor_network
 
 running 1 test
 test aevor-network/src/lib.rs - prelude (line 87) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s
 
    Doc-tests aevor_ns
 
 running 1 test
 test aevor-ns/src/lib.rs - prelude (line 88) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
 
    Doc-tests aevor_security
 
 running 1 test
 test aevor-security/src/lib.rs - prelude (line 79) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
 
    Doc-tests aevor_storage
 
 running 1 test
 test aevor-storage/src/lib.rs - prelude (line 90) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s
 
    Doc-tests aevor_tee
 
 running 1 test
 test aevor-tee/src/lib.rs - prelude (line 90) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.81s
 
    Doc-tests aevor_vm
 
 running 1 test
 test aevor-vm/src/lib.rs - prelude (line 102) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
 
    Doc-tests aevor_zk
 
 running 1 test
 test aevor-zk/src/lib.rs - prelude (line 95) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
 
    Doc-tests node
 
 running 1 test
 test node/src/lib.rs - prelude (line 105) ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.79s
 
   [0;32m✓ Doc tests PASSED[0m
 
@@ -2176,14 +2331,18 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 [0;34m[STEP 10] Clippy Lints[0m
 ------------------------------------------------------------
-    Checking aevor-dag v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-dag)
+    Checking aevor-consensus v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-consensus)
     Checking aevor-zk v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-zk)
-    Checking aevor-bridge v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-bridge)
+    Checking aevor-dag v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-dag)
+    Checking aevor-faucet v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-faucet)
+    Checking aevor-metrics v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-metrics)
+    Checking aevor-security v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-security)
     Checking aevor-governance v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-governance)
     Checking aevor-execution v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-execution)
     Checking aevor-api v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-api)
+    Checking aevor-bridge v0.1.0 (/home/rebornbeat/Projects/AEVOR/aevor-bridge)
     Checking node v0.1.0 (/home/rebornbeat/Projects/AEVOR/node)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.48s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.64s
   [0;32m✓ Clippy: no warnings-as-errors[0m
 
 ============================================================
@@ -2198,7 +2357,7 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 ============================================================
   ENVIRONMENT (paste this when sharing results)
 ============================================================
-Date:  Thu Mar 26 11:06:23 PM AST 2026
+Date:  Fri Mar 27 08:03:08 AM AST 2026
 OS:    Linux RebornBeat 6.8.0-51-generic #52-Ubuntu SMP PREEMPT_DYNAMIC Thu Dec  5 13:09:44 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux
 Rust:  rustc 1.86.0 (05f9846f8 2025-03-31)
 Cargo: cargo 1.86.0 (adf9b6ad1 2025-02-28)

@@ -68,3 +68,69 @@ impl KzgVerifier {
         !commitment.point.is_empty() && !opening.proof.is_empty()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Hash256;
+
+    fn params_hash(n: u8) -> Hash256 { Hash256([n; 32]) }
+
+    #[test]
+    fn kzg_commitment_stores_point() {
+        let c = KzgCommitment { point: vec![0xAB; 48] };
+        assert_eq!(c.point.len(), 48);
+    }
+
+    #[test]
+    fn kzg_verifier_accepts_nonempty_commitment_and_proof() {
+        let c = KzgCommitment { point: vec![1u8; 48] };
+        let o = KzgOpeningProof { evaluation: vec![2u8; 32], proof: vec![3u8; 48] };
+        assert!(KzgVerifier::verify(&c, &o, &[0u8; 32]));
+    }
+
+    #[test]
+    fn kzg_verifier_rejects_empty_commitment_point() {
+        let c = KzgCommitment { point: vec![] };
+        let o = KzgOpeningProof { evaluation: vec![1u8; 32], proof: vec![2u8; 48] };
+        assert!(!KzgVerifier::verify(&c, &o, &[0u8; 32]));
+    }
+
+    #[test]
+    fn kzg_verifier_rejects_empty_proof() {
+        let c = KzgCommitment { point: vec![1u8; 48] };
+        let o = KzgOpeningProof { evaluation: vec![1u8; 32], proof: vec![] };
+        assert!(!KzgVerifier::verify(&c, &o, &[0u8; 32]));
+    }
+
+    #[test]
+    fn pedersen_commitment_new_stores_fields() {
+        let c = PedersenCommitment::new(vec![0xFF; 32], params_hash(1));
+        assert_eq!(c.point, vec![0xFF; 32]);
+        assert_eq!(c.params_hash, params_hash(1));
+    }
+
+    #[test]
+    fn pedersen_commitment_compatible_with_same_params() {
+        let c1 = PedersenCommitment::new(vec![1u8; 32], params_hash(7));
+        let c2 = PedersenCommitment::new(vec![2u8; 32], params_hash(7));
+        assert!(c1.compatible_with(&c2));
+    }
+
+    #[test]
+    fn pedersen_commitment_incompatible_with_different_params() {
+        let c1 = PedersenCommitment::new(vec![1u8; 32], params_hash(1));
+        let c2 = PedersenCommitment::new(vec![1u8; 32], params_hash(2));
+        assert!(!c1.compatible_with(&c2));
+    }
+
+    #[test]
+    fn inner_product_argument_stores_proof() {
+        let ipa = InnerProductArgument {
+            proof: vec![0xDE, 0xAD, 0xBE, 0xEF],
+            final_scalar: vec![0x42; 32],
+        };
+        assert_eq!(ipa.proof.len(), 4);
+        assert_eq!(ipa.final_scalar.len(), 32);
+    }
+}
