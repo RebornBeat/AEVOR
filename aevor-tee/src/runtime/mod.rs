@@ -133,9 +133,36 @@ mod tests {
     }
 
     #[test]
+    fn all_four_standards_independently_required() {
+        // Each standard is a hard requirement — if any is false, all_met() returns false.
+        let mut s = EnvironmentStandards::default();
+        s.deterministic_execution = false;
+        assert!(!s.all_met());
+
+        let mut s = EnvironmentStandards::default();
+        s.cross_platform_consistent = false;
+        assert!(!s.all_met());
+
+        let mut s = EnvironmentStandards::default();
+        s.sealed_storage = false;
+        assert!(!s.all_met());
+
+        let mut s = EnvironmentStandards::default();
+        s.secure_channels = false;
+        assert!(!s.all_met());
+    }
+
+    #[test]
     fn runtime_environment_is_compliant_by_default() {
         let env = RuntimeEnvironment::new(TeePlatform::IntelSgx, Hash256::ZERO);
         assert!(env.is_compliant());
+    }
+
+    #[test]
+    fn runtime_environment_noncompliant_when_standards_missing() {
+        let mut env = RuntimeEnvironment::new(TeePlatform::AmdSev, Hash256::ZERO);
+        env.standards.deterministic_execution = false;
+        assert!(!env.is_compliant());
     }
 
     #[test]
@@ -144,5 +171,51 @@ mod tests {
         assert!(rt.supports(TeePlatform::IntelSgx));
         assert!(!rt.supports(TeePlatform::AwsNitro));
         assert_eq!(rt.platform_count(), 2);
+    }
+
+    // ── Section 11.7: all 5 platforms in cross-platform runtime ──────────────
+
+    #[test]
+    fn cross_platform_runtime_can_include_all_five_platforms() {
+        let rt = CrossPlatformRuntime::new(vec![
+            TeePlatform::IntelSgx,
+            TeePlatform::AmdSev,
+            TeePlatform::ArmTrustZone,
+            TeePlatform::RiscvKeystone,
+            TeePlatform::AwsNitro,
+        ]);
+        assert_eq!(rt.platform_count(), 5);
+        for p in [TeePlatform::IntelSgx, TeePlatform::AmdSev, TeePlatform::ArmTrustZone,
+                  TeePlatform::RiscvKeystone, TeePlatform::AwsNitro] {
+            assert!(rt.supports(p));
+        }
+        // Cross-platform runtime must enforce all standards by default
+        assert!(rt.standards().all_met());
+    }
+
+    #[test]
+    fn tee_runtime_preserves_platform_and_measurement() {
+        let measurement = Hash256([0xBE; 32]);
+        let rt = TeeRuntime::new(TeePlatform::RiscvKeystone, measurement);
+        assert_eq!(rt.platform(), TeePlatform::RiscvKeystone);
+        assert_eq!(rt.measurement(), measurement);
+        assert!(rt.is_compliant());
+    }
+
+    // ── Section 11.7: deterministic execution seed ───────────────────────────
+
+    #[test]
+    fn deterministic_execution_stores_seed_and_flag() {
+        let seed = [0x99u8; 32];
+        let det = DeterministicExecution::new(seed, true);
+        assert_eq!(det.seed, seed);
+        assert!(det.eliminate_timing_variance);
+    }
+
+    #[test]
+    fn deterministic_execution_different_seeds_are_different() {
+        let d1 = DeterministicExecution::new([1u8; 32], false);
+        let d2 = DeterministicExecution::new([2u8; 32], false);
+        assert_ne!(d1.seed, d2.seed);
     }
 }

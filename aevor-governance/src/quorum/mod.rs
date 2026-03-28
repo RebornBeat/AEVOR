@@ -27,3 +27,39 @@ pub struct QuorumProof { pub check: QuorumCheck, pub proof: Vec<u8> }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParticipationRate { pub rate_pct: u8 }
 pub struct StakeWeightedQuorum;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::ValidatorWeight;
+
+    fn check(participated: u64, total: u64) -> QuorumCheck {
+        QuorumCheck { participated_weight: ValidatorWeight::from_u64(participated), total_weight: ValidatorWeight::from_u64(total) }
+    }
+
+    #[test]
+    fn quorum_requirement_default_sensible() {
+        let q = QuorumRequirement::default();
+        assert_eq!(q.min_participation_pct, 33);
+        assert_eq!(q.approval_threshold_pct, 67);
+    }
+
+    #[test]
+    fn quorum_check_participation_pct() {
+        assert_eq!(check(33, 100).participation_pct(), 33);
+        assert_eq!(check(50, 100).participation_pct(), 50);
+        assert_eq!(check(0, 100).participation_pct(), 0);
+    }
+
+    #[test]
+    fn quorum_check_zero_total_returns_zero() {
+        assert_eq!(check(0, 0).participation_pct(), 0);
+    }
+
+    #[test]
+    fn quorum_check_meets_quorum_at_threshold() {
+        let req = QuorumRequirement { min_participation_pct: 33, approval_threshold_pct: 67 };
+        assert!(check(33, 100).meets_quorum(&req));
+        assert!(!check(32, 100).meets_quorum(&req));
+    }
+}

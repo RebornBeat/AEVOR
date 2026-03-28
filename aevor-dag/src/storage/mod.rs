@@ -32,3 +32,45 @@ impl DagStore {
 impl Default for DagStore {
     fn default() -> Self { Self::new() }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Hash256;
+
+    fn tx(n: u8) -> TransactionHash { Hash256([n; 32]) }
+    fn bh(n: u8) -> BlockHash { Hash256([n; 32]) }
+
+    fn entry(n: u8) -> DagStorageEntry {
+        DagStorageEntry { transaction: tx(n), parents: vec![], included_in_block: None, finalized: false }
+    }
+
+    #[test]
+    fn dag_store_insert_and_get() {
+        let mut store = DagStore::new();
+        store.insert(entry(1));
+        assert!(store.get(&tx(1)).is_some());
+        assert_eq!(store.entry_count(), 1);
+    }
+
+    #[test]
+    fn dag_store_get_missing_returns_none() {
+        let store = DagStore::default();
+        assert!(store.get(&tx(99)).is_none());
+    }
+
+    #[test]
+    fn dag_storage_entry_with_block_reference() {
+        let e = DagStorageEntry { transaction: tx(2), parents: vec![tx(1)], included_in_block: Some(bh(5)), finalized: true };
+        assert!(e.included_in_block.is_some());
+        assert!(e.finalized);
+        assert_eq!(e.parents.len(), 1);
+    }
+
+    #[test]
+    fn dag_store_multiple_entries() {
+        let mut store = DagStore::new();
+        for i in 0..5 { store.insert(entry(i)); }
+        assert_eq!(store.entry_count(), 5);
+    }
+}

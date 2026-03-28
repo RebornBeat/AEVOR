@@ -39,3 +39,34 @@ pub struct FullNodeConfig { pub enable_api: bool }
 pub struct ArchiveConfig { pub max_storage_gb: u64 }
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct LightNodeConfig { pub checkpoint: Option<String> }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn node_config_default_network_is_mainnet() {
+        let cfg = NodeConfig::default();
+        assert_eq!(cfg.network, "mainnet");
+        assert_eq!(cfg.log_level, "info");
+        assert!(cfg.data_dir.ends_with("data"));
+    }
+
+    #[test]
+    fn validator_config_default_no_key_file() {
+        let cfg = ValidatorConfig::default();
+        assert!(cfg.key_file.is_none());
+    }
+
+    #[test]
+    fn archive_config_default_zero_storage() {
+        let cfg = ArchiveConfig::default();
+        assert_eq!(cfg.max_storage_gb, 0);
+    }
+
+    #[test]
+    fn light_node_config_default_no_checkpoint() {
+        let cfg = LightNodeConfig::default();
+        assert!(cfg.checkpoint.is_none());
+    }
+}

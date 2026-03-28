@@ -34,3 +34,37 @@ impl Pruner {
             && current_height.as_u64() > target_height.as_u64() + self.config.keep_blocks
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::BlockHeight;
+
+    #[test]
+    fn pruning_config_default_enabled() {
+        let cfg = PruningConfig::default();
+        assert!(cfg.enabled);
+        assert!(cfg.keep_blocks > 0);
+        assert!(cfg.keep_state_versions > 0);
+    }
+
+    #[test]
+    fn pruner_should_prune_when_far_ahead() {
+        let pruner = Pruner::new(PruningConfig { keep_blocks: 100, ..PruningConfig::default() });
+        // current=500, target=0 → 500 > 0 + 100 → should prune
+        assert!(pruner.should_prune(BlockHeight(500), BlockHeight(0)));
+    }
+
+    #[test]
+    fn pruner_should_not_prune_within_keep_window() {
+        let pruner = Pruner::new(PruningConfig { keep_blocks: 1000, ..PruningConfig::default() });
+        // current=500, target=0 → 500 < 0 + 1000 → no prune
+        assert!(!pruner.should_prune(BlockHeight(500), BlockHeight(0)));
+    }
+
+    #[test]
+    fn pruner_disabled_never_prunes() {
+        let pruner = Pruner::new(PruningConfig { enabled: false, keep_blocks: 1, ..PruningConfig::default() });
+        assert!(!pruner.should_prune(BlockHeight(1_000_000), BlockHeight(0)));
+    }
+}

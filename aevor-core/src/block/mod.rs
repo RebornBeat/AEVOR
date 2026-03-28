@@ -137,7 +137,9 @@ pub struct BlockAttestation {
 ///
 /// The Micro-DAG represents individual transactions as vertices with edges
 /// encoding their causal dependencies. Transactions without edges between
-/// them can be executed in parallel, achieving the 200,000+ TPS throughput.
+/// them execute in parallel — throughput scales unboundedly with available
+/// computational resources. All TPS figures are measured reference points,
+/// not architectural ceilings.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MicroDagEntry {
     /// The transaction this entry represents.

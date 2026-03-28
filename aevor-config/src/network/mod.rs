@@ -21,7 +21,12 @@ pub struct NetworkConfig {
     pub subnets: Vec<SubnetConfig>,
     /// Bridge configurations.
     pub bridges: Vec<BridgeConfig>,
-    /// Maximum number of peers.
+    /// Maximum number of active direct peer connections for this node.
+    ///
+    /// This is a per-node connection budget, not a ceiling on network size
+    /// or participation. The network can contain unlimited participants;
+    /// each node independently manages its peer connection count.
+    /// Governance may raise this value as hardware capabilities improve.
     pub max_peers: usize,
     /// Listen addresses (IP:port).
     pub listen_addresses: Vec<String>,

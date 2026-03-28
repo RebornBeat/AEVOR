@@ -189,8 +189,9 @@ pub const DEFAULT_QUORUM_FRACTION: f64 = 0.15; // 15%
 /// Default approval threshold (fraction of votes that must be in favor).
 pub const DEFAULT_APPROVAL_FRACTION: f64 = 0.67; // 67%
 
-/// Maximum number of simultaneous active proposals.
-pub const MAX_ACTIVE_PROPOSALS: usize = 64;
+/// Default maximum number of simultaneous active proposals.
+/// Configurable per deployment through governance parameter changes.
+pub const DEFAULT_MAX_ACTIVE_PROPOSALS: usize = 64;
 
 // ============================================================
 // TESTS
@@ -205,6 +206,8 @@ mod tests {
         assert!(MIN_PROPOSAL_STAKE_FRACTION > 0.0);
         assert!(DEFAULT_QUORUM_FRACTION > 0.0 && DEFAULT_QUORUM_FRACTION < 1.0);
         assert!(DEFAULT_APPROVAL_FRACTION > 0.5 && DEFAULT_APPROVAL_FRACTION <= 1.0);
+        // DEFAULT_MAX_ACTIVE_PROPOSALS is a configurable default, not a hard ceiling
+        assert!(DEFAULT_MAX_ACTIVE_PROPOSALS > 0);
     }
 
     #[test]

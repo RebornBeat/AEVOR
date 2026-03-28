@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "aevor_cli"
+path = "src/lib.rs"
+
 [[bin]]
 name = "aevor"
 path = "src/main.rs"

@@ -32,3 +32,32 @@ impl WsServer {
     /// Returns an error if the server cannot bind to the configured address.
     pub fn serve(&self) -> crate::ApiResult<()> { Ok(()) }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::SocketAddr;
+    use crate::{middleware::MiddlewareStack, network_routing::MultiNetworkApi};
+
+    fn ws_config() -> WsConfig {
+        WsConfig { listen_addr: "127.0.0.1:9000".parse().unwrap(), max_subscriptions_per_connection: 50 }
+    }
+
+    #[test]
+    fn ws_server_listen_addr() {
+        let server = WsServer::new(ws_config(), MiddlewareStack::default(), MultiNetworkApi::default());
+        assert_eq!(server.listen_addr().port(), 9000);
+    }
+
+    #[test]
+    fn ws_server_max_subscriptions_per_connection() {
+        let server = WsServer::new(ws_config(), MiddlewareStack::default(), MultiNetworkApi::default());
+        assert_eq!(server.max_subscriptions_per_connection(), 50);
+    }
+
+    #[test]
+    fn subscription_filter_stores_event_types() {
+        let f = SubscriptionFilter { event_types: vec!["BlockFinalized".into(), "TxConfirmed".into()], addresses: vec![] };
+        assert_eq!(f.event_types.len(), 2);
+    }
+}

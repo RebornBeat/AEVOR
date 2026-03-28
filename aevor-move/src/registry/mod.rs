@@ -30,3 +30,54 @@ impl ModuleRegistry {
     pub fn count(&self) -> usize { self.entries.len() }
 }
 impl Default for ModuleRegistry { fn default() -> Self { Self::new() } }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Address;
+
+    fn addr(n: u8) -> Address { Address([n; 32]) }
+
+    fn entry(a: u8, name: &str) -> RegistryEntry {
+        RegistryEntry {
+            address: addr(a),
+            metadata: ModuleMetadata { name: name.into(), version: ModuleVersion { major: 1, minor: 0, patch: 0 }, author: addr(0) },
+            policy: UpgradePolicy::Compatible,
+        }
+    }
+
+    #[test]
+    fn module_version_display() {
+        let v = ModuleVersion { major: 1, minor: 2, patch: 3 };
+        assert_eq!(v.to_string(), "1.2.3");
+    }
+
+    #[test]
+    fn module_registry_register_and_lookup() {
+        let mut reg = ModuleRegistry::new();
+        reg.register(entry(1, "token"));
+        let found = reg.lookup(&addr(1)).unwrap();
+        assert_eq!(found.metadata.name, "token");
+    }
+
+    #[test]
+    fn module_registry_lookup_missing_returns_none() {
+        let reg = ModuleRegistry::default();
+        assert!(reg.lookup(&addr(99)).is_none());
+    }
+
+    #[test]
+    fn module_registry_count() {
+        let mut reg = ModuleRegistry::new();
+        reg.register(entry(1, "a"));
+        reg.register(entry(2, "b"));
+        assert_eq!(reg.count(), 2);
+    }
+
+    #[test]
+    fn upgrade_policy_variants() {
+        assert!(matches!(UpgradePolicy::Immutable, UpgradePolicy::Immutable));
+        assert!(matches!(UpgradePolicy::Compatible, UpgradePolicy::Compatible));
+        assert!(matches!(UpgradePolicy::Arbitrary, UpgradePolicy::Arbitrary));
+    }
+}

@@ -9,3 +9,15 @@ impl MoveChainBridge {
     pub fn chain_id(&self) -> &str { &self.config.chain_id }
     pub fn rpc_url(&self) -> &str { &self.config.rpc_url }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn move_chain_bridge_stores_config() {
+        let bridge = MoveChainBridge::new(MoveChainConfig { chain_id: "aptos-1".into(), rpc_url: "https://fullnode.aptos.io".into() });
+        assert_eq!(bridge.chain_id(), "aptos-1");
+        assert!(!bridge.rpc_url().is_empty());
+    }
+}

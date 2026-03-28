@@ -38,3 +38,47 @@ impl JitCompiler {
     pub fn cache(&self) -> &JitCache { &self.cache }
 }
 impl Default for JitCompiler { fn default() -> Self { Self::new() } }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Hash256;
+
+    fn fhash(n: u8) -> Hash256 { Hash256([n; 32]) }
+
+    fn compiled(name: &str) -> CompiledFunction {
+        CompiledFunction { name: name.into(), native_size_bytes: 1024, hash: Hash256::ZERO }
+    }
+
+    #[test]
+    fn jit_cache_insert_and_get() {
+        let mut cache = JitCache::new();
+        cache.insert(fhash(1), compiled("transfer"));
+        let f = cache.get(&fhash(1)).unwrap();
+        assert_eq!(f.name, "transfer");
+        assert_eq!(cache.count(), 1);
+    }
+
+    #[test]
+    fn jit_cache_get_missing_returns_none() {
+        let cache = JitCache::default();
+        assert!(cache.get(&fhash(99)).is_none());
+    }
+
+    #[test]
+    fn warmup_tracker_triggers_at_threshold() {
+        let mut tracker = WarmupTracker::new(3);
+        let h = fhash(1);
+        assert!(!tracker.record_call(&h)); // 1
+        assert!(!tracker.record_call(&h)); // 2
+        assert!(tracker.record_call(&h));  // 3 — triggers JIT
+    }
+
+    #[test]
+    fn hot_path_optimizer_compiled_after_insert() {
+        let mut opt = HotPathOptimizer::new();
+        assert!(!opt.is_compiled(&fhash(1)));
+        opt.cache.insert(fhash(1), compiled("hot_fn"));
+        assert!(opt.is_compiled(&fhash(1)));
+    }
+}

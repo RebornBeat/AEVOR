@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "node"
+path = "src/lib.rs"
+
 [[bin]]
 name = "aevor-node"
 path = "src/main.rs"

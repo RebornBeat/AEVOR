@@ -19,3 +19,32 @@ impl AuthoritativeZone {
 }
 
 pub struct Zone { pub name: String, pub authoritative: bool }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::records::DnsRecordSet;
+
+    fn soa() -> SoaRecord {
+        SoaRecord { mname: "ns1.aevor.".into(), rname: "admin.aevor.".into(), serial: 2024010101, refresh: 3600, retry: 900, expire: 604800, minimum: 300 }
+    }
+
+    #[test]
+    fn authoritative_zone_origin() {
+        let zone = AuthoritativeZone::new(ZoneData { origin: "aevor.".into(), soa: soa(), records: DnsRecordSet::default() });
+        assert_eq!(zone.origin(), "aevor.");
+    }
+
+    #[test]
+    fn zone_delegate_stores_ns_records() {
+        let d = ZoneDelegate { delegated: "sub.aevor.".into(), ns: vec!["ns1.aevor.".into(), "ns2.aevor.".into()] };
+        assert_eq!(d.ns.len(), 2);
+    }
+
+    #[test]
+    fn soa_record_stores_all_timing_fields() {
+        let s = soa();
+        assert!(s.refresh > 0);
+        assert!(s.expire > s.refresh);
+    }
+}

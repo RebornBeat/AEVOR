@@ -174,6 +174,26 @@ mod tests {
         }
     }
 
+    fn make_attested(platform: TeePlatform, measurement: Hash256) -> TeeInstance {
+        use aevor_core::tee::AttestationReport;
+        TeeInstance {
+            id: Hash256::ZERO,
+            platform,
+            validator_id: Hash256::ZERO,
+            is_active: true,
+            attestation: Some(AttestationReport {
+                platform,
+                raw_report: vec![0xAB],
+                code_measurement: measurement,
+                signer_measurement: Hash256::ZERO,
+                nonce: [0u8; 32],
+                is_production: true,
+                svn: 1,
+                user_data: vec![],
+            }),
+        }
+    }
+
     #[test]
     fn distributed_execution_threshold_check() {
         let instances = vec![
@@ -184,6 +204,13 @@ mod tests {
         let exec = DistributedTeeExecution::new(instances, 2);
         assert!(exec.meets_threshold());
         assert_eq!(exec.instance_count(), 3);
+    }
+
+    #[test]
+    fn distributed_execution_not_meeting_threshold() {
+        let instances = vec![make_instance(TeePlatform::IntelSgx, true)];
+        let exec = DistributedTeeExecution::new(instances, 3);
+        assert!(!exec.meets_threshold());
     }
 
     #[test]
@@ -199,11 +226,88 @@ mod tests {
     }
 
     #[test]
+    fn fault_tolerant_tee_unhealthy_when_below_minimum() {
+        let instances = vec![
+            make_instance(TeePlatform::IntelSgx, false),
+            make_instance(TeePlatform::AmdSev, false),
+        ];
+        let ft = FaultTolerantTee::new(instances, 1);
+        assert!(!ft.is_healthy());
+    }
+
+    #[test]
     fn coordinator_platform_diversity() {
         let mut coord = MultiTeeCoordinator::new();
         coord.add_instance(make_instance(TeePlatform::IntelSgx, true));
         coord.add_instance(make_instance(TeePlatform::IntelSgx, true)); // duplicate platform
         coord.add_instance(make_instance(TeePlatform::AmdSev, true));
         assert_eq!(coord.platform_diversity(), 2);
+    }
+
+    // ── Section 11: all 5 platforms ──────────────────────────────────────────
+    // Whitepaper §11.2: behavioral consistency across all five TEE platforms.
+
+    #[test]
+    fn coordinator_supports_all_five_platforms() {
+        let mut coord = MultiTeeCoordinator::new();
+        for platform in [
+            TeePlatform::IntelSgx,
+            TeePlatform::AmdSev,
+            TeePlatform::ArmTrustZone,
+            TeePlatform::RiscvKeystone,
+            TeePlatform::AwsNitro,
+        ] {
+            coord.add_instance(make_instance(platform, true));
+        }
+        assert_eq!(coord.platform_diversity(), 5);
+        assert_eq!(coord.instance_count(), 5);
+    }
+
+    #[test]
+    fn tee_instance_is_ready_only_when_active_and_attested() {
+        let unattested = make_instance(TeePlatform::AmdSev, true);
+        assert!(!unattested.is_ready()); // active but not attested
+
+        let attested = make_attested(TeePlatform::AmdSev, Hash256([1u8; 32]));
+        assert!(attested.is_ready()); // active AND attested
+    }
+
+    // ── Section 11.5: consistency verification across platforms ──────────────
+
+    #[test]
+    fn consistency_verifier_majority_with_same_measurement() {
+        let measurement = Hash256([0x42u8; 32]);
+        let instances = vec![
+            make_attested(TeePlatform::IntelSgx, measurement),
+            make_attested(TeePlatform::AmdSev, measurement),
+            make_attested(TeePlatform::ArmTrustZone, measurement),
+        ];
+        assert!(TeeConsistencyVerifier::verify_consistency(&instances, &measurement).unwrap());
+    }
+
+    #[test]
+    fn consistency_verifier_fails_when_minority_agree() {
+        let expected = Hash256([0x42u8; 32]);
+        let different = Hash256([0xFFu8; 32]);
+        let instances = vec![
+            make_attested(TeePlatform::IntelSgx, expected),     // agrees
+            make_attested(TeePlatform::AmdSev, different),      // disagrees
+            make_attested(TeePlatform::AwsNitro, different),    // disagrees
+        ];
+        // Only 1/3 agree — below 50% → false
+        assert!(!TeeConsistencyVerifier::verify_consistency(&instances, &expected).unwrap());
+    }
+
+    #[test]
+    fn ready_count_only_includes_active_and_attested() {
+        let measurement = Hash256([1u8; 32]);
+        let instances = vec![
+            make_attested(TeePlatform::IntelSgx, measurement),      // active + attested
+            make_instance(TeePlatform::AmdSev, true),               // active but not attested
+            make_instance(TeePlatform::AwsNitro, false),            // inactive
+        ];
+        let ft = FaultTolerantTee::new(instances, 1);
+        assert_eq!(ft.ready_count(), 1); // only SGX qualifies
+        assert_eq!(ft.active_count(), 2); // SGX + SEV are active
     }
 }

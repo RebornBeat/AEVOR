@@ -14,14 +14,16 @@
 //! ## Progressive Security Levels
 //!
 //! Rather than forcing a single security/latency trade-off, `PoU` provides four progressive
-//! levels that scale validator participation and confirmation time based on application needs:
+//! levels that scale validator participation and confirmation time based on application needs.
+//! All timing figures are approximate estimates for current network conditions on reference
+//! hardware — not hard limits. Actual confirmation will improve as network infrastructure grows.
 //!
-//! | Level | Validators | Latency | Use Case |
-//! |-------|-----------|---------|----------|
-//! | Minimal | 2–3% | 20–50ms | Micropayments, gaming |
-//! | Basic | 10–20% | 100–200ms | Standard transactions |
-//! | Strong | >33% | 500–800ms | High-value operations |
-//! | Full | >67% | <1s | Critical / institutional |
+//! | Level   | Validators | Typical Latency (Est.) | Use Case |
+//! |---------|-----------|------------------------|----------|
+//! | Minimal | 2–3%      | 20–50ms                | Micropayments, gaming |
+//! | Basic   | 10–20%    | 100–200ms              | Standard transactions |
+//! | Strong  | >33%      | 500–800ms              | High-value operations |
+//! | Full    | >67%      | <1s                    | Critical / institutional |
 //!
 //! All four levels provide **mathematical security** through TEE attestation — the difference
 //! is the breadth of validator participation providing Byzantine fault tolerance.
@@ -102,6 +104,7 @@ pub mod prelude {
         SecurityLevel, SecurityLevelConfig, SecurityLevelAccelerator,
         MinimalSecurity, BasicSecurity, StrongSecurity, FullSecurity,
         ValidatorParticipation, ParticipationThreshold,
+        SecurityLevelPolicy, EscalationTrigger, ValidatorTopologyScore,
     };
     pub use crate::attestation::{
         AttestationEvidence, AttestationCollector, AttestationVerifier,
@@ -230,17 +233,22 @@ pub const STRONG_SECURITY_THRESHOLD: f64 = 0.33;
 /// Minimum fraction of validators for full security level.
 pub const FULL_SECURITY_THRESHOLD: f64 = 0.67;
 
-/// Maximum confirmation time for minimal security in milliseconds.
-pub const MINIMAL_CONFIRMATION_MS: u64 = 50;
+/// Typical confirmation time estimate for minimal security in milliseconds.
+/// This is an approximate reference for current network conditions — NOT a hard limit.
+/// Actual confirmation may be faster and will improve as network infrastructure grows.
+pub const TYPICAL_CONFIRMATION_MS_MINIMAL: u64 = 50;
 
-/// Maximum confirmation time for basic security in milliseconds.
-pub const BASIC_CONFIRMATION_MS: u64 = 200;
+/// Typical confirmation time estimate for basic security in milliseconds.
+/// Approximate reference — NOT a hard limit. Hardware-dependent, scales with network.
+pub const TYPICAL_CONFIRMATION_MS_BASIC: u64 = 200;
 
-/// Maximum confirmation time for strong security in milliseconds.
-pub const STRONG_CONFIRMATION_MS: u64 = 800;
+/// Typical confirmation time estimate for strong security in milliseconds.
+/// Approximate reference — NOT a hard limit. Hardware-dependent, scales with network.
+pub const TYPICAL_CONFIRMATION_MS_STRONG: u64 = 800;
 
-/// Maximum confirmation time for full security in milliseconds.
-pub const FULL_CONFIRMATION_MS: u64 = 1_000;
+/// Typical confirmation time estimate for full security in milliseconds.
+/// Approximate reference — NOT a hard limit. Hardware-dependent, scales with network.
+pub const TYPICAL_CONFIRMATION_MS_FULL: u64 = 1_000;
 
 /// Number of consensus rounds per epoch.
 pub const ROUNDS_PER_EPOCH: u64 = 1_000;
@@ -276,15 +284,49 @@ mod tests {
     }
 
     #[test]
-    fn confirmation_times_are_ordered() {
-        assert!(MINIMAL_CONFIRMATION_MS < BASIC_CONFIRMATION_MS);
-        assert!(BASIC_CONFIRMATION_MS < STRONG_CONFIRMATION_MS);
-        assert!(STRONG_CONFIRMATION_MS <= FULL_CONFIRMATION_MS);
+    fn typical_confirmation_estimates_are_ordered() {
+        // Higher security consults more validators so typical confirmation is higher.
+        // These are estimates only — real confirmation may be faster.
+        assert!(TYPICAL_CONFIRMATION_MS_MINIMAL < TYPICAL_CONFIRMATION_MS_BASIC);
+        assert!(TYPICAL_CONFIRMATION_MS_BASIC < TYPICAL_CONFIRMATION_MS_STRONG);
+        assert!(TYPICAL_CONFIRMATION_MS_STRONG <= TYPICAL_CONFIRMATION_MS_FULL);
     }
 
     #[test]
     fn byzantine_threshold_is_below_strong_security() {
-        // Strong security requires >33% honest — Byzantine tolerance is <33%
+        // Strong security requires >33% honest — Byzantine tolerance is strictly <33%
         assert!(MAX_BYZANTINE_FRACTION < STRONG_SECURITY_THRESHOLD);
+    }
+
+    #[test]
+    fn full_security_covers_supermajority() {
+        // Full security requires >67% — sufficient to override any <33% Byzantine coalition
+        assert!(FULL_SECURITY_THRESHOLD > 0.5);
+        assert!(FULL_SECURITY_THRESHOLD + MAX_BYZANTINE_FRACTION < 1.0 + 0.01);
+    }
+
+    #[test]
+    fn slash_fractions_are_graduated_double_sign_higher() {
+        // Double-signing is more severe than liveness violation
+        assert!(DOUBLE_SIGN_SLASH_FRACTION > LIVENESS_SLASH_FRACTION);
+    }
+
+    #[test]
+    fn slashing_fractions_are_nonzero_and_bounded() {
+        assert!(DOUBLE_SIGN_SLASH_FRACTION > 0.0);
+        assert!(DOUBLE_SIGN_SLASH_FRACTION < 1.0);
+        assert!(LIVENESS_SLASH_FRACTION > 0.0);
+        assert!(LIVENESS_SLASH_FRACTION < DOUBLE_SIGN_SLASH_FRACTION);
+    }
+
+    #[test]
+    fn consensus_errors_format_correctly() {
+        let e = ConsensusError::AttestationFailed { reason: "invalid quote".into() };
+        assert!(e.to_string().contains("invalid quote"));
+        let e2 = ConsensusError::ByzantineBehavior {
+            validator_id: "v1".into(),
+            behavior: "double sign".into(),
+        };
+        assert!(e2.to_string().contains("double sign"));
     }
 }

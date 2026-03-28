@@ -39,3 +39,44 @@ pub struct RdmaStats {
     /// Number of completions processed.
     pub completions: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rdma_config_default_nonzero_mtu_and_buffers() {
+        let cfg = RdmaConfig::default();
+        assert!(cfg.mtu > 0);
+        assert!(cfg.send_buffer_count > 0);
+        assert!(cfg.recv_buffer_count > 0);
+    }
+
+    #[test]
+    fn rdma_config_custom_values() {
+        let cfg = RdmaConfig { mtu: 65536, send_buffer_count: 1024, recv_buffer_count: 1024 };
+        assert_eq!(cfg.mtu, 65536);
+        assert_eq!(cfg.send_buffer_count, 1024);
+    }
+
+    #[test]
+    fn scatter_gather_entry_stores_offset_and_length() {
+        let sg = ScatterGatherEntry { offset: 4096, length: 512 };
+        assert_eq!(sg.offset, 4096);
+        assert_eq!(sg.length, 512);
+    }
+
+    #[test]
+    fn rdma_stats_default_zero() {
+        let stats = RdmaStats::default();
+        assert_eq!(stats.zero_copy_bytes, 0);
+        assert_eq!(stats.completions, 0);
+    }
+
+    #[test]
+    fn rdma_stats_accumulate() {
+        let stats = RdmaStats { zero_copy_bytes: 1_000_000, completions: 42 };
+        assert_eq!(stats.zero_copy_bytes, 1_000_000);
+        assert_eq!(stats.completions, 42);
+    }
+}

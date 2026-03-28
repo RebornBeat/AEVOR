@@ -31,3 +31,30 @@ impl NodeCommand {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn start_args_default_mode_full() {
+        // clap Parser — construct manually since we are not using the CLI entry point
+        let args = StartArgs { mode: "full".into(), key_file: None };
+        assert_eq!(args.mode, "full");
+        assert!(args.key_file.is_none());
+    }
+
+    #[test]
+    fn stop_args_force_flag() {
+        let args = StopArgs { force: false };
+        assert!(!args.force);
+    }
+
+    #[test]
+    fn upgrade_args_optional_version() {
+        let args = UpgradeArgs { version: Some("2.0.0".into()) };
+        assert_eq!(args.version.as_deref(), Some("2.0.0"));
+        let no_ver = UpgradeArgs { version: None };
+        assert!(no_ver.version.is_none());
+    }
+}

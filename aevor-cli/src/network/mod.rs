@@ -24,3 +24,15 @@ impl NetworkCommand {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_admin_config_stores_max_peers() {
+        let cfg = NetworkAdminConfig { max_peers: 100, bootstrap: vec!["seed1.aevor.io:4001".into()] };
+        assert_eq!(cfg.max_peers, 100);
+        assert_eq!(cfg.bootstrap.len(), 1);
+    }
+}

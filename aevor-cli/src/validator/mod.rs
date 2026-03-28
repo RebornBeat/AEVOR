@@ -34,3 +34,27 @@ impl ValidatorCommand {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validator_monitor_default_not_jailed() {
+        let m = ValidatorMonitor::default();
+        assert!(!m.is_jailed);
+        assert_eq!(m.consecutive_attestations, 0);
+    }
+
+    #[test]
+    fn validator_monitor_jailed_flag() {
+        let m = ValidatorMonitor { consecutive_attestations: 0, is_jailed: true };
+        assert!(m.is_jailed);
+    }
+
+    #[test]
+    fn validator_monitor_attestation_count() {
+        let m = ValidatorMonitor { consecutive_attestations: 100, is_jailed: false };
+        assert_eq!(m.consecutive_attestations, 100);
+    }
+}

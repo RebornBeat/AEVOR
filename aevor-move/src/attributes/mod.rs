@@ -20,3 +20,28 @@ impl AttributeParser {
             .map(|_| PrivacyAttribute { level: PrivacyLevel::Private })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::privacy::PrivacyLevel;
+
+    #[test]
+    fn attribute_parser_finds_privacy_attribute() {
+        let attrs = vec!["#[privacy(level=private)]".into()];
+        let pa = AttributeParser::parse_privacy(&attrs).unwrap();
+        assert_eq!(pa.level, PrivacyLevel::Private);
+    }
+
+    #[test]
+    fn attribute_parser_returns_none_for_no_match() {
+        let attrs = vec!["#[view]".into(), "#[entry]".into()];
+        assert!(AttributeParser::parse_privacy(&attrs).is_none());
+    }
+
+    #[test]
+    fn mixed_privacy_attribute_stores_levels() {
+        let mpa = MixedPrivacyAttribute { allowed_levels: vec![PrivacyLevel::Public, PrivacyLevel::Private] };
+        assert_eq!(mpa.allowed_levels.len(), 2);
+    }
+}

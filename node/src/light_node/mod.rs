@@ -17,3 +17,22 @@ impl LightNode {
     /// Whether this light node has a trusted checkpoint anchor.
     pub fn has_checkpoint(&self) -> bool { self.checkpoint.is_some() }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn light_node_with_checkpoint() {
+        let n = LightNode::new(Some("0xABC".into()));
+        assert!(n.has_checkpoint());
+        assert_eq!(n.checkpoint(), Some("0xABC"));
+    }
+
+    #[test]
+    fn light_node_without_checkpoint_syncs_from_genesis() {
+        let n = LightNode::new(None);
+        assert!(!n.has_checkpoint());
+        assert!(n.checkpoint().is_none());
+    }
+}

@@ -14,3 +14,16 @@ impl StatusCommand {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // StatusCommand variants are clap Subcommands — test the discriminants compile
+    #[test]
+    fn status_command_variants_exist() {
+        use super::StatusCommand;
+        let _ = StatusCommand::Node;
+        let _ = StatusCommand::Network;
+        let _ = StatusCommand::Validators;
+        let _ = StatusCommand::Consensus;
+    }
+}

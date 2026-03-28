@@ -50,3 +50,64 @@ pub enum RateLimitResult {
     Allowed,
     Denied { retry_after_seconds: u64 },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Address;
+
+    fn addr(n: u8) -> Address { Address([n; 32]) }
+
+    fn record(n: u8, count: u64) -> RateLimitRecord {
+        RateLimitRecord { address: addr(n), last_request_unix: 1_000, request_count: count }
+    }
+
+    #[test]
+    fn rate_limit_state_empty_on_new() {
+        let state = RateLimitState::new();
+        assert!(state.get(&addr(1)).is_none());
+    }
+
+    #[test]
+    fn rate_limit_state_get_finds_record() {
+        let mut state = RateLimitState::default();
+        state.records.push(record(1, 3));
+        assert_eq!(state.get(&addr(1)).unwrap().request_count, 3);
+        assert!(state.get(&addr(2)).is_none());
+    }
+
+    #[test]
+    fn validator_rate_consensus_quorum() {
+        let vrc = ValidatorRateConsensus::new(3);
+        assert_eq!(vrc.quorum(), 3);
+    }
+
+    #[test]
+    fn check_rate_limit_passes_under_threshold() {
+        let vrc = ValidatorRateConsensus::new(10);
+        let mut state = RateLimitState::new();
+        state.records.push(record(1, 5)); // 5 < 10
+        assert!(vrc.check_rate_limit(&state, &addr(1)).is_ok());
+    }
+
+    #[test]
+    fn check_rate_limit_fails_over_threshold() {
+        let vrc = ValidatorRateConsensus::new(3);
+        let mut state = RateLimitState::new();
+        state.records.push(record(1, 5)); // 5 > 3
+        assert!(vrc.check_rate_limit(&state, &addr(1)).is_err());
+    }
+
+    #[test]
+    fn check_rate_limit_passes_for_unknown_address() {
+        let vrc = ValidatorRateConsensus::new(3);
+        let state = RateLimitState::new(); // no records
+        assert!(vrc.check_rate_limit(&state, &addr(99)).is_ok());
+    }
+
+    #[test]
+    fn rate_limit_result_denied_carries_retry_time() {
+        let r = RateLimitResult::Denied { retry_after_seconds: 300 };
+        assert!(matches!(r, RateLimitResult::Denied { retry_after_seconds: 300 }));
+    }
+}

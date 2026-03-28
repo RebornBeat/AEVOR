@@ -31,3 +31,44 @@ impl MetricsCollector {
     }
     pub fn series_count(&self) -> usize { self.series.len() }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::consensus::ConsensusTimestamp;
+
+    fn point(name: &str, value: f64) -> MetricPoint {
+        MetricPoint { name: name.into(), value, timestamp: ConsensusTimestamp::new(1,0,1), labels: vec![] }
+    }
+
+    #[test]
+    fn collector_config_default_sensible() {
+        let cfg = CollectorConfig::default();
+        assert!(cfg.sampling_interval_ms > 0);
+        assert!(cfg.max_series > 0);
+        assert_eq!(cfg.retention_hours, 24);
+    }
+
+    #[test]
+    fn metrics_collector_record_new_series() {
+        let mut col = MetricsCollector::new(CollectorConfig::default());
+        col.record(point("cpu_usage", 0.72));
+        assert_eq!(col.series_count(), 1);
+    }
+
+    #[test]
+    fn metrics_collector_appends_to_existing_series() {
+        let mut col = MetricsCollector::new(CollectorConfig::default());
+        col.record(point("cpu_usage", 0.70));
+        col.record(point("cpu_usage", 0.75));
+        assert_eq!(col.series_count(), 1); // same series, not duplicated
+    }
+
+    #[test]
+    fn metrics_collector_multiple_series() {
+        let mut col = MetricsCollector::new(CollectorConfig::default());
+        col.record(point("cpu_usage", 0.5));
+        col.record(point("mem_usage", 0.6));
+        assert_eq!(col.series_count(), 2);
+    }
+}

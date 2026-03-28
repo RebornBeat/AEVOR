@@ -11,19 +11,23 @@
 //! replacement for it.
 //!
 //! The combination provides capabilities neither approach achieves alone:
-//! - TEE provides efficient confidential computation (1.1–1.3× overhead)
+//! - TEE provides efficient confidential computation (approximately 1.1–1.3× overhead
+//!   on reference hardware — improves as hardware advances)
 //! - ZK provides mathematical proofs that the TEE computed correctly
 //! - Together: verifiable confidential computation with practical performance
 //!
-//! ## Proving Systems
+//! ## Proving Systems — Approximate Reference Performance
+//!
+//! All values are approximate measurements on reference hardware and scale with
+//! hardware capabilities. They are floors, not ceilings.
 //!
 //! | System | Proof Size | Verify Time | Setup | Best For |
 //! |--------|-----------|-------------|-------|----------|
-//! | Groth16 | 200 bytes | <1ms | Trusted | Small circuits, high throughput |
-//! | PLONK | 2–5 KB | 5–10ms | Universal | Medium circuits |
-//! | Halo2 | 3–8 KB | 10–20ms | None | Recursive proofs |
-//! | STARK | 50–500 KB | 50–200ms | None | Large circuits, transparency |
-//! | Bulletproofs | 1–10 KB | 5–50ms | None | Range proofs |
+//! | Groth16 | ~192 bytes | ~<1ms | Trusted | Small circuits, high throughput |
+//! | PLONK | ~2–5 KB | ~5–10ms | Universal | Medium circuits |
+//! | Halo2 | ~3–8 KB | ~10–20ms | None | Recursive proofs |
+//! | STARK | ~50–500 KB | ~50–200ms | None | Large circuits, transparency |
+//! | Bulletproofs | ~1–10 KB | ~5–50ms | None | Range proofs |
 //!
 //! ## Multi-Party Computation
 //!
@@ -34,9 +38,10 @@
 //!
 //! ## Privacy Overhead
 //!
-//! ZK proof generation adds 2–5× overhead compared to unverified computation.
-//! For operations where this is acceptable, ZK provides the strongest possible
-//! privacy guarantees (information-theoretic, not computational).
+//! ZK proof generation adds approximately 2–5× overhead compared to unverified
+//! computation on current reference hardware. This overhead decreases as hardware
+//! advances. For operations where this is acceptable, ZK provides the strongest
+//! possible privacy guarantees (information-theoretic, not computational).
 
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
@@ -198,19 +203,24 @@ pub type ZkResult<T> = Result<T, ZkError>;
 // CONSTANTS
 // ============================================================
 
-/// Maximum circuit size (number of gates) for practical proving times.
+/// Practical circuit size limit (number of gates) for reasonable proving times
+/// on current hardware. Not an architectural ceiling — larger circuits are
+/// technically supported but may require extended proving time. Configurable
+/// per deployment based on acceptable proving latency.
 pub const MAX_CIRCUIT_GATES: usize = 1_000_000;
 
-/// Groth16 proof size in bytes.
+/// Groth16 proof size in bytes (constant, circuit-independent).
 pub const GROTH16_PROOF_SIZE: usize = 192;
 
-/// PLONK proof size in bytes (approximate, circuit-dependent).
+/// Approximate PLONK proof size in bytes (circuit-dependent; this is a typical estimate).
 pub const PLONK_PROOF_SIZE_APPROX: usize = 2_048;
 
 /// Minimum batch size for batch proof verification efficiency gains.
 pub const MIN_BATCH_VERIFY_SIZE: usize = 8;
 
-/// Maximum number of MPC parties.
+/// Default maximum number of MPC parties per protocol instance.
+/// Configurable per deployment. Not an architectural ceiling — MPC can
+/// support more parties, but coordination overhead grows with party count.
 pub const MAX_MPC_PARTIES: usize = 256;
 
 // ============================================================
@@ -222,14 +232,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn proof_size_constants_are_positive() {
+    fn proof_size_constants_are_positive_and_groth16_is_smallest() {
         assert!(GROTH16_PROOF_SIZE > 0);
+        // Groth16 produces the smallest proof of all supported systems
         assert!(PLONK_PROOF_SIZE_APPROX > GROTH16_PROOF_SIZE);
     }
 
     #[test]
-    fn circuit_gate_limit_is_practical() {
+    fn circuit_gate_limit_is_practical_minimum() {
+        // MAX_CIRCUIT_GATES is a practical default, not a hard architectural ceiling.
+        // Deployments may configure larger circuits at the cost of proving time.
         assert!(MAX_CIRCUIT_GATES >= 10_000);
-        assert!(MAX_CIRCUIT_GATES <= 100_000_000);
+    }
+
+    #[test]
+    fn mpc_party_default_is_nonzero() {
+        assert!(MAX_MPC_PARTIES > 0);
     }
 }

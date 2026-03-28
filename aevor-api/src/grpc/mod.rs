@@ -24,3 +24,15 @@ impl GrpcServer {
     /// Returns an error if the server cannot bind to the configured address.
     pub fn serve(&self) -> crate::ApiResult<()> { Ok(()) }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn grpc_server_listen_addr() {
+        let cfg = GrpcConfig { listen_addr: "127.0.0.1:9090".parse().unwrap(), tls_cert: None, tls_key: None };
+        let server = GrpcServer::new(cfg, crate::network_routing::MultiNetworkApi::default());
+        assert_eq!(server.listen_addr().port(), 9090);
+    }
+}

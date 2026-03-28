@@ -95,6 +95,64 @@ mod tests {
         assert_eq!(clock.now(), ConsensusTimestamp::new(2, 1, 0));
     }
 
+    // ── Logical ordering (no wall-clock dependency) ───────────────────────
+    // Whitepaper: "logical sequence numbers replace temporal timestamps,
+    // enabling deterministic sequencing without external timing coordination."
+
+    #[test]
+    fn consensus_timestamp_precedes_by_round() {
+        let t1 = ConsensusTimestamp::new(1, 5, 100);
+        let t2 = ConsensusTimestamp::new(2, 0, 100);
+        assert!(t1.precedes(&t2));
+        assert!(!t2.precedes(&t1));
+    }
+
+    #[test]
+    fn consensus_timestamp_precedes_by_sequence_within_round() {
+        let t1 = ConsensusTimestamp::new(3, 1, 50);
+        let t2 = ConsensusTimestamp::new(3, 2, 50);
+        assert!(t1.precedes(&t2));
+        assert!(!t2.precedes(&t1));
+    }
+
+    #[test]
+    fn consensus_timestamp_does_not_precede_itself() {
+        let t = ConsensusTimestamp::new(1, 1, 1);
+        assert!(!t.precedes(&t));
+    }
+
+    #[test]
+    fn genesis_precedes_any_non_genesis() {
+        let genesis = ConsensusTimestamp::GENESIS;
+        let later = ConsensusTimestamp::new(0, 0, 1);
+        assert!(genesis.precedes(&later));
+    }
+
+    #[test]
+    fn timestamps_provide_total_order_for_dependency_chains() {
+        // Simulates a read-after-write dependency: B must follow A
+        let t_a = ConsensusTimestamp::new(1, 0, 10);
+        let t_b = ConsensusTimestamp::new(1, 1, 10);
+        let t_c = ConsensusTimestamp::new(2, 0, 11);
+        assert!(t_a.precedes(&t_b));
+        assert!(t_b.precedes(&t_c));
+        assert!(t_a.precedes(&t_c)); // transitive
+    }
+
+    // ── ConsensusClock produces monotonically increasing timestamps ───────
+
+    #[test]
+    fn clock_timestamps_are_monotonically_increasing() {
+        let mut clock = ConsensusClock::new();
+        let t0 = clock.now();
+        clock.advance_sequence();
+        let t1 = clock.now();
+        clock.advance_round();
+        let t2 = clock.now();
+        assert!(t0.precedes(&t1));
+        assert!(t1.precedes(&t2));
+    }
+
     #[test]
     fn epoch_reference_stores_fields() {
         let er = EpochReference {

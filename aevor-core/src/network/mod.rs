@@ -452,3 +452,165 @@ mod tests {
         assert!(!m.is_healthy());
     }
 }
+
+// ============================================================
+// SUBNET PERMISSION POLICY
+// ============================================================
+
+/// Infrastructure primitive for subnet participation control.
+///
+/// This type provides the **capability** for subnets to be permissioned or
+/// permissionless. *Which* participants are permitted is **application policy**
+/// declared by the subnet operator — not embedded in infrastructure.
+///
+/// This separation ensures the infrastructure provides flexible participation
+/// control while organizations implement their own admission policies
+/// through application-layer configuration rather than infrastructure code changes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubnetPermissionPolicy {
+    /// Whether this subnet requires explicit admission (permissioned) or
+    /// is open to all validators (permissionless).
+    pub permissioned: bool,
+    /// Application-defined admission criteria identifier.
+    /// The infrastructure does not interpret this — it is resolved by
+    /// the application layer (governance contract, off-chain registry, etc.).
+    pub admission_criteria_id: Option<String>,
+    /// Whether validators must re-confirm participation each epoch.
+    pub epoch_reconfirmation: bool,
+}
+
+impl SubnetPermissionPolicy {
+    /// Fully permissionless: any validator may participate.
+    pub fn permissionless() -> Self {
+        Self { permissioned: false, admission_criteria_id: None, epoch_reconfirmation: false }
+    }
+
+    /// Permissioned: participation requires meeting application-defined criteria.
+    pub fn permissioned(criteria_id: impl Into<String>) -> Self {
+        Self {
+            permissioned: true,
+            admission_criteria_id: Some(criteria_id.into()),
+            epoch_reconfirmation: false,
+        }
+    }
+
+    /// Returns `true` if any validator may join without explicit admission.
+    pub fn is_open(&self) -> bool { !self.permissioned }
+}
+
+/// Describes how a subnet connects to the public mainnet or other subnets.
+///
+/// Infrastructure capability: the type of connection. Application policy:
+/// which specific subnets to connect to and what information flows across.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SubnetConnectivity {
+    /// Isolated: operates independently with no cross-network communication.
+    Isolated,
+    /// Connected to mainnet via bridge (full interoperability).
+    MainnetBridge,
+    /// Connected to specific subnets only (selective interoperability).
+    SelectiveSubnets {
+        /// Subnet IDs this subnet can communicate with.
+        connected_subnets: Vec<SubnetId>,
+    },
+    /// Hybrid: connected to both mainnet and selected subnets.
+    Hybrid {
+        /// Whether mainnet bridge is enabled.
+        mainnet_bridge: bool,
+        /// Additional subnets connected.
+        connected_subnets: Vec<SubnetId>,
+    },
+}
+
+impl SubnetConnectivity {
+    /// Returns `true` if this subnet has any cross-network communication.
+    pub fn has_external_connectivity(&self) -> bool {
+        !matches!(self, Self::Isolated)
+    }
+
+    /// Returns `true` if this subnet can communicate with mainnet.
+    pub fn connects_to_mainnet(&self) -> bool {
+        matches!(self, Self::MainnetBridge | Self::Hybrid { mainnet_bridge: true, .. })
+    }
+}
+
+#[cfg(test)]
+mod subnet_tests {
+    use super::*;
+
+    // ── SubnetPermissionPolicy ────────────────────────────────────────────
+    // Whitepaper §17.2: "Permissioned Subnet Capabilities and Custom Privacy
+    // Policies Without Infrastructure Policy Embedding"
+
+    #[test]
+    fn permissionless_subnet_is_open() {
+        let policy = SubnetPermissionPolicy::permissionless();
+        assert!(!policy.permissioned);
+        assert!(policy.is_open());
+        assert!(policy.admission_criteria_id.is_none());
+    }
+
+    #[test]
+    fn permissioned_subnet_stores_criteria_id() {
+        let policy = SubnetPermissionPolicy::permissioned("kyc-verified-validators");
+        assert!(policy.permissioned);
+        assert!(!policy.is_open());
+        assert_eq!(policy.admission_criteria_id.as_deref(), Some("kyc-verified-validators"));
+    }
+
+    #[test]
+    fn permissioned_subnet_criteria_is_application_defined_not_interpreted() {
+        // Infrastructure stores the criteria ID but does NOT enforce it.
+        // Enforcement is the application layer's responsibility.
+        let policy = SubnetPermissionPolicy::permissioned("any-string-application-resolves");
+        assert!(policy.admission_criteria_id.is_some());
+        // The infrastructure never parses or acts on this string directly.
+    }
+
+    // ── SubnetConnectivity ────────────────────────────────────────────────
+    // Whitepaper §17.3: "Cross-Network Interoperability and Bridge Architecture"
+    // Whitepaper §17.5: "Multi-Network Coordination and Cross-Subnet Communication"
+
+    #[test]
+    fn isolated_subnet_has_no_external_connectivity() {
+        let conn = SubnetConnectivity::Isolated;
+        assert!(!conn.has_external_connectivity());
+        assert!(!conn.connects_to_mainnet());
+    }
+
+    #[test]
+    fn mainnet_bridge_connectivity() {
+        let conn = SubnetConnectivity::MainnetBridge;
+        assert!(conn.has_external_connectivity());
+        assert!(conn.connects_to_mainnet());
+    }
+
+    #[test]
+    fn selective_subnet_not_mainnet() {
+        let conn = SubnetConnectivity::SelectiveSubnets {
+            connected_subnets: vec![SubnetId(Hash256([1u8; 32]))],
+        };
+        assert!(conn.has_external_connectivity());
+        assert!(!conn.connects_to_mainnet());
+    }
+
+    #[test]
+    fn hybrid_connectivity_with_mainnet() {
+        let conn = SubnetConnectivity::Hybrid {
+            mainnet_bridge: true,
+            connected_subnets: vec![],
+        };
+        assert!(conn.has_external_connectivity());
+        assert!(conn.connects_to_mainnet());
+    }
+
+    #[test]
+    fn hybrid_connectivity_without_mainnet() {
+        let conn = SubnetConnectivity::Hybrid {
+            mainnet_bridge: false,
+            connected_subnets: vec![SubnetId(Hash256([2u8; 32]))],
+        };
+        assert!(conn.has_external_connectivity());
+        assert!(!conn.connects_to_mainnet());
+    }
+}

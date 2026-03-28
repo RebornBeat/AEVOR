@@ -231,6 +231,10 @@ pub const MAX_OBJECT_SIZE_BYTES: usize = 16_777_216;
 pub const MAX_BATCH_SIZE: usize = 10_000;
 
 /// Default LRU cache capacity in object count.
+///
+/// This is the default starting capacity for the in-memory object cache.
+/// Nodes with more RAM may configure a larger cache to reduce storage I/O.
+/// No architectural ceiling exists — cache size is a per-node resource decision.
 pub const DEFAULT_CACHE_CAPACITY: usize = 1_000_000;
 
 /// State tree depth (determines maximum address space).

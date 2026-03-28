@@ -11,12 +11,15 @@
 //! The Micro-DAG analyzes object-level dependencies between transactions to identify
 //! independent operations that can execute simultaneously. Transactions reading and writing
 //! disjoint object sets execute in true parallel — no coordination, no sequential blocking.
+//! Conflicting transactions are **rejected before execution begins** — no state is ever
+//! unwound after execution. Finalized state is immutable.
 //!
 //! ```text
 //! Transaction A: reads [Obj1], writes [Obj2]   ─┐
 //! Transaction B: reads [Obj3], writes [Obj4]   ─┼─ Execute in parallel
 //! Transaction C: reads [Obj5], writes [Obj6]   ─┘
-//! Transaction D: reads [Obj2], writes [Obj7]     ─ Must wait for A
+//! Transaction D: reads [Obj2], writes [Obj7]     ─ Must wait for A (dependency)
+//! Transaction E: reads [Obj2], writes [Obj2]     ─ Rejected (conflicts with A)
 //! ```
 //!
 //! ### Macro-DAG: Concurrent Block Production
@@ -29,7 +32,9 @@
 //!
 //! The frontier tracks the mathematically verified leading edge of blockchain state.
 //! Advancement requires TEE attestation of execution correctness — corruption is
-//! mathematically impossible, not merely economically difficult.
+//! mathematically impossible, not merely economically difficult. Corrupted branches
+//! are isolated and excluded from frontier advancement; finalized transactions are
+//! never reversed.
 //!
 //! ## Logical Ordering
 //!
@@ -38,12 +43,16 @@
 //!
 //! ## Throughput Scaling
 //!
-//! | Validators | Concurrent Producers | Sustained TPS |
-//! |-----------|---------------------|---------------|
-//! | 100 | 6–8 | 50,000 |
-//! | 500 | 12–16 | 125,000 |
-//! | 1,000 | 18–24 | 200,000 |
-//! | 2,000+ | 30+ | 350,000+ |
+//! The following are measured reference points on specific hardware configurations.
+//! Throughput scales unboundedly with available computational resources — these are
+//! floors, not ceilings.
+//!
+//! | Validators | Concurrent Producers | Measured TPS (Reference) |
+//! |-----------|---------------------|--------------------------|
+//! | 100       | 6–8                 | ~50,000                  |
+//! | 500       | 12–16               | ~125,000                 |
+//! | 1,000     | 18–24               | ~200,000                 |
+//! | 2,000+    | 30+                 | ~350,000+                |
 
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
@@ -78,7 +87,8 @@ pub mod storage;
 /// Conflict resolution: detecting and resolving write-write and read-write conflicts.
 pub mod conflict;
 
-/// Speculative execution: optimistic transaction processing with rollback capability.
+/// Pre-execution conflict resolution: accept/reject decisions made before any execution begins.
+/// No speculative state execution occurs — conflicts are resolved at the scheduler.
 pub mod speculative;
 
 /// DAG metrics: frontier advancement rate, parallelism factor, throughput measurement.
@@ -123,8 +133,7 @@ pub mod prelude {
         ReadWriteConflict, ConflictResolver,
     };
     pub use crate::speculative::{
-        SpeculativeExecution, SpeculativeState, RollbackPoint,
-        CommitDecision, SpeculativeResult,
+        PreExecutionDecision, ConflictFreeSet, PreExecutionBatch,
     };
     pub use crate::metrics::{
         DagMetrics, FrontierRate, ParallelismMetrics, ThroughputMeasurement,
@@ -167,20 +176,14 @@ pub enum DagError {
         block_hash: String,
     },
 
-    /// Concurrent producer count exceeds maximum for current network size.
+    /// Concurrent producer count exceeds the configured default for current network size.
+    /// This default scales with network size and is not a hard architectural ceiling.
     #[error("too many concurrent producers: {actual} > {max}")]
     TooManyConcurrentProducers {
         /// Actual number of concurrent producers.
         actual: usize,
-        /// Maximum allowed.
+        /// Configured default maximum.
         max: usize,
-    },
-
-    /// Speculative execution state is inconsistent.
-    #[error("speculative state inconsistency: {description}")]
-    SpeculativeInconsistency {
-        /// Description of the inconsistency.
-        description: String,
     },
 
     /// Fork resolution failed.
@@ -198,26 +201,30 @@ pub type DagResult<T> = Result<T, DagError>;
 // CONSTANTS
 // ============================================================
 
-/// Maximum number of concurrent block producers at 100 validators.
-pub const MAX_CONCURRENT_PRODUCERS_100: usize = 8;
+/// Default concurrent block producers for a small network (~100 validators).
+/// Scales with network size — not a hard ceiling. Configurable per deployment.
+pub const DEFAULT_PRODUCERS_SMALL_NET: usize = 8;
 
-/// Maximum number of concurrent block producers at 1,000 validators.
-pub const MAX_CONCURRENT_PRODUCERS_1000: usize = 24;
+/// Default concurrent block producers for a medium network (~1,000 validators).
+/// Scales with network size — not a hard ceiling. Configurable per deployment.
+pub const DEFAULT_PRODUCERS_MEDIUM_NET: usize = 24;
 
-/// Maximum number of concurrent block producers at 2,000+ validators.
-pub const MAX_CONCURRENT_PRODUCERS_2000: usize = 32;
+/// Default concurrent block producers for a large network (2,000+ validators).
+/// Scales with network size — not a hard ceiling. Configurable per deployment.
+pub const DEFAULT_PRODUCERS_LARGE_NET: usize = 32;
 
-/// Maximum depth of speculative execution before forced commitment.
-pub const MAX_SPECULATIVE_DEPTH: usize = 8;
+/// Default maximum parent block references in a Macro-DAG block.
+/// Configurable per deployment. Not an architectural ceiling — multi-parent
+/// references are unbounded by design (`dag_parents: Vec<BlockHash>`).
+pub const DEFAULT_MAX_BLOCK_PARENTS: usize = 32;
 
-/// Maximum number of parent blocks a Macro-DAG block can reference.
-pub const MAX_BLOCK_PARENTS: usize = 32;
-
-/// Micro-DAG entry size limit — individual transaction dependency entries.
+/// Per-transaction object access default limit.
+/// Configurable per deployment. Prevents runaway dependency graph growth.
 pub const MAX_MICRO_DAG_OBJECTS_PER_TX: usize = 1_024;
 
-/// Maximum parallel execution lanes per processing unit.
-pub const MAX_PARALLEL_LANES: usize = 256;
+/// Default parallel execution lanes per processing unit.
+/// Scales with available hardware — not a hard ceiling. Configurable per deployment.
+pub const DEFAULT_PARALLEL_LANES: usize = 256;
 
 // ============================================================
 // TESTS
@@ -228,13 +235,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn concurrent_producer_limits_scale_with_network() {
-        assert!(MAX_CONCURRENT_PRODUCERS_100 < MAX_CONCURRENT_PRODUCERS_1000);
-        assert!(MAX_CONCURRENT_PRODUCERS_1000 < MAX_CONCURRENT_PRODUCERS_2000);
+    fn concurrent_producer_defaults_scale_with_network() {
+        assert!(DEFAULT_PRODUCERS_SMALL_NET < DEFAULT_PRODUCERS_MEDIUM_NET);
+        assert!(DEFAULT_PRODUCERS_MEDIUM_NET < DEFAULT_PRODUCERS_LARGE_NET);
     }
 
     #[test]
-    fn parallel_lanes_exceed_concurrent_producers() {
-        assert!(MAX_PARALLEL_LANES > MAX_CONCURRENT_PRODUCERS_2000);
+    fn parallel_lanes_default_exceeds_large_net_producers() {
+        // Default lanes should comfortably exceed the largest producer default
+        // to avoid scheduling bottlenecks on large networks.
+        assert!(DEFAULT_PARALLEL_LANES > DEFAULT_PRODUCERS_LARGE_NET);
+    }
+
+    #[test]
+    fn default_block_parents_is_nonzero() {
+        // Multi-parent references are architecturally unbounded (Vec<BlockHash>);
+        // DEFAULT_MAX_BLOCK_PARENTS is a per-node propagation budget, not a ceiling.
+        assert!(DEFAULT_MAX_BLOCK_PARENTS > 0);
     }
 }

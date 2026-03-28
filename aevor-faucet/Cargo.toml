@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "aevor_faucet"
+path = "src/lib.rs"
+
 [[bin]]
 name = "aevor-faucet"
 path = "src/main.rs"

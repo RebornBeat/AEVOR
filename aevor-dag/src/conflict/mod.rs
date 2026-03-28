@@ -37,8 +37,10 @@ pub struct ConflictResolution {
 ///
 /// `DependencyType` classifies whether the conflict is a raw data dependency,
 /// an object-ownership dependency, or an ordering dependency. This is used by
-/// the scheduler to decide which conflicts require sequential execution vs.
-/// which can be resolved via MVCC retry.
+/// the scheduler to decide which operations require sequential execution vs.
+/// which are independent and can be parallelized. Conflicting transactions are
+/// **rejected at the scheduler before execution begins** — the losing transaction
+/// is returned to the sender, who may resubmit after the dependency resolves.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConflictEdge {
     /// Transaction that writes first.

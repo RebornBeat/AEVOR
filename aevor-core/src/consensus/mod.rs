@@ -21,23 +21,33 @@ use crate::primitives::{
 /// confirm, but provide stronger Byzantine fault tolerance guarantees.
 /// **All levels provide mathematical security** — the difference is the
 /// breadth of the validator participation providing the guarantee.
+///
+/// Confirmation times shown in variants are **current-network estimates** based
+/// on typical validator round-trip latency and set sizes. They are NOT hard
+/// limits — actual confirmation will often be faster, and as network
+/// infrastructure improves these times naturally decrease. The architecture
+/// imposes no artificial performance ceiling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum SecurityLevel {
-    /// 2–3% of validators, 20–50ms confirmation.
+    /// 2–3% of validators. Estimated confirmation: 20–50ms on current networks.
+    /// Actual confirmation may be faster as network conditions improve.
     /// Use for: micropayments, gaming, low-value operations.
     Minimal = 0,
 
-    /// 10–20% of validators, 100–200ms confirmation.
+    /// 10–20% of validators. Estimated confirmation: 100–200ms on current networks.
+    /// Actual confirmation may be faster as network conditions improve.
     /// Use for: standard transactions, routine smart contracts.
     Basic = 1,
 
-    /// >33% of validators, 500–800ms confirmation (Byzantine fault tolerant).
-    /// > Use for: high-value transactions, enterprise operations.
+    /// \>33% of validators. Byzantine fault tolerant. Estimated: 500–800ms.
+    /// Actual confirmation may be faster as network conditions improve.
+    /// Use for: high-value transactions, enterprise operations.
     Strong = 2,
 
-    /// >67% of validators, <1s confirmation.
-    /// > Use for: critical operations, large financial transfers.
+    /// \>67% of validators. Estimated confirmation: <1s on current networks.
+    /// Actual confirmation may be faster as network conditions improve.
+    /// Use for: critical operations, large financial transfers.
     Full = 3,
 }
 
@@ -52,8 +62,14 @@ impl SecurityLevel {
         }
     }
 
-    /// Maximum expected confirmation time in milliseconds.
-    pub fn max_confirmation_ms(&self) -> u64 {
+    /// Estimated typical confirmation time in milliseconds on current networks.
+    ///
+    /// **These are estimates, not hard limits or performance ceilings.**
+    /// Actual confirmation times depend on network conditions, validator count,
+    /// geographic distribution, and hardware capabilities. The architecture
+    /// imposes no artificial constraint — real-world performance may and should
+    /// exceed these estimates as the network grows and hardware improves.
+    pub fn typical_confirmation_ms_estimate(&self) -> u64 {
         match self {
             Self::Minimal => 50,
             Self::Basic => 200,
@@ -63,7 +79,8 @@ impl SecurityLevel {
     }
 
     /// Returns `true` if this level provides Byzantine fault tolerance
-    /// (requires >33% honest validator participation).
+    /// (requires >33% honest validator participation — mathematically proven
+    /// to tolerate up to 1/3 of validators acting maliciously).
     pub fn is_byzantine_fault_tolerant(&self) -> bool {
         matches!(self, Self::Strong | Self::Full)
     }
@@ -76,6 +93,13 @@ impl SecurityLevel {
             Self::Strong => "Strong",
             Self::Full => "Full",
         }
+    }
+
+    /// Returns `true` if this level is at least as strong as `required`.
+    ///
+    /// Used by the uncorrupted frontier verifier and TEE attestation checks.
+    pub fn satisfies(&self, required: Self) -> bool {
+        *self >= required
     }
 }
 
@@ -573,5 +597,74 @@ mod tests {
     fn security_level_display() {
         assert_eq!(SecurityLevel::Full.to_string(), "Full");
         assert_eq!(SecurityLevel::Minimal.to_string(), "Minimal");
+    }
+
+    // ── Whitepaper Section 1: Mathematical Certainty ──────────────────
+
+    #[test]
+    fn security_level_satisfies_itself() {
+        for level in [SecurityLevel::Minimal, SecurityLevel::Basic, SecurityLevel::Strong, SecurityLevel::Full] {
+            assert!(level.satisfies(level), "{level} should satisfy itself");
+        }
+    }
+
+    #[test]
+    fn security_level_higher_satisfies_lower() {
+        // Full ≥ Strong ≥ Basic ≥ Minimal — mathematical ordering
+        assert!(SecurityLevel::Full.satisfies(SecurityLevel::Strong));
+        assert!(SecurityLevel::Full.satisfies(SecurityLevel::Basic));
+        assert!(SecurityLevel::Full.satisfies(SecurityLevel::Minimal));
+        assert!(SecurityLevel::Strong.satisfies(SecurityLevel::Basic));
+        assert!(SecurityLevel::Strong.satisfies(SecurityLevel::Minimal));
+        assert!(SecurityLevel::Basic.satisfies(SecurityLevel::Minimal));
+    }
+
+    #[test]
+    fn security_level_lower_does_not_satisfy_higher() {
+        assert!(!SecurityLevel::Minimal.satisfies(SecurityLevel::Basic));
+        assert!(!SecurityLevel::Minimal.satisfies(SecurityLevel::Strong));
+        assert!(!SecurityLevel::Minimal.satisfies(SecurityLevel::Full));
+        assert!(!SecurityLevel::Basic.satisfies(SecurityLevel::Strong));
+        assert!(!SecurityLevel::Strong.satisfies(SecurityLevel::Full));
+    }
+
+    #[test]
+    fn confirmation_estimates_are_ordered_not_ceilings() {
+        // Estimates reflect current-network typical latency — NOT hard limits.
+        // Higher security levels query more validators so estimates are larger,
+        // but actual confirmation can and should be faster as hardware improves.
+        let estimates = [
+            SecurityLevel::Minimal.typical_confirmation_ms_estimate(),
+            SecurityLevel::Basic.typical_confirmation_ms_estimate(),
+            SecurityLevel::Strong.typical_confirmation_ms_estimate(),
+            SecurityLevel::Full.typical_confirmation_ms_estimate(),
+        ];
+        for w in estimates.windows(2) {
+            assert!(w[0] <= w[1], "estimates must be monotonically non-decreasing");
+        }
+        // All estimates must be non-zero (we are measuring real latency)
+        for e in &estimates { assert!(*e > 0); }
+    }
+
+    #[test]
+    fn participation_fractions_span_correct_bft_boundary() {
+        // BFT requires >33% participation — Strong and Full cross this threshold
+        assert!(SecurityLevel::Strong.min_participation() > 0.33 - f64::EPSILON);
+        assert!(SecurityLevel::Full.min_participation() > 0.67 - f64::EPSILON);
+        // Minimal and Basic do NOT provide BFT
+        assert!(SecurityLevel::Minimal.min_participation() < 0.33);
+        assert!(SecurityLevel::Basic.min_participation() < 0.33);
+    }
+
+    #[test]
+    fn security_level_names_are_nonempty_and_unique() {
+        let names: Vec<&str> = [
+            SecurityLevel::Minimal, SecurityLevel::Basic,
+            SecurityLevel::Strong, SecurityLevel::Full,
+        ].iter().map(|l| l.name()).collect();
+        for n in &names { assert!(!n.is_empty()); }
+        // All names are unique
+        let unique: std::collections::HashSet<&&str> = names.iter().collect();
+        assert_eq!(unique.len(), names.len());
     }
 }

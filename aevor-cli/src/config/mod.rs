@@ -14,3 +14,21 @@ impl CliConfig {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn cli_config_set_variant() {
+        let cmd = CliConfig::Set { key: "log_level".into(), value: "debug".into() };
+        assert!(matches!(cmd, CliConfig::Set { .. }));
+    }
+
+    #[test]
+    fn cli_config_export_variant() {
+        let cmd = CliConfig::Export { output: PathBuf::from("/tmp/config.toml") };
+        assert!(matches!(cmd, CliConfig::Export { .. }));
+    }
+}

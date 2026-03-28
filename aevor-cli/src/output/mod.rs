@@ -26,3 +26,34 @@ impl OutputWriter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn output_format_from_str() {
+        use std::str::FromStr;
+        assert_eq!(OutputFormat::from_str("json").unwrap(), OutputFormat::Json);
+        assert_eq!(OutputFormat::from_str("table").unwrap(), OutputFormat::Table);
+        assert_eq!(OutputFormat::from_str("anything").unwrap(), OutputFormat::Human);
+    }
+
+    #[test]
+    fn output_format_default_is_human() {
+        assert_eq!(OutputFormat::default(), OutputFormat::Human);
+    }
+
+    #[test]
+    fn output_writer_quiet_suppresses_output() {
+        let w = OutputWriter::new(OutputFormat::Json, true);
+        // quiet=true: print is a no-op — just verify construction
+        assert!(w.quiet);
+    }
+
+    #[test]
+    fn output_writer_not_quiet() {
+        let w = OutputWriter::new(OutputFormat::Human, false);
+        assert!(!w.quiet);
+    }
+}

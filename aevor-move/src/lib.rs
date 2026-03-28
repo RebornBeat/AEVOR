@@ -196,16 +196,20 @@ pub type MoveResult<T> = Result<T, MoveError>;
 // CONSTANTS
 // ============================================================
 
-/// Maximum size of a Move module source file in bytes (1 MiB).
+/// Maximum Move module source size in bytes (1 MiB) — a **language safety limit**
+/// that prevents resource-exhaustion during compilation. Not a throughput ceiling.
 pub const MAX_MODULE_SOURCE_BYTES: usize = 1_048_576;
 
-/// Maximum number of functions per Move module.
+/// Maximum number of functions per Move module — a **language safety limit**
+/// that prevents type-explosion attacks. Not a throughput ceiling.
 pub const MAX_FUNCTIONS_PER_MODULE: usize = 1_024;
 
-/// Maximum number of structs per Move module.
+/// Maximum number of structs per Move module — a **language safety limit**.
+/// Not a throughput ceiling.
 pub const MAX_STRUCTS_PER_MODULE: usize = 256;
 
-/// Maximum generic type parameter depth.
+/// Maximum generic type parameter depth — a **language safety limit** that
+/// prevents type-recursion attacks. Not a throughput ceiling.
 pub const MAX_TYPE_DEPTH: usize = 16;
 
 /// AEVOR Move language version.

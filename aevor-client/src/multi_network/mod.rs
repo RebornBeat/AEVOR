@@ -145,6 +145,35 @@ impl Default for MultiNetworkClient {
     fn default() -> Self { Self::new() }
 }
 
+/// Routes a request to the appropriate network based on subnet ID or network type.
+///
+/// This is infrastructure capability — which subnet receives which requests is
+/// application policy implemented by the caller, not embedded in this type.
+pub struct SubnetRouter {
+    networks: Vec<NetworkHandle>,
+}
+
+impl SubnetRouter {
+    /// Create a new subnet router.
+    pub fn new(networks: Vec<NetworkHandle>) -> Self { Self { networks } }
+
+    /// Find the network handle for a given network ID.
+    pub fn route(&self, id: NetworkId) -> Option<&NetworkHandle> {
+        self.networks.iter().find(|h| h.id == id)
+    }
+
+    /// All connected network IDs.
+    pub fn connected_networks(&self) -> Vec<NetworkId> {
+        self.networks.iter().map(|h| h.id).collect()
+    }
+
+    /// Returns `true` if any enterprise subnet is connected.
+    /// Enterprise subnets use network IDs >= 1000 by convention.
+    pub fn has_enterprise_subnet(&self) -> bool {
+        self.networks.iter().any(|h| h.id.0 >= 1000)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,4 +257,53 @@ mod tests {
         let mut client = MultiNetworkClient::new();
         assert!(client.disconnect(NetworkId::MAINNET).is_err());
     }
-}
+
+    // ── SubnetRouter ───────────────────────────────────────────────────────
+    // Whitepaper §17.5: "Multi-Network Coordination and Cross-Subnet
+    // Communication Through Decentralized Management"
+
+    #[test]
+    fn subnet_router_routes_to_correct_network() {
+        let router = SubnetRouter::new(vec![
+            NetworkHandle::new(NetworkId::MAINNET, "http://mainnet"),
+            NetworkHandle::new(NetworkId(1001), "http://enterprise-subnet"),
+        ]);
+        assert!(router.route(NetworkId::MAINNET).is_some());
+        assert!(router.route(NetworkId(1001)).is_some());
+        assert!(router.route(NetworkId(999)).is_none());
+    }
+
+    #[test]
+    fn subnet_router_connected_networks() {
+        let router = SubnetRouter::new(vec![
+            NetworkHandle::new(NetworkId::MAINNET, "http://mainnet"),
+            NetworkHandle::new(NetworkId::TESTNET, "http://testnet"),
+        ]);
+        let networks = router.connected_networks();
+        assert_eq!(networks.len(), 2);
+        assert!(networks.contains(&NetworkId::MAINNET));
+        assert!(networks.contains(&NetworkId::TESTNET));
+    }
+
+    #[test]
+    fn subnet_router_detects_enterprise_subnet() {
+        // Whitepaper §17.4: enterprise subnets are deployment configurations,
+        // not special infrastructure — distinguished by network ID convention.
+        let router = SubnetRouter::new(vec![
+            NetworkHandle::new(NetworkId(1000), "http://enterprise"),
+        ]);
+        assert!(router.has_enterprise_subnet());
+
+        let public_only = SubnetRouter::new(vec![
+            NetworkHandle::new(NetworkId::MAINNET, "http://mainnet"),
+        ]);
+        assert!(!public_only.has_enterprise_subnet());
+    }
+
+    #[test]
+    fn network_id_subnet_display() {
+        // Any numeric subnet ID is a valid network identifier
+        let subnet = NetworkId(42_000);
+        assert_eq!(subnet.to_string(), "subnet-42000");
+        assert!(!subnet.is_mainnet());
+    }

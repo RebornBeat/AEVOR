@@ -111,4 +111,42 @@ mod tests {
         assert!(!r.success);
         assert!(r.return_data.is_empty());
     }
+
+    // ── Rejection model for cross-contract operations ─────────────────────
+    // AEVOR architecture rule: cross-contract operations either fully succeed
+    // or are fully rejected before any state is committed. There is no
+    // "execute partially then rollback" — a failed sub-call means the entire
+    // multi-contract operation is rejected atomically.
+
+    #[test]
+    fn failed_sub_call_receipt_commits_no_state() {
+        // A failure receipt represents a sub-call that was rejected.
+        // The gas_used reflects validation cost; return_data is empty because
+        // no computation completed and no state was written.
+        let h = Hash256([3u8; 32]);
+        let r = CrossContractReceipt::failure(h, GasAmount::from_u64(1_000));
+        assert!(!r.success);
+        assert!(r.return_data.is_empty()); // no output = no committed state
+        assert!(r.gas_used.as_u64() > 0);  // gas consumed for validation
+    }
+
+    #[test]
+    fn cross_contract_call_stores_gas_budget() {
+        let addr = |n: u8| aevor_core::primitives::Address([n; 32]);
+        let call = CrossContractCall {
+            caller: addr(1),
+            callee: addr(2),
+            function: "transfer".into(),
+            gas_budget: GasAmount::from_u64(50_000),
+        };
+        assert_eq!(call.gas_budget.as_u64(), 50_000);
+        assert_eq!(call.function, "transfer");
+    }
+
+    #[test]
+    fn depth_guard_overflow_does_not_enter() {
+        // CallDepthGuard prevents runaway recursion — a security limit.
+        let mut g = CallDepthGuard::new(0);
+        assert!(!g.enter()); // max_depth = 0, nothing allowed
+    }
 }

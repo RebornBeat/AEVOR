@@ -121,53 +121,147 @@ impl AttestationVerifier {
 mod tests {
     use super::*;
     use aevor_core::primitives::Hash256;
+    use aevor_core::tee::TeePlatform;
+    use aevor_core::crypto::CrossPlatformAttestation;
 
-    #[test]
-    fn attestation_verifier_rejects_empty_report() {
-        let report = AttestationReport {
-            platform: TeePlatform::IntelSgx,
-            raw_report: vec![],
-            code_measurement: Hash256::ZERO,
+    fn report(platform: TeePlatform, nonempty: bool) -> AttestationReport {
+        AttestationReport {
+            platform,
+            raw_report: if nonempty { vec![0xAB, 0xCD] } else { vec![] },
+            code_measurement: Hash256([0x42; 32]),
             signer_measurement: Hash256::ZERO,
-            nonce: [0u8; 32],
-            is_production: false,
-            svn: 0,
-            user_data: vec![],
-        };
-        assert!(!AttestationVerifier::verify(&report).unwrap());
-    }
-
-    #[test]
-    fn attestation_verifier_accepts_nonempty_report() {
-        let report = AttestationReport {
-            platform: TeePlatform::AwsNitro,
-            raw_report: vec![1, 2, 3],
-            code_measurement: Hash256::ZERO,
-            signer_measurement: Hash256::ZERO,
-            nonce: [0u8; 32],
-            is_production: false,
+            nonce: [1u8; 32],
+            is_production: true,
             svn: 1,
             user_data: vec![],
-        };
-        assert!(AttestationVerifier::verify(&report).unwrap());
+        }
+    }
+
+    // ── All 5 platforms accepted with non-empty report ─────────────────────
+    // The whitepaper mandates cross-platform behavioral consistency:
+    // IntelSgx, AmdSev, ArmTrustZone, RiscvKeystone, AwsNitro.
+
+    #[test]
+    fn all_five_platforms_verify_with_nonempty_report() {
+        for platform in [
+            TeePlatform::IntelSgx,
+            TeePlatform::AmdSev,
+            TeePlatform::ArmTrustZone,
+            TeePlatform::RiscvKeystone,
+            TeePlatform::AwsNitro,
+        ] {
+            let r = report(platform, true);
+            assert!(
+                AttestationVerifier::verify(&r).unwrap(),
+                "Platform {:?} should verify with non-empty report", platform
+            );
+        }
     }
 
     #[test]
-    fn remote_attestation_freshness_check() {
-        let fresh = RemoteAttestation {
-            report: AttestationReport {
-                platform: TeePlatform::AmdSev,
-                raw_report: vec![1],
-                code_measurement: Hash256::ZERO,
-                signer_measurement: Hash256::ZERO,
-                nonce: [1u8; 32],
-                is_production: false,
-                svn: 0,
-                user_data: vec![],
-            },
-            collateral: vec![],
-            nonce: [1u8; 32],
+    fn all_five_platforms_reject_empty_report() {
+        for platform in [
+            TeePlatform::IntelSgx,
+            TeePlatform::AmdSev,
+            TeePlatform::ArmTrustZone,
+            TeePlatform::RiscvKeystone,
+            TeePlatform::AwsNitro,
+        ] {
+            let r = report(platform, false);
+            assert!(
+                !AttestationVerifier::verify(&r).unwrap(),
+                "Platform {:?} should reject empty report", platform
+            );
+        }
+    }
+
+    // ── Cross-platform verification ────────────────────────────────────────
+
+    #[test]
+    fn cross_platform_verification_consistent_measurements() {
+        let primary = report(TeePlatform::IntelSgx, true);
+        // Secondary uses a different platform but same code_measurement
+        let mut secondary = report(TeePlatform::AmdSev, true);
+        secondary.code_measurement = primary.code_measurement;
+        let cross = CrossPlatformAttestation {
+            primary,
+            secondary: vec![secondary],
+            consistency_proof: Hash256::ZERO,
+            agreed_computation_hash: Hash256([0x42; 32]),
         };
-        assert!(fresh.is_fresh());
+        assert!(AttestationVerifier::verify_cross_platform(&cross).unwrap());
+    }
+
+    #[test]
+    fn cross_platform_verification_rejects_inconsistent_measurements() {
+        let primary = report(TeePlatform::IntelSgx, true);
+        let mut secondary = report(TeePlatform::ArmTrustZone, true);
+        // Different code measurement — platforms disagree about what ran
+        secondary.code_measurement = Hash256([0xFF; 32]);
+        let cross = CrossPlatformAttestation {
+            primary,
+            secondary: vec![secondary],
+            consistency_proof: Hash256::ZERO,
+            agreed_computation_hash: Hash256([0x42; 32]),
+        };
+        assert!(!AttestationVerifier::verify_cross_platform(&cross).unwrap());
+    }
+
+    #[test]
+    fn cross_platform_verification_rejects_empty_secondary_report() {
+        let primary = report(TeePlatform::IntelSgx, true);
+        let empty_secondary = report(TeePlatform::AwsNitro, false); // empty report
+        let cross = CrossPlatformAttestation {
+            primary,
+            secondary: vec![empty_secondary],
+            consistency_proof: Hash256::ZERO,
+            agreed_computation_hash: Hash256::ZERO,
+        };
+        assert!(!AttestationVerifier::verify_cross_platform(&cross).unwrap());
+    }
+
+    // ── Simulation mode (non-production) ──────────────────────────────────
+    // Per whitepaper: non-production TEEs work for devnet/testnet.
+    // The TEE-layer AttestationVerifier is platform-structural only —
+    // production vs simulation policy is enforced at consensus layer.
+
+    #[test]
+    fn simulation_mode_report_is_structurally_valid() {
+        let mut r = report(TeePlatform::RiscvKeystone, true);
+        r.is_production = false;
+        r.svn = 0;
+        // TEE-layer verifier checks structure not policy — must not reject
+        assert!(AttestationVerifier::verify(&r).unwrap());
+    }
+
+    // ── Remote attestation freshness ──────────────────────────────────────
+
+    #[test]
+    fn remote_attestation_fresh_with_nonzero_nonce() {
+        let ra = RemoteAttestation {
+            report: report(TeePlatform::AmdSev, true),
+            collateral: vec![0x01],
+            nonce: [0xAB; 32],
+        };
+        assert!(ra.is_fresh());
+    }
+
+    #[test]
+    fn remote_attestation_stale_with_zero_nonce() {
+        let ra = RemoteAttestation {
+            report: report(TeePlatform::AmdSev, true),
+            collateral: vec![],
+            nonce: [0u8; 32],
+        };
+        assert!(!ra.is_fresh());
+    }
+
+    // ── AttestationMode variants ──────────────────────────────────────────
+
+    #[test]
+    fn attestation_mode_variants_are_distinct() {
+        assert_ne!(AttestationMode::Local, AttestationMode::Remote);
+        assert_ne!(AttestationMode::Simulation, AttestationMode::CrossPlatform);
+        assert_ne!(AttestationMode::Local, AttestationMode::Simulation);
     }
 }

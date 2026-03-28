@@ -180,6 +180,12 @@ mod tests {
     fn isolation_level_ordering() {
         assert!(IsolationLevel::HardwareEnclave > IsolationLevel::VmLevel);
         assert!(IsolationLevel::VmLevel > IsolationLevel::ProcessLevel);
+        assert!(IsolationLevel::ProcessLevel > IsolationLevel::None);
+    }
+
+    #[test]
+    fn isolation_level_with_anti_snooping_is_strongest() {
+        assert!(IsolationLevel::HardwareEnclaveWithAntiSnooping > IsolationLevel::HardwareEnclave);
     }
 
     #[test]
@@ -189,6 +195,32 @@ mod tests {
         assert!(prot.is_protected());
         assert!(prot.encrypted);
         assert!(prot.integrity_protected);
+        assert!(prot.access_controlled);
+    }
+
+    #[test]
+    fn memory_protection_none_is_not_protected() {
+        let range = MemoryRange { start: 0, length: 1024 };
+        let prot = MemoryProtection {
+            range,
+            encrypted: false,
+            integrity_protected: false,
+            access_controlled: false,
+        };
+        assert!(!prot.is_protected());
+    }
+
+    #[test]
+    fn isolation_boundary_establishes_active() {
+        let b = IsolationBoundary::establish(
+            TeePlatform::AmdSev,
+            IsolationLevel::HardwareEnclave,
+            64 * 1024,
+            AntiSnoopingLevel::Basic,
+        ).unwrap();
+        assert!(b.is_active());
+        assert_eq!(b.level, IsolationLevel::HardwareEnclave);
+        assert_eq!(b.platform, TeePlatform::AmdSev);
     }
 
     #[test]
@@ -197,5 +229,34 @@ mod tests {
         assert!(ch.is_established());
         assert!(!ch.is_same_platform());
         assert_ne!(ch.session_key, [0u8; 32]);
+    }
+
+    #[test]
+    fn secure_channel_same_platform_detection() {
+        let ch = SecureChannel::establish(TeePlatform::IntelSgx, TeePlatform::IntelSgx).unwrap();
+        assert!(ch.is_same_platform());
+    }
+
+    // ── Section 11.4: cross-platform isolation consistency ────────────────────
+    // Whitepaper: isolation guarantees are equivalent across all 5 platforms.
+
+    #[test]
+    fn hardware_isolation_can_be_established_on_all_platforms() {
+        for platform in [
+            TeePlatform::IntelSgx,
+            TeePlatform::AmdSev,
+            TeePlatform::ArmTrustZone,
+            TeePlatform::RiscvKeystone,
+            TeePlatform::AwsNitro,
+        ] {
+            let b = IsolationBoundary::establish(
+                platform,
+                IsolationLevel::HardwareEnclave,
+                4096,
+                AntiSnoopingLevel::None,
+            ).unwrap();
+            assert!(b.is_active(), "Isolation must be active for platform {:?}", platform);
+            assert!(b.level.is_hardware_enforced());
+        }
     }
 }

@@ -24,3 +24,15 @@ impl TeeCommand {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tee_status_display_fields() {
+        let s = TeeStatusDisplay { platform: "IntelSgx".into(), available: true, is_production: true };
+        assert!(s.available);
+        assert_eq!(s.platform, "IntelSgx");
+    }
+}

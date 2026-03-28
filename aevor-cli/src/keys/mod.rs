@@ -24,3 +24,15 @@ impl KeysCommand {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn key_info_stores_algorithm_and_address() {
+        let k = KeyInfo { algorithm: "ed25519".into(), public_key: "0xABCD".into(), address: "0x1234".into() };
+        assert_eq!(k.algorithm, "ed25519");
+        assert!(!k.address.is_empty());
+    }
+}

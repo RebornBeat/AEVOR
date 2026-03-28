@@ -22,3 +22,34 @@ impl AnomalyDetector {
     }
 }
 impl Default for AnomalyDetector { fn default() -> Self { Self::new() } }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn threshold(metric: &str, warn: f64, crit: f64) -> AnomalyThreshold {
+        AnomalyThreshold { metric: metric.into(), warn, critical: crit }
+    }
+
+    #[test]
+    fn anomaly_detector_triggers_above_warn() {
+        let mut det = AnomalyDetector::new();
+        det.add_threshold(threshold("cpu", 0.8, 0.95));
+        let ev = det.check("cpu", 0.85).unwrap();
+        assert_eq!(ev.metric, "cpu");
+        assert!(ev.value > ev.threshold);
+    }
+
+    #[test]
+    fn anomaly_detector_no_trigger_below_warn() {
+        let mut det = AnomalyDetector::new();
+        det.add_threshold(threshold("cpu", 0.8, 0.95));
+        assert!(det.check("cpu", 0.70).is_none());
+    }
+
+    #[test]
+    fn threat_indicator_stores_confidence() {
+        let t = ThreatIndicator { indicator: "spike".into(), confidence: 0.92 };
+        assert!(t.confidence > 0.9);
+    }
+}

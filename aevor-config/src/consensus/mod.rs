@@ -18,7 +18,12 @@ pub struct ConsensusConfig {
     pub attestation: AttestationConfig,
     /// Minimum stake required to become a validator in nanoAEVOR.
     pub min_validator_stake: u128,
-    /// Maximum number of validators in the active set.
+    /// Maximum number of validators in the **active set** for a given epoch.
+    ///
+    /// This is a configurable active-set size limit, not a hard ceiling on
+    /// network participation. Operators may raise or lower this value through
+    /// governance. Validators beyond this limit are queued and rotate in as
+    /// others leave, preserving open participation.
     pub max_validators: usize,
     /// Number of blocks per epoch.
     pub blocks_per_epoch: u64,

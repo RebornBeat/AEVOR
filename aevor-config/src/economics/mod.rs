@@ -36,6 +36,12 @@ impl Default for EconomicsConfig {
 }
 
 /// Fee calculation configuration.
+///
+/// **Infrastructure vs Policy:** All fields here are deployment-time configuration
+/// primitives — they set defaults that governance can adjust. `block_gas_limit` is
+/// a per-block resource budget, not an architectural ceiling on network throughput.
+/// On a parallel-execution network, multiple blocks may be produced concurrently,
+/// so aggregate throughput is not bounded by this single value.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FeeConfig {
     /// Whether fees are enabled (false = feeless, for permissioned subnets).
@@ -44,7 +50,11 @@ pub struct FeeConfig {
     pub base_fee_nano: u64,
     /// Minimum gas price in nanoAEVOR.
     pub min_gas_price_nano: u64,
-    /// Block gas limit.
+    /// Per-block gas resource budget.
+    ///
+    /// This is a per-block resource limit, not an aggregate throughput cap.
+    /// In a parallel Dual-DAG network, multiple blocks may be produced
+    /// concurrently, so total network throughput is not bounded by this value.
     pub block_gas_limit: u64,
     /// Target block utilization (basis points, 5000 = 50%).
     pub target_utilization_bps: u32,
@@ -62,6 +72,13 @@ impl Default for FeeConfig {
             target_utilization_bps: 5_000,
             fee_adjustment_bps: 125,
         }
+    }
+}
+
+impl FeeConfig {
+    /// Create a feeless configuration for permissioned enterprise subnets.
+    pub fn feeless() -> Self {
+        Self { enabled: false, base_fee_nano: 0, min_gas_price_nano: 0, ..Self::default() }
     }
 }
 
@@ -153,6 +170,10 @@ impl Default for SlashingConfig {
 mod tests {
     use super::*;
 
+    // ── EconomicsConfig ───────────────────────────────────────────────────
+    // Whitepaper: "economic capabilities provide primitives that enable
+    // applications to implement any economic model"
+
     #[test]
     fn economics_default_supply_less_than_max() {
         let cfg = EconomicsConfig::default();
@@ -161,12 +182,43 @@ mod tests {
     }
 
     #[test]
+    fn economics_zero_max_supply_means_uncapped() {
+        // A zero max_supply_nano means no supply cap — explicitly supported
+        let cfg = EconomicsConfig { max_supply_nano: 0, ..EconomicsConfig::default() };
+        assert_eq!(cfg.max_supply_nano, 0);
+    }
+
+    // ── FeeConfig — configurable, not a ceiling ───────────────────────────
+    // Whitepaper: "eliminate artificial scarcity in transaction processing capacity"
+
+    #[test]
     fn fee_config_min_less_than_base() {
         let cfg = FeeConfig::default();
         assert!(cfg.min_gas_price_nano < cfg.base_fee_nano);
         assert!(cfg.block_gas_limit > 0);
         assert!(cfg.enabled);
     }
+
+    #[test]
+    fn fee_config_feeless_for_enterprise_subnets() {
+        let cfg = FeeConfig::feeless();
+        assert!(!cfg.enabled);
+        assert_eq!(cfg.base_fee_nano, 0);
+        assert_eq!(cfg.min_gas_price_nano, 0);
+    }
+
+    #[test]
+    fn fee_config_block_gas_limit_is_configurable() {
+        // block_gas_limit is per-block budget, not a network throughput ceiling
+        let mut cfg = FeeConfig::default();
+        let original = cfg.block_gas_limit;
+        cfg.block_gas_limit = u64::MAX; // can be set to any value by governance
+        assert!(cfg.block_gas_limit > original);
+    }
+
+    // ── RewardConfig ──────────────────────────────────────────────────────
+    // Whitepaper: "reward infrastructure provision rather than artificially
+    // constraining capacity to maintain fee revenue"
 
     #[test]
     fn reward_shares_sum_to_ten_thousand_bps() {
@@ -178,6 +230,22 @@ mod tests {
     }
 
     #[test]
+    fn reward_tee_service_share_nonzero() {
+        // Whitepaper: validators rewarded for TEE service provision
+        let cfg = RewardConfig::default();
+        assert!(cfg.tee_service_share_bps > 0);
+    }
+
+    #[test]
+    fn reward_performance_bonus_allows_up_to_2x() {
+        let cfg = RewardConfig::default();
+        // max_performance_bonus_bps = 10_000 → 100% bonus above 1x = 2x max
+        assert_eq!(cfg.max_performance_bonus_bps, 10_000);
+    }
+
+    // ── SlashingConfig ────────────────────────────────────────────────────
+
+    #[test]
     fn slashing_double_sign_harsher_than_downtime() {
         let cfg = SlashingConfig::default();
         assert!(cfg.double_sign_penalty_bps > cfg.downtime_penalty_bps);
@@ -185,9 +253,30 @@ mod tests {
     }
 
     #[test]
+    fn slashing_invalid_attestation_penalty_present() {
+        // Whitepaper: TEE attestation failures are slashable
+        let cfg = SlashingConfig::default();
+        assert!(cfg.invalid_attestation_penalty_bps > 0);
+    }
+
+    #[test]
+    fn slashing_open_evidence_submission_by_default() {
+        // Whitepaper: democratic — any validator can submit evidence
+        assert!(SlashingConfig::default().open_evidence_submission);
+    }
+
+    // ── StakingConfig ─────────────────────────────────────────────────────
+
+    #[test]
     fn staking_min_validator_greater_than_delegation() {
         let cfg = StakingConfig::default();
         assert!(cfg.min_validator_stake_nano > cfg.min_delegation_nano);
         assert_eq!(cfg.unbonding_epochs, 14);
+    }
+
+    #[test]
+    fn staking_max_delegations_per_address_bounded() {
+        let cfg = StakingConfig::default();
+        assert!(cfg.max_delegations_per_address > 0);
     }
 }

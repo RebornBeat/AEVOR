@@ -48,3 +48,51 @@ impl Groth16Verifier {
         !proof.proof_bytes.is_empty() && proof.vkey_hash == vkey.circuit_hash
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Hash256;
+    use aevor_core::crypto::ProvingSystem;
+    use aevor_crypto::proofs::{ProvingKey, VerifyingKey};
+
+    fn circuit_hash(n: u8) -> Hash256 { Hash256([n; 32]) }
+
+    fn pkey(ch: Hash256) -> ProvingKey {
+        ProvingKey { system: ProvingSystem::Groth16, circuit_hash: ch, key_bytes: vec![1, 2, 3] }
+    }
+
+    fn vkey(ch: Hash256) -> VerifyingKey {
+        VerifyingKey { system: ProvingSystem::Groth16, circuit_hash: ch, key_bytes: vec![4, 5, 6], is_universal: false }
+    }
+
+    #[test]
+    fn groth16_circuit_stores_fields() {
+        let c = Groth16Circuit::new(circuit_hash(1), 10_000, 3);
+        assert_eq!(c.circuit_hash, circuit_hash(1));
+        assert_eq!(c.constraint_count, 10_000);
+        assert_eq!(c.public_input_count, 3);
+    }
+
+    #[test]
+    fn groth16_prover_produces_192_byte_proof() {
+        let pk = pkey(circuit_hash(1));
+        let proof = Groth16Prover::prove(&[], &pk).unwrap();
+        assert_eq!(proof.proof_bytes.len(), 192); // Groth16 is smallest — 192 bytes
+        assert_eq!(proof.vkey_hash, circuit_hash(1));
+    }
+
+    #[test]
+    fn groth16_verifier_accepts_matching_circuit_hash() {
+        let ch = circuit_hash(7);
+        let pk = pkey(ch);
+        let proof = Groth16Prover::prove(&[], &pk).unwrap();
+        assert!(Groth16Verifier::verify(&proof, &vkey(ch)));
+    }
+
+    #[test]
+    fn groth16_verifier_rejects_wrong_circuit_hash() {
+        let proof = Groth16Prover::prove(&[], &pkey(circuit_hash(1))).unwrap();
+        assert!(!Groth16Verifier::verify(&proof, &vkey(circuit_hash(2))));
+    }
+}

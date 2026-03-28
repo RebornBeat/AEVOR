@@ -40,11 +40,6 @@ pub struct FaucetStatus {
 
 pub struct Faucet { config: FaucetConfig }
 impl Faucet {
-    /// Create a new faucet with the given configuration.
-    ///
-    /// # Errors
-    /// Returns an error if the configured network is `"mainnet"` (faucets
-    /// are only supported on test and development networks).
     pub fn new(config: FaucetConfig) -> FaucetResult<Self> {
         if config.network == "mainnet" {
             return Err(FaucetError::NetworkNotSupported { network: config.network.clone() });
@@ -52,4 +47,42 @@ impl Faucet {
         Ok(Self { config })
     }
     pub fn config(&self) -> &FaucetConfig { &self.config }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Amount;
+
+    fn cfg(network: &str) -> FaucetConfig {
+        FaucetConfig { network: network.into(), node_endpoint: "http://localhost:8080".into(), distribution_amount: 1_000_000_000, cooldown_seconds: 3600, pow_difficulty: 4, key_file: None }
+    }
+
+    #[test]
+    fn faucet_rejects_mainnet() {
+        assert!(Faucet::new(cfg("mainnet")).is_err());
+    }
+
+    #[test]
+    fn faucet_accepts_testnet() {
+        let f = Faucet::new(cfg("testnet")).unwrap();
+        assert_eq!(f.config().network, "testnet");
+    }
+
+    #[test]
+    fn faucet_accepts_devnet() {
+        assert!(Faucet::new(cfg("devnet")).is_ok());
+    }
+
+    #[test]
+    fn faucet_status_stores_fields() {
+        let status = FaucetStatus {
+            network: "testnet".into(),
+            balance: FaucetBalance { available: Amount::from_nano(1_000_000) },
+            requests_served: 42,
+            cooldown_seconds: 3600,
+        };
+        assert_eq!(status.requests_served, 42);
+        assert_eq!(status.balance.available.as_nano(), 1_000_000u128);
+    }
 }

@@ -52,3 +52,58 @@ impl SnapshotLoader {
 impl Default for SnapshotLoader {
     fn default() -> Self { Self::new() }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::{BlockHeight, EpochNumber, Hash256};
+    use aevor_core::storage::MerkleRoot;
+
+    fn meta(height: u64) -> SnapshotMetadata {
+        SnapshotMetadata {
+            id: Hash256([height as u8; 32]),
+            height: BlockHeight(height),
+            epoch: EpochNumber(height / 1000),
+            state_root: MerkleRoot::EMPTY,
+            size_bytes: 1024 * 1024,
+            created_at_round: height * 2,
+        }
+    }
+
+    #[test]
+    fn snapshot_creator_stores_target_height() {
+        let c = SnapshotCreator::new(BlockHeight(500));
+        assert_eq!(c.target_height(), BlockHeight(500));
+    }
+
+    #[test]
+    fn snapshot_loader_empty_latest_is_none() {
+        let loader = SnapshotLoader::default();
+        assert!(loader.latest().is_none());
+    }
+
+    #[test]
+    fn snapshot_loader_latest_returns_highest_height() {
+        let mut loader = SnapshotLoader::new();
+        loader.register(meta(100));
+        loader.register(meta(500));
+        loader.register(meta(300));
+        let latest = loader.latest().unwrap();
+        assert_eq!(latest.height, BlockHeight(500));
+    }
+
+    #[test]
+    fn snapshot_loader_single_entry_is_latest() {
+        let mut loader = SnapshotLoader::new();
+        loader.register(meta(42));
+        assert_eq!(loader.latest().unwrap().height, BlockHeight(42));
+    }
+
+    #[test]
+    fn snapshot_metadata_fields() {
+        let m = meta(1000);
+        assert_eq!(m.height.as_u64(), 1000);
+        assert_eq!(m.size_bytes, 1024 * 1024);
+        assert_eq!(m.created_at_round, 2000);
+    }
+}

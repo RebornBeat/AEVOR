@@ -108,6 +108,10 @@ pub mod prelude {
         TeeServiceAllocator, TeeServiceRequest, TeeServiceResponse,
         TeeServiceType, AllocationStrategy, ServiceQuality,
         TeeServiceHandle, ServiceCapability,
+        ServiceHealth, ServiceHealthStatus, QosPolicy,
+        ServiceMeshCoordinator, CrossNetworkServiceCoordinator,
+        SecureDeploymentRecord, DataIntegrityProof,
+        FederatedAnalyticsSession, EnterpriseIntegrationConfig,
     };
     pub use crate::anti_snooping::{
         AntiSnoopingConfig, MetadataShield, TrafficObfuscation,
@@ -203,8 +207,10 @@ pub type TeeResult<T> = Result<T, TeeError>;
 // CONSTANTS
 // ============================================================
 
-/// Maximum number of concurrent TEE instances per validator node.
-pub const MAX_TEE_INSTANCES_PER_NODE: usize = 64;
+/// Default maximum concurrent TEE instances per validator node.
+/// Scales with available hardware — not a hard ceiling. Configurable per deployment.
+/// Validators with more TEE capacity can increase this without network coordination.
+pub const DEFAULT_TEE_INSTANCES_PER_NODE: usize = 64;
 
 /// Maximum memory per TEE instance in bytes (256 MiB default limit).
 pub const DEFAULT_TEE_MEMORY_LIMIT_BYTES: usize = 268_435_456;
@@ -236,8 +242,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn memory_limit_is_reasonable() {
-        // 256 MiB — enough for sophisticated workloads, not excessive
+    fn memory_limit_default_is_reasonable() {
+        // 256 MiB — enough for sophisticated workloads; configurable per deployment.
         assert_eq!(DEFAULT_TEE_MEMORY_LIMIT_BYTES, 256 * 1024 * 1024);
     }
 
@@ -246,5 +252,54 @@ mod tests {
         assert_eq!(SGX_MEASUREMENT_SIZE, 32);
         assert_eq!(SEV_MEASUREMENT_SIZE, 48);
         assert_eq!(TRUSTZONE_UUID_SIZE, 16);
+    }
+
+    #[test]
+    fn default_tee_instances_per_node_is_configurable_not_a_ceiling() {
+        // DEFAULT_TEE_INSTANCES_PER_NODE is a per-node resource budget.
+        // It is NOT a network-wide ceiling — validators with more TEE capacity
+        // can configure higher values. The whitepaper mandates no artificial ceilings.
+        assert!(DEFAULT_TEE_INSTANCES_PER_NODE > 0);
+        // Verify it is the renamed constant (was MAX_TEE_INSTANCES_PER_NODE)
+        assert_eq!(DEFAULT_TEE_INSTANCES_PER_NODE, 64);
+    }
+
+    #[test]
+    fn nitro_attestation_max_size_is_security_limit_not_throughput_ceiling() {
+        // Message size limits are security/protocol constants, not throughput ceilings.
+        assert!(NITRO_ATTESTATION_MAX_SIZE > 0);
+        assert_eq!(NITRO_ATTESTATION_MAX_SIZE, 16_384); // 16 KiB — CBOR-encoded NSM document
+    }
+
+    #[test]
+    fn tee_error_variants_cover_all_failure_modes() {
+        // Section 11 claims: platform unavailable, attestation, isolation,
+        // service allocation, cross-platform consistency, communication, integrity.
+        let errors = vec![
+            TeeError::PlatformUnavailable { platform: "IntelSgx".into() },
+            TeeError::AttestationFailed { reason: "quote gen failed".into() },
+            TeeError::IsolationFailed { reason: "enclave too large".into() },
+            TeeError::AllocationFailed { reason: "no provider".into() },
+            TeeError::ConsistencyViolation { description: "measurement mismatch".into() },
+            TeeError::CommunicationFailed { reason: "channel closed".into() },
+            TeeError::IntegrityViolation,
+            TeeError::PlatformError { platform: "AmdSev".into(), message: "SNP init failed".into() },
+        ];
+        for e in &errors {
+            // Every error should produce a non-empty string
+            assert!(!e.to_string().is_empty());
+        }
+    }
+
+    #[test]
+    fn platform_unavailable_error_names_the_platform() {
+        let e = TeeError::PlatformUnavailable { platform: "RiscvKeystone".into() };
+        assert!(e.to_string().contains("RiscvKeystone"));
+    }
+
+    #[test]
+    fn attestation_freshness_window_is_nonzero() {
+        // 1 hour freshness window — attestations older than this must be renewed.
+        assert_eq!(ATTESTATION_FRESHNESS_SECONDS, 3_600);
     }
 }

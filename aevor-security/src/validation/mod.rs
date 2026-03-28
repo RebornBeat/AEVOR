@@ -49,3 +49,70 @@ impl SecurityValidator {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::EpochNumber;
+
+    fn ctx(validators: usize) -> ValidationContext {
+        ValidationContext { network: "testnet".into(), epoch: EpochNumber(1), active_validators: validators }
+    }
+
+    fn rule(id: &str) -> ValidationRule {
+        ValidationRule { id: id.into(), description: "test rule".into(), severity: 5 }
+    }
+
+    #[test]
+    fn validation_result_ok_all_passed() {
+        let r = ValidationResult::ok();
+        assert!(r.all_passed);
+        assert_eq!(r.pass_count(), 0); // no checks at all
+    }
+
+    #[test]
+    fn validation_result_failed_not_all_passed() {
+        let check = SecurityCheck { rule: rule("r1"), passed: false, details: None };
+        let r = ValidationResult::failed(check);
+        assert!(!r.all_passed);
+        assert_eq!(r.pass_count(), 0);
+    }
+
+    #[test]
+    fn pass_count_counts_passed_checks() {
+        let r = ValidationResult {
+            checks: vec![
+                SecurityCheck { rule: rule("r1"), passed: true, details: None },
+                SecurityCheck { rule: rule("r2"), passed: false, details: None },
+                SecurityCheck { rule: rule("r3"), passed: true, details: None },
+            ],
+            all_passed: false,
+        };
+        assert_eq!(r.pass_count(), 2);
+    }
+
+    #[test]
+    fn infrastructure_policy_default_requires_tee_and_distribution() {
+        let p = InfrastructureSecurityPolicy::default();
+        assert!(p.require_tee);
+        assert!(p.require_geographic_distribution);
+        assert!(p.min_validator_count > 0);
+    }
+
+    #[test]
+    fn security_validator_passes_with_sufficient_validators() {
+        let pol = InfrastructureSecurityPolicy { min_validator_count: 4, ..Default::default() };
+        let v = SecurityValidator::new(pol);
+        let r = v.validate(&ctx(10));
+        assert!(r.all_passed);
+    }
+
+    #[test]
+    fn security_validator_fails_with_insufficient_validators() {
+        let pol = InfrastructureSecurityPolicy { min_validator_count: 10, ..Default::default() };
+        let v = SecurityValidator::new(pol);
+        let r = v.validate(&ctx(3));
+        assert!(!r.all_passed);
+        assert!(r.checks[0].details.is_some());
+    }
+}

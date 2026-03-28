@@ -38,3 +38,35 @@ impl ProofGenerator {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Hash256;
+    use aevor_core::crypto::ProvingSystem;
+    use aevor_crypto::proofs::ProvingKey;
+
+    fn pkey() -> ProvingKey {
+        ProvingKey { system: ProvingSystem::Groth16, circuit_hash: Hash256::ZERO, key_bytes: vec![1] }
+    }
+
+    #[test]
+    fn proof_generator_produces_nonempty_proof() {
+        let req = ProofRequest { circuit_hash: Hash256::ZERO, public_inputs: vec![], private_inputs: vec![vec![1,2,3]] };
+        let witness = Witness { private_values: vec![vec![1,2,3]] };
+        let result = ProofGenerator::generate(&req, &witness, &pkey()).unwrap();
+        assert!(!result.proof.is_empty());
+    }
+
+    #[test]
+    fn circuit_stores_stats() {
+        let c = Circuit { hash: Hash256::ZERO, constraint_count: 50_000, public_input_count: 2 };
+        assert_eq!(c.constraint_count, 50_000);
+    }
+
+    #[test]
+    fn circuit_stats_stores_timing() {
+        let stats = CircuitStats { constraints: 100, variables: 200, proving_time_ms: 50 };
+        assert_eq!(stats.proving_time_ms, 50);
+    }
+}

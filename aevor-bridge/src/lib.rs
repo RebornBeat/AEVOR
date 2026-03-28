@@ -198,7 +198,11 @@ pub const MAX_CROSS_CHAIN_MESSAGE_SIZE: usize = 262_144;
 /// Maximum age of a cross-chain message before it expires (24 hours in seconds).
 pub const MAX_MESSAGE_AGE_SECONDS: u64 = 86_400;
 
-/// Maximum number of relayers in the relayer set.
+/// Default maximum number of relayers in the relayer set.
+///
+/// This is a configurable safety limit — governance can raise or lower it
+/// through a `ParameterChange` proposal. The architecture supports any number
+/// of relayers; 64 is the default starting size.
 pub const MAX_RELAYER_SET_SIZE: usize = 64;
 
 // ============================================================
@@ -210,17 +214,65 @@ mod tests {
     use super::*;
     use aevor_core::primitives::Hash256;
 
+    // ── BridgeError variants ──────────────────────────────────────────────
+
     #[test]
-    fn bridge_error_display() {
+    fn bridge_error_chain_unavailable_display() {
         let e = BridgeError::ChainUnavailable { chain_id: "ethereum-1".into(), reason: "timeout".into() };
         assert!(e.to_string().contains("ethereum-1"));
+        assert!(e.to_string().contains("timeout"));
     }
 
     #[test]
-    fn bridge_result_ok() {
-        let r: BridgeResult<u64> = Ok(42);
-        assert_eq!(r.unwrap(), 42);
+    fn bridge_error_invalid_external_proof() {
+        let e = BridgeError::InvalidExternalProof { chain_id: "bitcoin".into(), reason: "bad merkle".into() };
+        assert!(e.to_string().contains("bitcoin"));
     }
+
+    #[test]
+    fn bridge_error_finality_not_achieved() {
+        let e = BridgeError::FinalityNotAchieved { message_id: "msg-1".into(), confirmations: 5, required: 12 };
+        assert!(e.to_string().contains("5"));
+        assert!(e.to_string().contains("12"));
+    }
+
+    #[test]
+    fn bridge_error_duplicate_message() {
+        let e = BridgeError::DuplicateMessage { message_id: "dup-42".into() };
+        assert!(e.to_string().contains("dup-42"));
+    }
+
+    #[test]
+    fn bridge_error_privacy_violation() {
+        let e = BridgeError::PrivacyViolation { description: "leaked balance".into() };
+        assert!(e.to_string().contains("leaked balance"));
+    }
+
+    // ── Constants are defaults, not ceilings ──────────────────────────────
+
+    #[test]
+    fn eth_finality_confirmations_is_reasonable() {
+        // 12 blocks ≈ 3 minutes at 12s/block — sensible default
+        assert_eq!(ETH_FINALITY_CONFIRMATIONS, 12);
+        // Governance can set it higher for more security
+        assert!(ETH_FINALITY_CONFIRMATIONS > 0);
+    }
+
+    #[test]
+    fn btc_finality_confirmations_is_standard() {
+        assert_eq!(BTC_FINALITY_CONFIRMATIONS, 6); // industry standard
+        assert!(BTC_FINALITY_CONFIRMATIONS > 0);
+    }
+
+    #[test]
+    fn max_relayer_set_size_is_configurable_default() {
+        // 64 is the default safety limit — governance can raise or lower this.
+        // The architecture supports any number of relayers.
+        assert_eq!(MAX_RELAYER_SET_SIZE, 64);
+        assert!(MAX_RELAYER_SET_SIZE > 0);
+    }
+
+    // ── CrossChainMessage ─────────────────────────────────────────────────
 
     #[test]
     fn cross_chain_message_has_payload() {
@@ -245,5 +297,13 @@ mod tests {
             connected: true,
         };
         assert!(conn.connected);
+    }
+
+    #[test]
+    fn bridge_result_ok_and_err() {
+        let ok: BridgeResult<u64> = Ok(42);
+        assert_eq!(ok.unwrap(), 42);
+        let err: BridgeResult<u64> = Err(BridgeError::DuplicateMessage { message_id: "x".into() });
+        assert!(err.is_err());
     }
 }

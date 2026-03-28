@@ -63,7 +63,8 @@ pub mod context_factory;
 /// Result aggregation: collecting and verifying results from parallel execution.
 pub mod aggregation;
 
-/// Speculative execution: optimistic processing with conflict detection and rollback.
+/// Pre-execution conflict analysis: tracking which transactions were accepted or rejected
+/// before execution begins. No speculative state execution occurs.
 pub mod speculative;
 
 /// Execution metrics: throughput, latency, parallelism factor measurement.
@@ -72,7 +73,8 @@ pub mod metrics;
 /// Cross-contract execution: coordinating multi-contract atomic operations.
 pub mod cross_contract;
 
-/// Rollback manager: clean state restoration on execution failure.
+/// Transaction rejection log: records why transactions were rejected (gas, privacy,
+/// pre-execution conflicts) without any state being unwound.
 pub mod rollback;
 
 // ============================================================
@@ -108,14 +110,6 @@ pub mod prelude {
     pub use crate::aggregation::{
         ResultAggregator, ParallelResultSet, ConsistencyCheck,
         AggregatedReceipt, ExecutionSummary,
-    };
-    pub use crate::speculative::{
-        SpeculativeExecutor, SpeculativeContext, CommitOrRollback,
-        ConflictDetectionResult, SpeculativeMetrics,
-    };
-    pub use crate::rollback::{
-        RollbackManager, RollbackPoint, RollbackReason, RollbackResult,
-        StateRestoration,
     };
     pub use crate::{ExecutionError, ExecutionResult as ExecResult};
 }
@@ -168,17 +162,13 @@ pub enum ExecutionError {
         limit: u64,
     },
 
-    /// Contract rollback was required due to execution failure.
-    #[error("execution rolled back: {reason}")]
-    RolledBack {
-        /// Reason for rollback.
-        reason: String,
-    },
-
-    /// Speculative execution conflict detected.
-    #[error("speculative conflict on object {object_id}")]
-    SpeculativeConflict {
-        /// Object ID at the center of the conflict.
+    /// Transaction was rejected due to a pre-execution conflict detected by the scheduler.
+    ///
+    /// This is NOT a rollback of committed state — the transaction never began execution.
+    /// The sender may resubmit after the conflicting transaction completes.
+    #[error("transaction rejected: pre-execution conflict on object {object_id}")]
+    TransactionRejected {
+        /// Object ID at the center of the pre-execution conflict.
         object_id: String,
     },
 }
@@ -190,17 +180,18 @@ pub type ExecutionResult<T> = Result<T, ExecutionError>;
 // CONSTANTS
 // ============================================================
 
-/// Maximum number of transactions in a single parallel execution batch.
-pub const MAX_PARALLEL_BATCH_SIZE: usize = 10_000;
+/// Default number of transactions in a single parallel execution batch.
+/// Scales with available hardware — not a hard ceiling. Configurable per deployment.
+pub const DEFAULT_PARALLEL_BATCH_SIZE: usize = 10_000;
 
-/// Maximum number of concurrent TEE execution contexts.
-pub const MAX_CONCURRENT_TEE_CONTEXTS: usize = 256;
+/// Default number of concurrent TEE execution contexts.
+/// Scales with available TEE hardware — not a hard ceiling. Configurable per deployment.
+pub const DEFAULT_CONCURRENT_TEE_CONTEXTS: usize = 256;
 
-/// Timeout for a single transaction execution in milliseconds.
-pub const TX_EXECUTION_TIMEOUT_MS: u64 = 5_000;
-
-/// Maximum speculative execution depth before forced commit.
-pub const MAX_SPECULATIVE_DEPTH: usize = 8;
+/// Default per-transaction gas execution timeout in milliseconds.
+/// Prevents runaway gas consumption. Configurable per deployment.
+/// This is not a throughput ceiling — it is a per-transaction resource budget.
+pub const DEFAULT_TX_EXECUTION_TIMEOUT_MS: u64 = 5_000;
 
 /// Minimum parallelism factor before sequential fallback is considered.
 pub const MIN_PARALLELISM_FACTOR: f32 = 1.5;
@@ -215,9 +206,9 @@ mod tests {
 
     #[test]
     fn execution_constants_are_reasonable() {
-        assert!(MAX_PARALLEL_BATCH_SIZE > 0);
-        assert!(MAX_CONCURRENT_TEE_CONTEXTS > 0);
-        assert!(TX_EXECUTION_TIMEOUT_MS > 0);
+        assert!(DEFAULT_PARALLEL_BATCH_SIZE > 0);
+        assert!(DEFAULT_CONCURRENT_TEE_CONTEXTS > 0);
+        assert!(DEFAULT_TX_EXECUTION_TIMEOUT_MS > 0);
         assert!(MIN_PARALLELISM_FACTOR > 1.0);
     }
 
@@ -247,6 +238,17 @@ mod tests {
     }
 
     #[test]
+    fn transaction_rejected_is_pre_execution_not_rollback() {
+        // TransactionRejected replaces the removed RolledBack/SpeculativeConflict variants.
+        // It represents pre-execution conflict detection — the transaction never began
+        // execution, so no state was ever unwound.
+        let e = ExecutionError::TransactionRejected { object_id: "obj_0x1234".into() };
+        let s = e.to_string();
+        assert!(s.contains("obj_0x1234"));
+        assert!(s.contains("rejected"));
+    }
+
+    #[test]
     fn execution_result_ok_is_ok() {
         let r: ExecutionResult<u32> = Ok(42);
         assert_eq!(r.unwrap(), 42);
@@ -273,25 +275,10 @@ mod tests {
     }
 
     #[test]
-    fn speculative_metrics_default_zero() {
-        let m = speculative::SpeculativeMetrics::default();
-        assert_eq!(m.speculative_count, 0);
-    }
-
-    #[test]
-    fn rollback_reason_variants_exist() {
-        let _ = rollback::RollbackReason::ExecutionFailed;
-        let _ = rollback::RollbackReason::ConflictDetected;
-        let _ = rollback::RollbackReason::PrivacyViolation;
-        let _ = rollback::RollbackReason::OutOfGas;
-    }
-
-    #[test]
     fn scheduling_decision_lane_assigned() {
         use crate::scheduler::SchedulingDecision;
         use aevor_core::primitives::Hash256;
         use aevor_core::execution::ExecutionLane;
-        // TransactionHash is a type alias for Hash256 — construct directly
         let d = SchedulingDecision {
             transaction: Hash256([1u8; 32]),
             lane: ExecutionLane(3),

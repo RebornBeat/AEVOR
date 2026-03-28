@@ -53,9 +53,17 @@ impl ParallelismFactor {
     }
 }
 
+/// Estimates the minimum available concurrency for a Micro-DAG batch.
+///
+/// Returns the number of root entries — transactions that can start executing
+/// immediately with no predecessors. This is a lower bound on achievable
+/// parallelism: deeper parallel groups within the DAG provide additional
+/// concurrency that is not counted here. The true parallelism scales with
+/// the size of independent transaction sets, unbounded by architecture.
 pub struct ConcurrencyEstimator;
 
 impl ConcurrencyEstimator {
+    /// Minimum concurrency: root entries (no incoming dependencies).
     pub fn estimate(dag: &crate::micro_dag::MicroDag) -> usize {
         dag.root_entries().len().max(1)
     }

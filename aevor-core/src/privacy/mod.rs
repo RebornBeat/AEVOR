@@ -524,6 +524,12 @@ pub enum TeeRequirement {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+
+    fn addr(n: u8) -> Address { Address([n; 32]) }
+
+    // ── PrivacyLevel hierarchy ────────────────────────────────────────────
+    // Whitepaper: "object-level privacy policies, granular confidentiality control"
 
     #[test]
     fn privacy_level_ordering() {
@@ -548,63 +554,537 @@ mod tests {
 
     #[test]
     fn privacy_level_max() {
-        assert_eq!(
-            PrivacyLevel::Public.max(PrivacyLevel::Private),
-            PrivacyLevel::Private
-        );
+        assert_eq!(PrivacyLevel::Public.max(PrivacyLevel::Private), PrivacyLevel::Private);
+        assert_eq!(PrivacyLevel::Confidential.max(PrivacyLevel::Public), PrivacyLevel::Confidential);
     }
 
     #[test]
-    fn access_policy_public_allows_all() {
-        let any_addr = Address([0xABu8; 32]);
-        assert!(AccessPolicy::Public.allows(&any_addr));
-    }
-
-    #[test]
-    fn access_policy_explicit_allows_listed() {
-        let allowed = Address([1u8; 32]);
-        let denied = Address([2u8; 32]);
-        let policy = AccessPolicy::Explicit {
-            allowed: vec![allowed],
-        };
-        assert!(policy.allows(&allowed));
-        assert!(!policy.allows(&denied));
-    }
-
-    #[test]
-    fn privacy_policy_public_default() {
-        let p = PrivacyPolicy::public();
-        assert_eq!(p.level, PrivacyLevel::Public);
-        assert!(p.cross_privacy_allowed);
-        assert!(p.tee_requirements.is_none());
-    }
-
-    #[test]
-    fn selective_disclosure_disabled_by_default() {
-        let sd = SelectiveDisclosure::none();
-        let addr = Address([1u8; 32]);
-        assert!(!sd.can_disclose_to("field1", &addr));
-    }
-
-    #[test]
-    fn mixed_privacy_effective_level() {
-        let mut objects = HashMap::new();
-        objects.insert("obj1".into(), PrivacyLevel::Public);
-        objects.insert("obj2".into(), PrivacyLevel::Private);
-        let exec = MixedPrivacyExecution::from_objects(objects);
-        assert_eq!(exec.effective_level, PrivacyLevel::Private);
-        assert!(exec.isolated_contexts);
+    fn privacy_level_at_least() {
+        assert!(PrivacyLevel::Private.at_least(PrivacyLevel::Public));
+        assert!(PrivacyLevel::Private.at_least(PrivacyLevel::Private));
+        assert!(!PrivacyLevel::Public.at_least(PrivacyLevel::Private));
     }
 
     #[test]
     fn privacy_level_gas_multiplier_increases() {
-        assert!(
-            PrivacyLevel::Public.gas_multiplier()
-                < PrivacyLevel::Private.gas_multiplier()
+        assert!(PrivacyLevel::Public.gas_multiplier() < PrivacyLevel::Private.gas_multiplier());
+        assert!(PrivacyLevel::Private.gas_multiplier() < PrivacyLevel::Confidential.gas_multiplier());
+    }
+
+    // ── AccessPolicy ─────────────────────────────────────────────────────
+
+    #[test]
+    fn access_policy_public_allows_all() {
+        assert!(AccessPolicy::Public.allows(&addr(0xAB)));
+        assert!(AccessPolicy::Public.allows(&addr(0)));
+    }
+
+    #[test]
+    fn access_policy_explicit_allows_listed_denies_others() {
+        let policy = AccessPolicy::Explicit { allowed: vec![addr(1)] };
+        assert!(policy.allows(&addr(1)));
+        assert!(!policy.allows(&addr(2)));
+    }
+
+    // ── PrivacyPolicy object-level declarations ───────────────────────────
+    // Whitepaper: "each blockchain object can specify its own privacy characteristics"
+
+    #[test]
+    fn privacy_policy_public_default_open_access() {
+        let p = PrivacyPolicy::public();
+        assert_eq!(p.level, PrivacyLevel::Public);
+        assert!(p.cross_privacy_allowed);
+        assert!(p.tee_requirements.is_none());
+        assert!(p.has_read_access(&addr(0xFF))); // anyone can read
+    }
+
+    #[test]
+    fn privacy_policy_private_restricts_access_and_requires_tee() {
+        let owner = addr(1);
+        let p = PrivacyPolicy::private(owner);
+        assert_eq!(p.level, PrivacyLevel::Private);
+        assert!(!p.cross_privacy_allowed);
+        assert!(p.tee_requirements.is_some());
+        assert!(p.has_read_access(&owner));
+        assert!(!p.has_read_access(&addr(99)));
+    }
+
+    #[test]
+    fn privacy_policy_confidential_anti_snooping_required() {
+        let owner = addr(2);
+        let p = PrivacyPolicy::confidential(owner);
+        assert_eq!(p.level, PrivacyLevel::Confidential);
+        assert_eq!(p.tee_requirements, Some(TeeRequirement::WithAntiSnooping));
+        assert!(p.level.requires_anti_snooping());
+    }
+
+    // ── SelectiveDisclosure ───────────────────────────────────────────────
+    // Whitepaper: "selective disclosure with authorization"
+
+    #[test]
+    fn selective_disclosure_disabled_by_default() {
+        let sd = SelectiveDisclosure::none();
+        assert!(!sd.can_disclose_to("field1", &addr(1)));
+    }
+
+    // ── MixedPrivacyExecution ─────────────────────────────────────────────
+    // Whitepaper: "Mixed privacy coordination enables applications to implement
+    // business logic that spans both confidential and transparent operations."
+
+    #[test]
+    fn mixed_privacy_effective_level_is_max_of_all_objects() {
+        let mut objects = HashMap::new();
+        objects.insert("public_token".into(), PrivacyLevel::Public);
+        objects.insert("private_balance".into(), PrivacyLevel::Private);
+        let exec = MixedPrivacyExecution::from_objects(objects);
+        assert_eq!(exec.effective_level, PrivacyLevel::Private);
+        assert!(exec.isolated_contexts); // different levels → isolation needed
+    }
+
+    #[test]
+    fn mixed_privacy_all_same_level_not_isolated() {
+        let mut objects = HashMap::new();
+        objects.insert("obj1".into(), PrivacyLevel::Public);
+        objects.insert("obj2".into(), PrivacyLevel::Public);
+        let exec = MixedPrivacyExecution::from_objects(objects);
+        assert_eq!(exec.effective_level, PrivacyLevel::Public);
+        assert!(!exec.isolated_contexts);
+    }
+
+    #[test]
+    fn mixed_privacy_empty_objects_defaults_to_public() {
+        let exec = MixedPrivacyExecution::from_objects(HashMap::new());
+        assert_eq!(exec.effective_level, PrivacyLevel::Public);
+    }
+
+    // ── CrossPrivacyCoordination ──────────────────────────────────────────
+    // Whitepaper: "business logic that spans both confidential and transparent
+    // operations within the same execution context"
+
+    #[test]
+    fn cross_privacy_coordination_zk_mode() {
+        let coord = CrossPrivacyCoordination {
+            effective_level: PrivacyLevel::Private,
+            disclosure_mode: CrossPrivacyDisclosureMode::ZeroKnowledge,
+            use_zk_proof: true,
+            use_secure_channel: false,
+        };
+        assert!(coord.use_zk_proof);
+        assert_eq!(coord.disclosure_mode, CrossPrivacyDisclosureMode::ZeroKnowledge);
+    }
+
+    #[test]
+    fn cross_privacy_coordination_secure_channel_mode() {
+        let coord = CrossPrivacyCoordination {
+            effective_level: PrivacyLevel::Confidential,
+            disclosure_mode: CrossPrivacyDisclosureMode::CommitmentOnly,
+            use_zk_proof: false,
+            use_secure_channel: true,
+        };
+        assert!(coord.use_secure_channel);
+    }
+
+    // ── PrivacyBoundary ───────────────────────────────────────────────────
+
+    #[test]
+    fn privacy_boundary_allows_crossing_when_modes_present() {
+        let b = PrivacyBoundary {
+            inner_level: PrivacyLevel::Private,
+            outer_level: PrivacyLevel::Public,
+            permitted_modes: vec![CrossPrivacyDisclosureMode::ZeroKnowledge],
+        };
+        assert!(b.allows_crossing());
+    }
+
+    #[test]
+    fn privacy_boundary_no_crossing_when_no_modes() {
+        let b = PrivacyBoundary {
+            inner_level: PrivacyLevel::Confidential,
+            outer_level: PrivacyLevel::Private,
+            permitted_modes: vec![],
+        };
+        assert!(!b.allows_crossing());
+    }
+
+    // ── PrivacyPreservingProof ────────────────────────────────────────────
+    // Whitepaper: "privacy-preserving proof ... without revealing inputs"
+
+    #[test]
+    fn privacy_proof_tee_attestation_type() {
+        let proof = PrivacyPreservingProof {
+            proof_type: PrivacyProofType::TeeAttestation,
+            proof_bytes: vec![0xAB; 64],
+            public_inputs: vec![vec![1, 2, 3]],
+            statement: "execution correct".into(),
+        };
+        assert_eq!(proof.proof_type, PrivacyProofType::TeeAttestation);
+        assert!(!proof.proof_bytes.is_empty());
+        assert!(!proof.public_inputs.is_empty());
+    }
+
+    #[test]
+    fn privacy_proof_composite_combines_techniques() {
+        let proof = PrivacyPreservingProof {
+            proof_type: PrivacyProofType::Composite,
+            proof_bytes: vec![1, 2],
+            public_inputs: vec![],
+            statement: "combined zk + tee".into(),
+        };
+        assert_eq!(proof.proof_type, PrivacyProofType::Composite);
+    }
+
+    // ── TeeRequirement ────────────────────────────────────────────────────
+
+    #[test]
+    fn tee_requirement_multi_tee_min_instances() {
+        let req = TeeRequirement::MultiTee { min_instances: 3 };
+        assert_eq!(req, TeeRequirement::MultiTee { min_instances: 3 });
+        assert_ne!(req, TeeRequirement::AnyPlatform);
+    }
+}
+
+// ============================================================
+// CONDITIONAL AND PROGRESSIVE DISCLOSURE
+// ============================================================
+
+/// A disclosure that activates only when a specified logical condition is satisfied.
+///
+/// Conditions are expressed as application-defined identifiers resolved through
+/// consensus — no external clock or authority required. The disclosure itself
+/// uses cryptographic enforcement: once the condition is met, the authorized
+/// party can derive the disclosed information; before it is met, they cannot.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConditionalDisclosure {
+    /// The field being conditionally disclosed.
+    pub field: String,
+    /// Application-defined condition identifier (e.g. "auction_closed", "payment_confirmed").
+    pub condition_id: String,
+    /// Addresses authorized to receive the disclosure once the condition is met.
+    pub authorized: Vec<Address>,
+    /// Whether a ZK proof is required to verify the condition was met.
+    pub require_condition_proof: bool,
+}
+
+impl ConditionalDisclosure {
+    /// Create a conditional disclosure that fires when `condition_id` is satisfied.
+    pub fn new(field: impl Into<String>, condition_id: impl Into<String>, authorized: Vec<Address>) -> Self {
+        Self {
+            field: field.into(),
+            condition_id: condition_id.into(),
+            authorized,
+            require_condition_proof: false,
+        }
+    }
+
+    /// Whether `address` is authorized to receive the disclosure.
+    pub fn is_authorized(&self, address: &Address) -> bool {
+        self.authorized.contains(address)
+    }
+}
+
+/// A disclosure that evolves through logical ordering stages.
+///
+/// Each stage increases the privacy level from confidential toward more transparent,
+/// driven by dependency-based ordering through blockchain consensus time authority —
+/// not by wall-clock time or external triggers.
+///
+/// Example use case: confidential bidding → disclosed winner → public final price.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProgressiveDisclosure {
+    /// Ordered stages from most private to most public.
+    pub stages: Vec<DisclosureStage>,
+    /// Current active stage index.
+    pub current_stage: usize,
+}
+
+/// A single stage in a progressive disclosure sequence.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DisclosureStage {
+    /// Human-readable name for this stage.
+    pub name: String,
+    /// Privacy level at this stage.
+    pub level: PrivacyLevel,
+    /// Fields disclosed at this stage (cumulative — each stage adds to previous).
+    pub disclosed_fields: Vec<String>,
+    /// Logical sequence number at which this stage activates.
+    /// Uses blockchain consensus time authority, not wall-clock time.
+    pub activates_at_sequence: u64,
+}
+
+impl ProgressiveDisclosure {
+    /// Create a progressive disclosure with the given ordered stages.
+    pub fn new(stages: Vec<DisclosureStage>) -> Self {
+        Self { stages, current_stage: 0 }
+    }
+
+    /// Advance to the next stage if the given consensus sequence number qualifies.
+    /// Returns `true` if the stage advanced.
+    pub fn advance_if_ready(&mut self, consensus_sequence: u64) -> bool {
+        let next = self.current_stage + 1;
+        if next < self.stages.len()
+            && self.stages[next].activates_at_sequence <= consensus_sequence
+        {
+            self.current_stage = next;
+            return true;
+        }
+        false
+    }
+
+    /// The privacy level of the current stage.
+    pub fn current_level(&self) -> PrivacyLevel {
+        self.stages.get(self.current_stage)
+            .map_or(PrivacyLevel::Public, |s| s.level)
+    }
+
+    /// Fields disclosed in the current stage.
+    pub fn current_disclosed_fields(&self) -> &[String] {
+        self.stages.get(self.current_stage)
+            .map_or(&[], |s| s.disclosed_fields.as_slice())
+    }
+}
+
+// ============================================================
+// PRIVACY INHERITANCE
+// ============================================================
+
+/// Privacy inheritance rule for composite objects.
+///
+/// When a complex object contains components with different privacy requirements,
+/// inheritance determines the effective privacy of the whole — ensuring that
+/// confidential components remain protected even when the containing object
+/// is accessed at a lower privacy level.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrivacyInheritanceRule {
+    /// Effective privacy = maximum of all component levels (most restrictive wins).
+    MaxOfComponents,
+    /// Effective privacy = the explicitly specified level, regardless of components.
+    /// Callers must ensure components are handled appropriately.
+    Explicit(PrivacyLevel),
+    /// Effective privacy = privacy of the owning context.
+    InheritFromContext,
+}
+
+impl PrivacyInheritanceRule {
+    /// Resolve the effective privacy level for a composite object.
+    pub fn resolve(&self, component_levels: &[PrivacyLevel], context_level: PrivacyLevel) -> PrivacyLevel {
+        match self {
+            Self::MaxOfComponents => component_levels.iter().copied().max().unwrap_or(PrivacyLevel::Public),
+            Self::Explicit(level) => *level,
+            Self::InheritFromContext => context_level,
+        }
+    }
+}
+
+// ============================================================
+// CROSS-NETWORK PRIVACY
+// ============================================================
+
+/// Privacy configuration for communication crossing network boundaries.
+///
+/// When transactions or data flow between different AEVOR networks or subnets,
+/// this configuration controls how privacy levels are preserved across the boundary.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossNetworkPrivacyConfig {
+    /// Minimum privacy level that can cross this boundary.
+    /// Objects more private than `max_crossing_level` cannot cross.
+    pub max_crossing_level: PrivacyLevel,
+    /// Whether metadata protection is applied to cross-network messages.
+    pub metadata_protection: MetadataProtectionLevel,
+    /// Whether ZK proofs are required to verify privacy compliance across the boundary.
+    pub require_privacy_proof: bool,
+    /// Whether cross-network audit logging is enabled (application-layer policy).
+    pub audit_crossings: bool,
+}
+
+impl Default for CrossNetworkPrivacyConfig {
+    fn default() -> Self {
+        Self {
+            max_crossing_level: PrivacyLevel::Protected,
+            metadata_protection: MetadataProtectionLevel::Standard,
+            require_privacy_proof: false,
+            audit_crossings: true,
+        }
+    }
+}
+
+/// Level of metadata protection for cross-network communication.
+///
+/// Metadata includes message sizes, timing, sender/recipient patterns, and
+/// routing information — all of which can reveal sensitive information even
+/// when message content is encrypted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum MetadataProtectionLevel {
+    /// No metadata protection (transparent routing).
+    None,
+    /// Basic: message sizes normalized, basic timing jitter applied.
+    Basic,
+    /// Standard: size normalization + timing jitter + routing obfuscation.
+    Standard,
+    /// Maximum: all standard protections + cover traffic + topology privacy.
+    Maximum,
+}
+
+impl MetadataProtectionLevel {
+    /// Returns `true` if timing obfuscation is applied at this level.
+    pub fn has_timing_protection(&self) -> bool {
+        matches!(self, Self::Standard | Self::Maximum)
+    }
+
+    /// Returns `true` if cover traffic is generated at this level.
+    pub fn has_cover_traffic(&self) -> bool {
+        matches!(self, Self::Maximum)
+    }
+}
+
+// ============================================================
+// ADDITIONAL TESTS FOR NEW TYPES
+// ============================================================
+
+#[cfg(test)]
+mod extended_tests {
+    use super::*;
+
+    fn addr(n: u8) -> Address { Address([n; 32]) }
+
+    // ── ConditionalDisclosure ─────────────────────────────────────────────
+    // Whitepaper §16.5: "conditional selective disclosure enables information sharing
+    // that depends on specific conditions being met through mathematical verification"
+
+    #[test]
+    fn conditional_disclosure_authorized_check() {
+        let d = ConditionalDisclosure::new(
+            "bid_amount",
+            "auction_closed",
+            vec![addr(1), addr(2)],
         );
-        assert!(
-            PrivacyLevel::Private.gas_multiplier()
-                < PrivacyLevel::Confidential.gas_multiplier()
-        );
+        assert!(d.is_authorized(&addr(1)));
+        assert!(!d.is_authorized(&addr(99)));
+        assert_eq!(d.condition_id, "auction_closed");
+        assert_eq!(d.field, "bid_amount");
+    }
+
+    #[test]
+    fn conditional_disclosure_unauthorized_before_condition_met() {
+        let d = ConditionalDisclosure::new("trade_price", "settlement_complete", vec![addr(5)]);
+        // Unauthorized parties cannot receive disclosure even if condition were met
+        assert!(!d.is_authorized(&addr(10)));
+        assert!(d.is_authorized(&addr(5)));
+    }
+
+    // ── ProgressiveDisclosure ─────────────────────────────────────────────
+    // Whitepaper §16.5: "progressive selective disclosure enables information sharing
+    // policies that change based on logical ordering"
+
+    #[test]
+    fn progressive_disclosure_starts_at_most_private_stage() {
+        let stages = vec![
+            DisclosureStage { name: "bidding".into(), level: PrivacyLevel::Confidential, disclosed_fields: vec![], activates_at_sequence: 0 },
+            DisclosureStage { name: "winner_disclosed".into(), level: PrivacyLevel::Private, disclosed_fields: vec!["winner".into()], activates_at_sequence: 100 },
+            DisclosureStage { name: "public_result".into(), level: PrivacyLevel::Public, disclosed_fields: vec!["winner".into(), "price".into()], activates_at_sequence: 200 },
+        ];
+        let pd = ProgressiveDisclosure::new(stages);
+        assert_eq!(pd.current_level(), PrivacyLevel::Confidential);
+        assert!(pd.current_disclosed_fields().is_empty());
+    }
+
+    #[test]
+    fn progressive_disclosure_advances_at_consensus_sequence() {
+        let stages = vec![
+            DisclosureStage { name: "private".into(), level: PrivacyLevel::Private, disclosed_fields: vec![], activates_at_sequence: 0 },
+            DisclosureStage { name: "public".into(), level: PrivacyLevel::Public, disclosed_fields: vec!["result".into()], activates_at_sequence: 50 },
+        ];
+        let mut pd = ProgressiveDisclosure::new(stages);
+        assert!(!pd.advance_if_ready(49)); // not yet
+        assert_eq!(pd.current_level(), PrivacyLevel::Private);
+        assert!(pd.advance_if_ready(50)); // exactly at threshold
+        assert_eq!(pd.current_level(), PrivacyLevel::Public);
+        assert_eq!(pd.current_disclosed_fields(), &["result".to_string()]);
+    }
+
+    #[test]
+    fn progressive_disclosure_does_not_advance_past_last_stage() {
+        let stages = vec![
+            DisclosureStage { name: "only".into(), level: PrivacyLevel::Private, disclosed_fields: vec![], activates_at_sequence: 0 },
+        ];
+        let mut pd = ProgressiveDisclosure::new(stages);
+        assert!(!pd.advance_if_ready(u64::MAX)); // no next stage
+        assert_eq!(pd.current_stage, 0);
+    }
+
+    // ── PrivacyInheritanceRule ────────────────────────────────────────────
+    // Whitepaper §16.8: "Privacy policy inheritance enables complex applications...
+    // to specify privacy requirements for individual components while maintaining
+    // overall policy consistency"
+
+    #[test]
+    fn privacy_inheritance_max_of_components_picks_most_restrictive() {
+        let rule = PrivacyInheritanceRule::MaxOfComponents;
+        let levels = [PrivacyLevel::Public, PrivacyLevel::Private, PrivacyLevel::Protected];
+        assert_eq!(rule.resolve(&levels, PrivacyLevel::Public), PrivacyLevel::Private);
+    }
+
+    #[test]
+    fn privacy_inheritance_explicit_ignores_components() {
+        let rule = PrivacyInheritanceRule::Explicit(PrivacyLevel::Confidential);
+        let levels = [PrivacyLevel::Public]; // even if components are public
+        assert_eq!(rule.resolve(&levels, PrivacyLevel::Public), PrivacyLevel::Confidential);
+    }
+
+    #[test]
+    fn privacy_inheritance_from_context_uses_context() {
+        let rule = PrivacyInheritanceRule::InheritFromContext;
+        let levels = [PrivacyLevel::Public];
+        assert_eq!(rule.resolve(&levels, PrivacyLevel::Private), PrivacyLevel::Private);
+    }
+
+    #[test]
+    fn privacy_inheritance_empty_components_defaults_to_public() {
+        let rule = PrivacyInheritanceRule::MaxOfComponents;
+        assert_eq!(rule.resolve(&[], PrivacyLevel::Public), PrivacyLevel::Public);
+    }
+
+    // ── CrossNetworkPrivacyConfig ─────────────────────────────────────────
+    // Whitepaper §16.9: "Privacy-Preserving Cross-Network Communication"
+
+    #[test]
+    fn cross_network_privacy_default_allows_up_to_protected() {
+        let cfg = CrossNetworkPrivacyConfig::default();
+        assert_eq!(cfg.max_crossing_level, PrivacyLevel::Protected);
+        assert!(cfg.audit_crossings);
+    }
+
+    #[test]
+    fn cross_network_privacy_confidential_blocked_at_protected_boundary() {
+        let cfg = CrossNetworkPrivacyConfig::default();
+        // Confidential is more private than Protected — should not cross
+        assert!(PrivacyLevel::Confidential > cfg.max_crossing_level);
+    }
+
+    // ── MetadataProtectionLevel ───────────────────────────────────────────
+    // Whitepaper §16.9: "metadata protection ensures communication privacy extends
+    // beyond message content to encompass communication patterns"
+
+    #[test]
+    fn metadata_protection_standard_has_timing_not_cover_traffic() {
+        assert!(MetadataProtectionLevel::Standard.has_timing_protection());
+        assert!(!MetadataProtectionLevel::Standard.has_cover_traffic());
+    }
+
+    #[test]
+    fn metadata_protection_maximum_has_all_protections() {
+        assert!(MetadataProtectionLevel::Maximum.has_timing_protection());
+        assert!(MetadataProtectionLevel::Maximum.has_cover_traffic());
+    }
+
+    #[test]
+    fn metadata_protection_basic_no_timing() {
+        assert!(!MetadataProtectionLevel::Basic.has_timing_protection());
+        assert!(!MetadataProtectionLevel::Basic.has_cover_traffic());
+    }
+
+    #[test]
+    fn metadata_protection_none_no_protections() {
+        assert!(!MetadataProtectionLevel::None.has_timing_protection());
+        assert!(!MetadataProtectionLevel::None.has_cover_traffic());
     }
 }

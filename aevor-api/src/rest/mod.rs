@@ -25,3 +25,26 @@ impl RestServer {
     pub fn serve(&self) -> crate::ApiResult<()> { Ok(()) }
     pub fn listen_addr(&self) -> SocketAddr { self.config.listen_addr }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::SocketAddr;
+
+    fn rest_config() -> RestConfig {
+        RestConfig { listen_addr: "127.0.0.1:8080".parse().unwrap(), tls_cert: None, tls_key: None }
+    }
+
+    #[test]
+    fn rest_server_listen_addr() {
+        let server = RestServer::new(rest_config(), crate::middleware::MiddlewareStack::default(), crate::network_routing::MultiNetworkApi::default());
+        assert_eq!(server.listen_addr().port(), 8080);
+    }
+
+    #[test]
+    fn json_response_stores_data_and_flag() {
+        let r = JsonResponse { data: 42u64, success: true };
+        assert!(r.success);
+        assert_eq!(r.data, 42);
+    }
+}

@@ -212,6 +212,10 @@ pub const DEFAULT_TTL_SECONDS: u32 = 300;
 pub const MAX_TXT_RECORD_BYTES: usize = 65_535;
 
 /// Default DNS cache capacity in record count.
+///
+/// This is a default starting size for the in-memory record cache.
+/// Operators may configure larger caches to improve hit rates on
+/// high-traffic nodes. No architectural ceiling exists on cache size.
 pub const DEFAULT_CACHE_CAPACITY: usize = 100_000;
 
 /// AEVOR DNS extension record type ID (private use range).

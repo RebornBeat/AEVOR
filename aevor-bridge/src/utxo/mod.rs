@@ -18,3 +18,31 @@ impl UtxoBridge {
     pub fn network(&self) -> &str { &self.config.network }
     pub fn required_confirmations(&self) -> u32 { self.config.confirmations }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Hash256;
+
+    #[test]
+    fn utxo_bridge_stores_network_and_confirmations() {
+        let bridge = UtxoBridge::new(BitcoinChainConfig { network: "mainnet".into(), confirmations: 6 });
+        assert_eq!(bridge.network(), "mainnet");
+        assert_eq!(bridge.required_confirmations(), 6);
+    }
+
+    #[test]
+    fn utxo_state_proof_has_merkle_path() {
+        let proof = UtxoStateProof { tx_hash: Hash256::ZERO, merkle_path: vec![Hash256([1u8;32])] };
+        assert_eq!(proof.merkle_path.len(), 1);
+    }
+
+    #[test]
+    fn bitcoin_spv_has_header_and_proof() {
+        let spv = BitcoinSpv {
+            block_header: vec![0u8; 80],
+            proof: UtxoStateProof { tx_hash: Hash256::ZERO, merkle_path: vec![] },
+        };
+        assert_eq!(spv.block_header.len(), 80);
+    }
+}

@@ -25,3 +25,39 @@ impl TeeIntegrityMonitor {
     }
 }
 impl Default for TeeIntegrityMonitor { fn default() -> Self { Self::new() } }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aevor_core::primitives::Hash256;
+    use aevor_core::tee::TeePlatform;
+
+    fn proof(platform: TeePlatform, m: u8) -> EnclaveIntegrityProof {
+        EnclaveIntegrityProof { platform, measurement: Hash256([m; 32]), timestamp_round: 100 }
+    }
+
+    #[test]
+    fn tee_integrity_monitor_consistent_measurements() {
+        let expected = Hash256([0xAB; 32]);
+        let mut mon = TeeIntegrityMonitor::new();
+        mon.record(proof(TeePlatform::IntelSgx, 0xAB));
+        mon.record(proof(TeePlatform::AmdSev, 0xAB));
+        assert!(mon.is_consistent(&expected));
+    }
+
+    #[test]
+    fn tee_integrity_monitor_detects_inconsistency() {
+        let expected = Hash256([0xAB; 32]);
+        let mut mon = TeeIntegrityMonitor::default();
+        mon.record(proof(TeePlatform::IntelSgx, 0xAB));
+        mon.record(proof(TeePlatform::ArmTrustZone, 0xFF)); // differs
+        assert!(!mon.is_consistent(&expected));
+    }
+
+    #[test]
+    fn tee_health_status_fields() {
+        let s = TeeHealthStatus { platform: TeePlatform::AwsNitro, is_healthy: true, last_checked_round: 500 };
+        assert!(s.is_healthy);
+        assert_eq!(s.last_checked_round, 500);
+    }
+}

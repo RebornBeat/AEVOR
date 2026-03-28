@@ -39,3 +39,38 @@ impl FaucetServer {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::SocketAddr;
+    use crate::faucet::{Faucet, FaucetConfig};
+
+    fn test_faucet() -> Faucet {
+        Faucet::new(FaucetConfig { network: "testnet".into(), node_endpoint: "http://localhost:8080".into(), distribution_amount: 1_000_000_000, cooldown_seconds: 3600, pow_difficulty: 4, key_file: None }).unwrap()
+    }
+
+    fn http_config() -> HttpConfig {
+        HttpConfig { listen_addr: "127.0.0.1:8000".parse().unwrap(), enable_cors: true, max_concurrent_requests: 100 }
+    }
+
+    #[test]
+    fn faucet_server_stores_listen_addr() {
+        let server = FaucetServer::new(test_faucet(), http_config());
+        assert_eq!(server.listen_addr().port(), 8000);
+    }
+
+    #[test]
+    fn faucet_server_config_cors_enabled() {
+        let server = FaucetServer::new(test_faucet(), http_config());
+        assert!(server.config().enable_cors);
+        assert_eq!(server.config().max_concurrent_requests, 100);
+    }
+
+    #[test]
+    fn faucet_response_success_fields() {
+        let r = FaucetResponse { success: true, tx_hash: Some("0xABC".into()), error: None };
+        assert!(r.success);
+        assert!(r.tx_hash.is_some());
+    }
+}

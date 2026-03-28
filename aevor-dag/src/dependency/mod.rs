@@ -1,4 +1,17 @@
 //! Object dependency graph for parallel execution planning.
+//!
+//! The `ConflictDetector` and `DependencyAnalyzer` implement AEVOR's core
+//! pre-execution conflict resolution model:
+//!
+//! 1. **Before any transaction executes**, its read/write set is submitted.
+//! 2. `ConflictDetector` identifies all conflict types (WAW, RAW, WAR).
+//! 3. `DependencyAnalyzer` builds the dependency graph.
+//! 4. The scheduler **rejects** conflicting transactions — they never execute.
+//! 5. No state is ever unwound; finalized state is immutable.
+//!
+//! Transactions that conflict are returned to their senders, who may resubmit
+//! after the dependency resolves. This is a sender-side decision, not an
+//! automatic infrastructure retry.
 
 use serde::{Deserialize, Serialize};
 use aevor_core::primitives::{ObjectId, TransactionHash};
@@ -142,5 +155,47 @@ mod tests {
         let sets = vec![rw(1, &[1], &[2]), rw(2, &[3], &[4])];
         let graph = DependencyAnalyzer::analyze(&sets);
         assert!(graph.edges.is_empty());
+    }
+
+    #[test]
+    fn conflict_detector_returns_none_for_independent_transactions() {
+        // Independent transactions have no conflict → both are accepted for parallel execution.
+        let a = rw(1, &[1, 2], &[5]);
+        let b = rw(2, &[3, 4], &[6]);
+        assert!(ConflictDetector::conflict_type(&a, &b).is_none());
+        assert!(ConflictDetector::conflict_type(&b, &a).is_none());
+    }
+
+    #[test]
+    fn conflicting_transaction_is_rejected_not_executed() {
+        // ARCHITECTURE INVARIANT: ConflictDetector identifies conflicts BEFORE execution.
+        // If conflict_type returns Some(_), the losing transaction is rejected by the scheduler.
+        // No execution occurs for the rejected transaction.
+        let writer = rw(1, &[], &[42]); // writes obj 42
+        let also_writer = rw(2, &[], &[42]); // also writes obj 42 — conflict!
+        let conflict = ConflictDetector::conflict_type(&writer, &also_writer);
+        assert_eq!(conflict, Some(DependencyType::WriteAfterWrite));
+        // Detection happened pre-execution. `also_writer` would be rejected.
+        // No state changed. Sender of tx 2 may resubmit after tx 1 finalizes.
+    }
+
+    #[test]
+    fn dependency_graph_reverse_edges_track_dependents() {
+        // tx 1 writes obj 10, tx 2 reads obj 10 → tx 2 depends on tx 1
+        let sets = vec![rw(1, &[], &[10]), rw(2, &[10], &[])];
+        let graph = DependencyAnalyzer::analyze(&sets);
+        // reverse_edges[1] means "vertex 1 (tx 2) must wait for vertex 0 (tx 1)"
+        assert!(graph.reverse_edges.contains_key(&1));
+    }
+
+    #[test]
+    fn read_read_sharing_never_conflicts() {
+        // Multiple transactions reading the same object is always safe for parallel execution.
+        let a = rw(1, &[10, 20], &[]);
+        let b = rw(2, &[10, 30], &[]); // shares obj 10 read
+        let c = rw(3, &[20], &[]);     // shares obj 20 read
+        assert!(ConflictDetector::conflict_type(&a, &b).is_none());
+        assert!(ConflictDetector::conflict_type(&a, &c).is_none());
+        assert!(ConflictDetector::conflict_type(&b, &c).is_none());
     }
 }

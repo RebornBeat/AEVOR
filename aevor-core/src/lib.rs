@@ -140,6 +140,7 @@ pub mod prelude {
     pub use crate::network::{
         GeographicRegion, NetworkTopology, NodeId, PeerId, SubnetId,
         NetworkAddress, NetworkProtocol, ConnectionMetadata, TopologyMetrics,
+        SubnetPermissionPolicy, SubnetConnectivity,
     };
 
     // Storage types

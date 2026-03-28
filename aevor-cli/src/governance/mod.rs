@@ -26,3 +26,15 @@ impl GovernanceCommand {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn governance_status_stores_counts() {
+        let s = GovernanceStatus { active_proposals: 3, pending_executions: 1 };
+        assert_eq!(s.active_proposals, 3);
+        assert_eq!(s.pending_executions, 1);
+    }
+}

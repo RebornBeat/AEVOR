@@ -25,3 +25,48 @@ impl HealthChecker {
     }
 }
 impl Default for HealthChecker { fn default() -> Self { Self::new() } }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sub(name: &str, status: HealthStatus) -> SubsystemHealth {
+        SubsystemHealth { name: name.into(), status, message: None }
+    }
+
+    #[test]
+    fn health_checker_all_healthy() {
+        let mut hc = HealthChecker::new();
+        hc.register(sub("consensus", HealthStatus::Healthy));
+        hc.register(sub("network", HealthStatus::Healthy));
+        assert_eq!(hc.overall_status(), HealthStatus::Healthy);
+    }
+
+    #[test]
+    fn health_checker_one_degraded() {
+        let mut hc = HealthChecker::new();
+        hc.register(sub("consensus", HealthStatus::Healthy));
+        hc.register(sub("storage", HealthStatus::Degraded));
+        assert_eq!(hc.overall_status(), HealthStatus::Degraded);
+    }
+
+    #[test]
+    fn health_checker_any_unhealthy_is_unhealthy() {
+        let mut hc = HealthChecker::new();
+        hc.register(sub("consensus", HealthStatus::Degraded));
+        hc.register(sub("network", HealthStatus::Unhealthy));
+        assert_eq!(hc.overall_status(), HealthStatus::Unhealthy);
+    }
+
+    #[test]
+    fn readiness_probe_fails_if_any_unhealthy() {
+        let subs = vec![sub("ok", HealthStatus::Healthy), sub("bad", HealthStatus::Unhealthy)];
+        assert!(!ReadinessProbe::check(&subs));
+    }
+
+    #[test]
+    fn readiness_probe_passes_with_degraded() {
+        let subs = vec![sub("ok", HealthStatus::Healthy), sub("warn", HealthStatus::Degraded)];
+        assert!(ReadinessProbe::check(&subs));
+    }
+}
