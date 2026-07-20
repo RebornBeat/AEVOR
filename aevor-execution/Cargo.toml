@@ -13,6 +13,7 @@ aevor-tee       = { workspace = true }
 aevor-storage   = { workspace = true }
 aevor-vm        = { workspace = true }
 aevor-dag       = { workspace = true }
+rayon        = { workspace = true }
 aevor-consensus = { workspace = true }
 serde           = { workspace = true }
 thiserror       = { workspace = true }

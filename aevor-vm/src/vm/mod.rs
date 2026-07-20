@@ -101,6 +101,25 @@ impl AevorVm {
     pub fn lookup(&self, address: &Address) -> Option<&Vec<u8>> {
         self.registry.get(address)
     }
+
+    /// Execute a program (a slice of instructions) with the given gas limit,
+    /// using this VM's configured maximum call depth.
+    ///
+    /// This is the real bytecode interpreter entry point: it runs the program
+    /// deterministically with gas metering and returns the outcome (return
+    /// value, gas used, TEE attestation flag, final state).
+    ///
+    /// # Errors
+    /// Propagates interpreter errors: [`crate::VmError::OutOfGas`],
+    /// [`crate::VmError::ContractAbort`], [`crate::VmError::StackOverflow`], or
+    /// [`crate::VmError::TeeUnavailable`].
+    pub fn execute(
+        &self,
+        program: &[crate::instructions::Instruction],
+        gas_limit: aevor_core::primitives::GasAmount,
+    ) -> crate::VmResult<crate::interpreter::ExecutionOutcome> {
+        crate::interpreter::Interpreter::new(gas_limit, self.config.max_call_depth).execute(program)
+    }
     /// Number of deployed contracts.
     pub fn contract_count(&self) -> usize { self.registry.count() }
 }

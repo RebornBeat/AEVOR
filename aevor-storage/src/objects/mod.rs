@@ -154,6 +154,23 @@ impl ObjectStore {
         self.backend.delete(&key)
     }
 
+    /// Enumerate every stored object record.
+    ///
+    /// Used to reconstruct the authenticated state tree on startup and for state
+    /// sync. Entries that do not deserialize as an `ObjectRecord` are skipped.
+    ///
+    /// # Errors
+    /// Returns an error if the backend scan fails.
+    pub fn all_records(&self) -> StorageResult<Vec<ObjectRecord>> {
+        let mut records = Vec::new();
+        for (_key, value) in self.backend.scan()? {
+            if let Ok(record) = bincode::deserialize::<ObjectRecord>(&value.0) {
+                records.push(record);
+            }
+        }
+        Ok(records)
+    }
+
     /// Check whether an object exists.
     ///
     /// # Errors

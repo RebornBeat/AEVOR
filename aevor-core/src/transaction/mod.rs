@@ -6,8 +6,9 @@
 use serde::{Deserialize, Serialize};
 use crate::primitives::{
     Address, Amount, ChainId, GasAmount, GasPrice, Hash256,
-    Nonce, ObjectId, PublicKey, Signature, TransactionHash,
+    Nonce, ObjectId, Signature, TransactionHash,
 };
+use crate::crypto::{MultiPublicKey, MultiSignature};
 use crate::consensus::SecurityLevel;
 use crate::privacy::PrivacyLevel;
 
@@ -134,8 +135,9 @@ pub struct Transaction {
     pub tx_type: TransactionType,
     /// Address that is initiating this transaction.
     pub sender: Address,
-    /// Sender's public key (for signature verification).
-    pub sender_public_key: PublicKey,
+    /// Sender's scheme-tagged public key (for signature verification).
+    /// A `MultiPublicKey` so any scheme — Ed25519, ML-DSA, Hybrid — can sign.
+    pub sender_public_key: MultiPublicKey,
     /// Sender's current nonce (prevents replay attacks).
     pub nonce: Nonce,
     /// Objects being consumed or read by this transaction.
@@ -187,6 +189,82 @@ impl Transaction {
         }
         writes
     }
+
+    /// The canonical bytes a wallet signs.
+    ///
+    /// Covers the semantic body — chain, nonce, sender, declared read/write
+    /// sets, and payload — so the signature binds replay protection
+    /// (`chain_id`, `nonce`) and the effect of the transaction. The transaction
+    /// [`hash`](Transaction::hash) is `BLAKE3(signing_bytes())` and so is not
+    /// itself included here.
+    #[must_use]
+    pub fn signing_bytes(&self) -> Vec<u8> {
+        let mut m = Vec::new();
+        m.extend_from_slice(&self.chain_id.0.to_le_bytes());
+        m.extend_from_slice(&self.nonce.0.to_le_bytes());
+        m.extend_from_slice(&self.sender.0);
+        for w in self.declared_write_set() {
+            m.extend_from_slice(&w.0 .0);
+        }
+        for r in self.declared_read_set() {
+            m.extend_from_slice(&r.0 .0);
+        }
+        m.extend_from_slice(&self.payload);
+        m
+    }
+
+    /// Build a minimal transaction: a sender key, nonce, read/write object sets,
+    /// and a payload, with sensible defaults for the rest. The `hash` is
+    /// computed as `BLAKE3(signing_bytes())`.
+    ///
+    /// `reads` become `Read` inputs and `writes` become `ReadWrite` inputs, so
+    /// [`declared_read_set`](Transaction::declared_read_set) and
+    /// [`declared_write_set`](Transaction::declared_write_set) reflect them.
+    #[must_use]
+    pub fn new_simple(
+        sender_public_key: MultiPublicKey,
+        nonce: Nonce,
+        reads: &[ObjectId],
+        writes: &[ObjectId],
+        payload: Vec<u8>,
+    ) -> Self {
+        let mut inputs = Vec::with_capacity(reads.len() + writes.len());
+        for &object_id in reads {
+            inputs.push(TransactionInput {
+                object_id,
+                expected_version: 0,
+                content_hash: Hash256::ZERO,
+                access_type: InputAccessType::Read,
+            });
+        }
+        for &object_id in writes {
+            inputs.push(TransactionInput {
+                object_id,
+                expected_version: 0,
+                content_hash: Hash256::ZERO,
+                access_type: InputAccessType::ReadWrite,
+            });
+        }
+        let mut tx = Self {
+            hash: Hash256::ZERO,
+            chain_id: ChainId(1),
+            tx_type: TransactionType::Call,
+            sender: Address([0u8; 32]),
+            sender_public_key,
+            nonce,
+            inputs,
+            outputs: Vec::new(),
+            gas_limit: GasAmount(1_000_000),
+            max_gas_price: GasPrice(1),
+            value: Amount::ZERO,
+            payload,
+            required_security_level: SecurityLevel::Minimal,
+            privacy_level: PrivacyLevel::Public,
+            metadata: Vec::new(),
+        };
+        tx.hash = Hash256(*blake3::hash(&tx.signing_bytes()).as_bytes());
+        tx
+    }
 }
 
 // ============================================================
@@ -195,15 +273,15 @@ impl Transaction {
 
 /// A transaction with its cryptographic signature(s).
 ///
-/// Signature coverage: `Ed25519(BLAKE3(canonical_transaction_bytes))`
-/// using the sender's key. Additional signatures may be present for
-/// multi-sig transactions.
+/// Signature coverage: the sender's scheme-tagged signature over
+/// [`Transaction::signing_bytes`]. The [`MultiSignature`] envelope means any
+/// scheme (Ed25519, ML-DSA-65, Hybrid) can sign the same transaction shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignedTransaction {
     /// The unsigned transaction body.
     pub transaction: Transaction,
-    /// Primary signature from the transaction sender.
-    pub signature: Signature,
+    /// Primary scheme-tagged signature from the transaction sender.
+    pub signature: MultiSignature,
     /// Additional signatures for multi-signature transactions.
     pub multi_signatures: Vec<Signature>,
     /// Zero-knowledge proof if the transaction uses private inputs.
@@ -381,7 +459,7 @@ mod tests {
             chain_id: ChainId::MAINNET,
             tx_type: TransactionType::Transfer,
             sender: Address::ZERO,
-            sender_public_key: PublicKey([0u8; 32]),
+            sender_public_key: MultiPublicKey::new(crate::crypto::SignatureSchemeId::Ed25519, vec![0u8; 32]),
             nonce: Nonce::INITIAL,
             inputs: vec![],
             outputs: vec![],
@@ -395,7 +473,7 @@ mod tests {
         };
         let signed = SignedTransaction {
             transaction: tx,
-            signature: Signature::ZERO,
+            signature: MultiSignature::new(crate::crypto::SignatureSchemeId::Ed25519, vec![0u8; 64]),
             multi_signatures: vec![],
             privacy_proof: None,
         };

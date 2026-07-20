@@ -10,6 +10,7 @@ repository.workspace = true
 aevor-core   = { workspace = true }
 aevor-crypto = { workspace = true }
 aevor-tee    = { workspace = true }
+hickory-resolver = { workspace = true }
 serde        = { workspace = true }
 thiserror    = { workspace = true }
 hex          = { workspace = true }

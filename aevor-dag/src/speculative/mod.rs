@@ -121,58 +121,6 @@ mod tests {
     fn pre_execution_batch_accepted_set_contains_only_accepted() {
         let mut batch = PreExecutionBatch::default();
         batch.push(PreExecutionDecision::accept(tx(1)));
-        batch.push(PreExecutionDecision::reject(tx(2), "conflict"));
-        let set = batch.accepted_set();
-        assert_eq!(set.len(), 1);
-        assert_eq!(set.transactions[0], tx(1));
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use aevor_core::primitives::Hash256;
-
-    fn tx(n: u8) -> TransactionHash { Hash256([n; 32]) }
-
-    #[test]
-    fn pre_execution_decision_accept() {
-        let d = PreExecutionDecision::accept(tx(1));
-        assert!(d.accepted);
-        assert!(d.rejection_reason.is_none());
-        assert_eq!(d.transaction, tx(1));
-    }
-
-    #[test]
-    fn pre_execution_decision_reject_stores_reason() {
-        let d = PreExecutionDecision::reject(tx(2), "write-write conflict on obj 0xAB");
-        assert!(!d.accepted);
-        assert!(d.rejection_reason.as_deref().unwrap().contains("write-write"));
-    }
-
-    #[test]
-    fn conflict_free_set_len_and_is_empty() {
-        let empty = ConflictFreeSet::new(vec![]);
-        assert!(empty.is_empty());
-        let set = ConflictFreeSet::new(vec![tx(1), tx(2)]);
-        assert_eq!(set.len(), 2);
-        assert!(!set.is_empty());
-    }
-
-    #[test]
-    fn pre_execution_batch_counts_accepts_and_rejects() {
-        let mut batch = PreExecutionBatch::default();
-        batch.push(PreExecutionDecision::accept(tx(1)));
-        batch.push(PreExecutionDecision::accept(tx(2)));
-        batch.push(PreExecutionDecision::reject(tx(3), "conflict"));
-        assert_eq!(batch.accepted_count(), 2);
-        assert_eq!(batch.rejected_count(), 1);
-    }
-
-    #[test]
-    fn pre_execution_batch_accepted_set_contains_only_accepted() {
-        let mut batch = PreExecutionBatch::default();
-        batch.push(PreExecutionDecision::accept(tx(1)));
         batch.push(PreExecutionDecision::reject(tx(2), "write-write conflict"));
         let set = batch.accepted_set();
         assert_eq!(set.len(), 1);

@@ -335,6 +335,153 @@ impl SecurityClaims {
 }
 
 // ============================================================
+// CRYPTO AGILITY: scheme-tagged signature / public-key envelope
+// ============================================================
+
+/// Identifier for a signature scheme, carried on the wire so a verifier knows
+/// how to interpret the bytes.
+///
+/// This is the agility discriminant. It is **additive**: introducing a new
+/// scheme (post-quantum or otherwise) means adding a variant here plus one
+/// verification arm in `aevor-crypto` — nothing that stores a signature
+/// changes. Classical and post-quantum schemes coexist under one type, so
+/// switching between them (or between two post-quantum schemes) is a data
+/// change, not a code migration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[repr(u16)]
+pub enum SignatureSchemeId {
+    // ── Classical (implemented) ──────────────────────────────
+    /// Ed25519 — fast, small; default transaction signing.
+    Ed25519 = 0x0001,
+    /// BLS12-381 — aggregatable; consensus/finality.
+    Bls12_381 = 0x0002,
+
+    // ── Post-quantum, lattice (NIST FIPS 204 / draft FN-DSA) ──
+    /// ML-DSA-44 (Dilithium2).
+    MlDsa44 = 0x0101,
+    /// ML-DSA-65 (Dilithium3).
+    MlDsa65 = 0x0102,
+    /// ML-DSA-87 (Dilithium5).
+    MlDsa87 = 0x0103,
+    /// FN-DSA-512 (Falcon-512) — smaller signatures than ML-DSA.
+    FnDsa512 = 0x0111,
+
+    // ── Post-quantum, hash-based (NIST FIPS 205) ─────────────
+    /// SLH-DSA-128s (SPHINCS+-128s) — conservative, for root-of-trust.
+    SlhDsa128s = 0x0201,
+
+    // ── Post-quantum, symmetric / MPC-in-the-Head (candidate) ─
+    /// FAEST-128s — `AES`-based `MPCitH` (NIST additional-signature candidate).
+    Faest128s = 0x0301,
+
+    // ── Hybrids (classical bytes ‖ post-quantum bytes) ───────
+    /// Ed25519 ‖ ML-DSA-65 — classical + post-quantum defence in depth.
+    HybridEd25519MlDsa65 = 0x1001,
+}
+
+impl SignatureSchemeId {
+    /// Whether this scheme provides post-quantum security (fully or in hybrid).
+    #[must_use]
+    pub fn is_post_quantum(self) -> bool {
+        !matches!(self, SignatureSchemeId::Ed25519 | SignatureSchemeId::Bls12_381)
+    }
+
+    /// Whether this scheme aggregates (only BLS today).
+    #[must_use]
+    pub fn is_aggregatable(self) -> bool {
+        matches!(self, SignatureSchemeId::Bls12_381)
+    }
+
+    /// Human-readable name.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            SignatureSchemeId::Ed25519 => "Ed25519",
+            SignatureSchemeId::Bls12_381 => "BLS12-381",
+            SignatureSchemeId::MlDsa44 => "ML-DSA-44",
+            SignatureSchemeId::MlDsa65 => "ML-DSA-65",
+            SignatureSchemeId::MlDsa87 => "ML-DSA-87",
+            SignatureSchemeId::FnDsa512 => "FN-DSA-512",
+            SignatureSchemeId::SlhDsa128s => "SLH-DSA-128s",
+            SignatureSchemeId::Faest128s => "FAEST-128s",
+            SignatureSchemeId::HybridEd25519MlDsa65 => "Hybrid(Ed25519+ML-DSA-65)",
+        }
+    }
+}
+
+/// A variable-length, scheme-tagged signature envelope.
+///
+/// The single wire type for all signatures regardless of algorithm. A verifier
+/// reads `scheme` and dispatches to the right algorithm over `bytes`. This is
+/// what makes non-PQ↔PQ and PQ↔PQ switching seamless: the envelope never
+/// changes, only the tag and payload.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MultiSignature {
+    /// Which scheme produced `bytes`.
+    pub scheme: SignatureSchemeId,
+    /// The scheme-specific signature bytes.
+    pub bytes: Vec<u8>,
+}
+
+impl MultiSignature {
+    /// Construct a scheme-tagged signature.
+    #[must_use]
+    pub fn new(scheme: SignatureSchemeId, bytes: Vec<u8>) -> Self {
+        Self { scheme, bytes }
+    }
+
+    /// Signature length in bytes (useful for wire-size accounting).
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    /// Whether the signature payload is empty.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+
+    /// Whether this signature is post-quantum (by scheme).
+    #[must_use]
+    pub fn is_post_quantum(&self) -> bool {
+        self.scheme.is_post_quantum()
+    }
+}
+
+/// A variable-length, scheme-tagged public key envelope.
+///
+/// Post-quantum public keys are far larger and variable-sized, so keys use the
+/// same tagged-envelope pattern as signatures.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MultiPublicKey {
+    /// Which scheme this key belongs to.
+    pub scheme: SignatureSchemeId,
+    /// The scheme-specific public-key bytes.
+    pub bytes: Vec<u8>,
+}
+
+impl MultiPublicKey {
+    /// Construct a scheme-tagged public key.
+    #[must_use]
+    pub fn new(scheme: SignatureSchemeId, bytes: Vec<u8>) -> Self {
+        Self { scheme, bytes }
+    }
+
+    /// Public-key length in bytes.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    /// Whether the key payload is empty.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+}
+
+// ============================================================
 // TESTS
 // ============================================================
 

@@ -71,6 +71,61 @@ impl BlsAggregateSignature {
     pub fn signer_count(&self) -> usize {
         self.signer_count
     }
+
+    /// O(1) verification against a **precomputed** aggregate public key.
+    ///
+    /// All signers signed the same message, so a committee that caches the
+    /// aggregate of its members' public keys (see [`aggregate_public_keys`])
+    /// verifies a finality proof with a single pairing check — **constant time
+    /// regardless of committee size**. This is the property that lets the
+    /// validator set grow without finality verification degrading.
+    #[must_use]
+    pub fn verify_with_aggregate_key(&self, message: &[u8], aggregate_key: &[u8]) -> bool {
+        use blst::min_sig::{PublicKey, Signature};
+        if self.aggregate.is_empty() {
+            return false;
+        }
+        let (Ok(sig), Ok(pk)) = (
+            Signature::uncompress(&self.aggregate),
+            PublicKey::uncompress(aggregate_key),
+        ) else {
+            return false;
+        };
+        let dst = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
+        matches!(
+            sig.verify(true, message, dst, &[], &pk, true),
+            blst::BLST_ERROR::BLST_SUCCESS
+        )
+    }
+}
+
+/// Aggregate a set of BLS public keys into one compressed aggregate key.
+///
+/// A committee computes this **once** (or incrementally as membership changes)
+/// and caches it, so that each finality proof is then verified in O(1) via
+/// [`BlsAggregateSignature::verify_with_aggregate_key`].
+///
+/// # Errors
+/// Returns an error if the set is empty or the keys are malformed.
+pub fn aggregate_public_keys(keys: &[BlsPublicKey]) -> crate::CryptoResult<Vec<u8>> {
+    use blst::min_sig::AggregatePublicKey;
+
+    let pks: Vec<blst::min_sig::PublicKey> = keys
+        .iter()
+        .filter_map(|k| blst::min_sig::PublicKey::uncompress(&k.0).ok())
+        .collect();
+    if pks.is_empty() {
+        return Err(crate::CryptoError::CommitmentError(
+            "cannot aggregate zero public keys".into(),
+        ));
+    }
+    let refs: Vec<&blst::min_sig::PublicKey> = pks.iter().collect();
+    let agg = AggregatePublicKey::aggregate(&refs, true).map_err(|e| {
+        crate::CryptoError::ProofVerificationFailed {
+            system: format!("BLS pubkey aggregation: {e:?}"),
+        }
+    })?;
+    Ok(agg.to_public_key().compress().to_vec())
 }
 
 /// Accumulates BLS signatures from individual validators before aggregating.
@@ -297,5 +352,36 @@ mod tests {
         let verifier = BlsBatchVerifier::new();
         assert_eq!(verifier.item_count(), 0);
         assert!(verifier.verify_all().unwrap());
+    }
+
+    #[test]
+    fn aggregate_verifies_against_precomputed_committee_key() {
+        use crate::signatures::BlsKeyPair;
+        use aevor_core::primitives::Hash256;
+
+        let message = b"finalize-block-hash";
+        let msg_hash = Hash256([7u8; 32]);
+
+        // A 5-validator committee.
+        let keys: Vec<BlsKeyPair> = (0..5u8).map(|i| BlsKeyPair::from_ikm([i; 32])).collect();
+
+        // Each validator signs the same message; the proposer aggregates.
+        let mut aggregator = BlsAggregator::new(msg_hash, keys.len());
+        for (i, k) in keys.iter().enumerate() {
+            aggregator.add_signature(i, &k.sign(message)).unwrap();
+        }
+        let agg = aggregator.aggregate().unwrap();
+        assert_eq!(agg.signer_count(), 5);
+
+        // The committee precomputes its aggregate public key ONCE.
+        let pubkeys: Vec<_> = keys.iter().map(BlsKeyPair::public_key).collect();
+        let committee_key = aggregate_public_keys(&pubkeys).unwrap();
+
+        // O(1) verification against the precomputed key succeeds…
+        assert!(agg.verify_with_aggregate_key(message, &committee_key));
+        // …and rejects a different message and a wrong key.
+        assert!(!agg.verify_with_aggregate_key(b"other-message", &committee_key));
+        let wrong_key = aggregate_public_keys(&pubkeys[..4]).unwrap();
+        assert!(!agg.verify_with_aggregate_key(message, &wrong_key));
     }
 }

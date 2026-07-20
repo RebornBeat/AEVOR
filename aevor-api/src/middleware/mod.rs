@@ -1,7 +1,7 @@
 //! API middleware stack.
 use crate::rate_limiting::FairRateLimiter;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct MiddlewareStack { pub rate_limiter: Option<std::sync::Arc<FairRateLimiter>>, pub cors: bool }
 
 pub struct MiddlewareBuilder { stack: MiddlewareStack }

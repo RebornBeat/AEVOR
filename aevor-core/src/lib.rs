@@ -46,6 +46,9 @@
 /// Primitive types: hashes, addresses, amounts, identifiers.
 pub mod primitives;
 
+/// Canonical BLAKE3 hashing (re-exported by aevor-crypto).
+pub mod hash;
+
 /// Privacy architecture: object-level policies, selective disclosure, cross-privacy coordination.
 pub mod privacy;
 
@@ -260,17 +263,21 @@ pub const MIN_VALIDATOR_PARTICIPATION_STRONG: f64 = 0.33;
 /// Minimum validator participation fraction for full security (67%).
 pub const MIN_VALIDATOR_PARTICIPATION_FULL: f64 = 0.67;
 
-/// Confirmation time ceiling for minimal security in milliseconds.
-pub const CONFIRMATION_MS_MINIMAL_MAX: u64 = 50;
+/// Typical confirmation time for minimal security in milliseconds
+/// (measured on reference hardware; not a guaranteed bound or ceiling).
+pub const TYPICAL_CONFIRMATION_MS_MINIMAL: u64 = 50;
 
-/// Confirmation time ceiling for basic security in milliseconds.
-pub const CONFIRMATION_MS_BASIC_MAX: u64 = 200;
+/// Typical confirmation time for basic security in milliseconds
+/// (measured on reference hardware; not a guaranteed bound or ceiling).
+pub const TYPICAL_CONFIRMATION_MS_BASIC: u64 = 200;
 
-/// Confirmation time ceiling for strong security in milliseconds.
-pub const CONFIRMATION_MS_STRONG_MAX: u64 = 800;
+/// Typical confirmation time for strong security in milliseconds
+/// (measured on reference hardware; not a guaranteed bound or ceiling).
+pub const TYPICAL_CONFIRMATION_MS_STRONG: u64 = 800;
 
-/// Confirmation time ceiling for full security in milliseconds.
-pub const CONFIRMATION_MS_FULL_MAX: u64 = 1_000;
+/// Typical confirmation time for full security in milliseconds
+/// (measured on reference hardware; not a guaranteed bound or ceiling).
+pub const TYPICAL_CONFIRMATION_MS_FULL: u64 = 1_000;
 
 /// Number of supported TEE hardware platforms.
 pub const SUPPORTED_TEE_PLATFORMS: usize = 5;
@@ -339,9 +346,9 @@ mod tests {
 
     #[test]
     fn confirmation_ceilings_are_ordered() {
-        assert!(CONFIRMATION_MS_MINIMAL_MAX < CONFIRMATION_MS_BASIC_MAX);
-        assert!(CONFIRMATION_MS_BASIC_MAX < CONFIRMATION_MS_STRONG_MAX);
-        assert!(CONFIRMATION_MS_STRONG_MAX <= CONFIRMATION_MS_FULL_MAX);
+        assert!(TYPICAL_CONFIRMATION_MS_MINIMAL < TYPICAL_CONFIRMATION_MS_BASIC);
+        assert!(TYPICAL_CONFIRMATION_MS_BASIC < TYPICAL_CONFIRMATION_MS_STRONG);
+        assert!(TYPICAL_CONFIRMATION_MS_STRONG <= TYPICAL_CONFIRMATION_MS_FULL);
     }
 
     #[test]

@@ -16,7 +16,7 @@ pub struct ApiQuery { pub filter: Option<String>, pub limit: usize, pub offset: 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ApiReceipt { pub transaction_hash: Hash256, pub success: bool, pub gas_consumed: u64 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ApiError { pub code: u32, pub message: String }
+pub struct ApiErrorResponse { pub code: u32, pub message: String }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Pagination { pub page: usize, pub per_page: usize, pub total: usize }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn api_error_stores_code_and_message() {
-        let e = ApiError { code: 404, message: "not found".into() };
+        let e = ApiErrorResponse { code: 404, message: "not found".into() };
         assert_eq!(e.code, 404);
     }
 

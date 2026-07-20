@@ -300,7 +300,7 @@ mod tests {
 
     #[test]
     fn cli_parses_node_status() {
-        let args = vec!["aevor", "status"];
+        let args = vec!["aevor", "status", "node"];
         let cli = Cli::parse_from(args);
         assert!(matches!(cli.command, Commands::Status { .. }));
     }
@@ -314,14 +314,14 @@ mod tests {
 
     #[test]
     fn cli_defaults_to_mainnet() {
-        let args = vec!["aevor", "status"];
+        let args = vec!["aevor", "status", "node"];
         let cli = Cli::parse_from(args);
         assert_eq!(cli.network, "mainnet");
     }
 
     #[test]
     fn cli_default_output_format_is_human() {
-        let args = vec!["aevor", "status"];
+        let args = vec!["aevor", "status", "node"];
         let cli = Cli::parse_from(args);
         assert!(matches!(cli.output, OutputFormat::Human));
     }

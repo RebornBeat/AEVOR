@@ -131,7 +131,7 @@ pub mod prelude {
         CheckpointSnapshot,
     };
     pub use crate::backend::{
-        StorageBackend, BackendConfig, RocksDbBackend, MemoryBackend,
+        StorageBackend, BackendConfig, LogBackend, MemoryBackend,
         WriteOptions, ReadOptions,
     };
     pub use crate::{StorageError, StorageResult};
@@ -227,8 +227,11 @@ pub type StorageResult<T> = Result<T, StorageError>;
 /// Maximum size of a single stored object in bytes (16 MiB).
 pub const MAX_OBJECT_SIZE_BYTES: usize = 16_777_216;
 
-/// Maximum batch size for bulk operations.
-pub const MAX_BATCH_SIZE: usize = 10_000;
+/// Default batch size for bulk operations.
+///
+/// This is a per-node throughput tuning parameter, not an architectural
+/// ceiling. Nodes may configure larger batches as resources allow.
+pub const DEFAULT_BATCH_SIZE: usize = 10_000;
 
 /// Default LRU cache capacity in object count.
 ///

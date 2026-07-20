@@ -32,10 +32,11 @@ impl PedersenCommitment {
     /// This function currently always succeeds; the `Result` allows future
     /// elliptic-curve validation of the blinding factor.
     pub fn commit_with_blinding(value: &[u8], blinding: [u8; 32]) -> crate::CryptoResult<Self> {
-        let mut hasher = crate::hash::Blake3Hasher::new();
-        hasher.update(&blinding);
-        hasher.update(value);
-        let point = hasher.finalize().0.0.to_vec();
+        // Real elliptic-curve Pedersen commitment (single-sourced in
+        // `crate::proofs::pedersen`) rather than a second hash-based scheme —
+        // that role is already served by `HashCommitment`. For confidential
+        // *amounts*, prefer `crate::proofs::pedersen::PedersenCommitment` (u64).
+        let point = crate::proofs::pedersen::commit_bytes(value, &blinding).to_vec();
         Ok(Self { point, blinding })
     }
 

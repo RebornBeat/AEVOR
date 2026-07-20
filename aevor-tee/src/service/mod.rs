@@ -173,11 +173,11 @@ impl ServiceMeshCoordinator {
         }
     }
 
-    /// Find a healthy instance matching the given QoS policy.
+    /// Find a healthy instance matching the given `QoS` policy.
     pub fn find_healthy(&self, policy: &QosPolicy) -> Option<Hash256> {
         self.health_records.iter()
             .filter(|h| h.is_available())
-            .filter(|h| h.last_quality.as_ref().map_or(true, |q| policy.is_satisfied_by(q)))
+            .filter(|h| h.last_quality.as_ref().is_none_or(|q| policy.is_satisfied_by(q)))
             .map(|h| h.handle_id)
             .next()
     }

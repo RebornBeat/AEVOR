@@ -1,7 +1,7 @@
 //! REST API server.
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
-use crate::types::{ApiError, ApiTransaction};
+use crate::types::{ApiErrorResponse, ApiTransaction};
 
 #[derive(Clone, Debug)]
 pub struct RestConfig { pub listen_addr: SocketAddr, pub tls_cert: Option<std::path::PathBuf>, pub tls_key: Option<std::path::PathBuf> }
@@ -9,7 +9,7 @@ pub struct RestConfig { pub listen_addr: SocketAddr, pub tls_cert: Option<std::p
 pub struct JsonResponse<T: Serialize> { pub data: T, pub success: bool }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct JsonRequest<T> { pub data: T }
-pub type ErrorResponse = JsonResponse<ApiError>;
+pub type ErrorResponse = JsonResponse<ApiErrorResponse>;
 /// A REST response wrapping a single transaction.
 pub type TransactionResponse = JsonResponse<ApiTransaction>;
 pub struct RestRouter;

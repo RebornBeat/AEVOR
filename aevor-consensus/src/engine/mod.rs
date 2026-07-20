@@ -63,12 +63,13 @@ pub struct ProposalMessage {
 impl ProposalMessage {
     /// BLAKE3 hash of the proposal contents (for deduplication).
     pub fn content_hash(&self) -> Hash256 {
-        use aevor_core::primitives::Hash256;
+        use aevor_crypto::hash::Blake3Hasher;
         let mut data = self.block_hash.0.to_vec();
         data.extend_from_slice(&self.round.to_le_bytes());
         data.extend_from_slice(&self.block_height.0.to_le_bytes());
-        // Full hash computed by aevor-crypto in production
-        Hash256::ZERO // Placeholder — full impl uses Blake3Hasher
+        let mut hasher = Blake3Hasher::new();
+        hasher.update(&data);
+        hasher.finalize().0
     }
 }
 
@@ -174,10 +175,18 @@ impl ConsensusEngine {
         duration_ms: u64,
     ) -> RoundResult {
         let validation = collection.to_validation_result();
-        let finalized = if collection.meets_required_level() {
+        let meets = collection.meets_required_level();
+        let finalized = if meets {
             vec![collection.block_hash]
         } else {
             vec![]
+        };
+        // A finalized block carries a real finality proof built from the
+        // collected attestations; an unfinalized round has none.
+        let finality_proof = if meets {
+            Some(Self::build_finality_proof(collection, self.security_level))
+        } else {
+            None
         };
         RoundResult {
             round: self.current_round,
@@ -187,8 +196,57 @@ impl ConsensusEngine {
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             // participation is always in [0.0, 1.0] so * 100.0 is in [0, 100] — safe to u8
             participation_pct: (collection.participation_fraction() * 100.0) as u8,
-            finality_proof: None, // Built by BLS aggregation in production
+            finality_proof,
             validation,
+        }
+    }
+
+    /// Build a finality proof from a completed attestation collection.
+    ///
+    /// Populates the real validator signatures, participant bitmap, signed
+    /// voting weight, and achieved security level, and binds every validator
+    /// signature together with a BLAKE3 commitment over the block hash and the
+    /// ordered signatures.
+    ///
+    /// The `aggregate_signature` field is this BLAKE3 commitment today. It
+    /// becomes a BLS12-381 point aggregate (via `aevor_crypto::bls`) once
+    /// validators sign attestations with BLS keys — `BlockAttestation`
+    /// currently carries a 64-byte (non-BLS) signature, so real point
+    /// aggregation is not yet possible here. See the stub-and-simulation
+    /// register (B4).
+    fn build_finality_proof(
+        collection: &AttestationCollection,
+        security_level: SecurityLevel,
+    ) -> FinalityProof {
+        use aevor_core::consensus::ValidatorSignature;
+        use aevor_core::primitives::ValidatorIndex;
+        use aevor_crypto::hash::Blake3Hasher;
+
+        let n = collection.attestations.len();
+        let mut signatures = Vec::with_capacity(n);
+        let mut participant_bitmap = vec![0u8; n.div_ceil(8)];
+        let mut commitment = Blake3Hasher::new();
+        commitment.update(&collection.block_hash.0);
+
+        for (i, att) in collection.attestations.iter().enumerate() {
+            signatures.push(ValidatorSignature {
+                validator_id: att.validator_id,
+                index: ValidatorIndex(u32::try_from(i).unwrap_or(u32::MAX)),
+                signature: att.signature.0.to_vec(),
+                tee_attestation: att.tee_attestation.clone(),
+            });
+            participant_bitmap[i / 8] |= 1 << (i % 8);
+            commitment.update(&att.signature.0);
+        }
+
+        let aggregate_signature = commitment.finalize().0.0.to_vec();
+
+        FinalityProof {
+            signatures,
+            aggregate_signature,
+            participant_bitmap,
+            total_weight: collection.current_weight,
+            security_level,
         }
     }
 }
@@ -223,6 +281,72 @@ mod tests {
         };
         c.add(att, w(10)); // 10% of total
         assert!(c.participation_fraction() > 0.0);
+    }
+
+    #[test]
+    fn finalized_round_produces_real_finality_proof() {
+        // Two attestations at 10% each easily clears Minimal (~2–3%).
+        let mut c = AttestationCollection::new(bh(7), SecurityLevel::Minimal, w(100));
+        for v in 1u8..=2 {
+            let att = aevor_core::block::BlockAttestation {
+                block_hash: bh(7),
+                validator_id: Hash256([v; 32]),
+                signature: aevor_core::primitives::Signature([v; 64]),
+                tee_attestation: None,
+                timestamp: aevor_core::consensus::ConsensusTimestamp::GENESIS,
+            };
+            c.add(att, w(10));
+        }
+        assert!(c.meets_required_level());
+
+        let mut engine = ConsensusEngine::new(SecurityLevel::Minimal);
+        let result = engine.finalize_round(&c, 42);
+
+        assert_eq!(result.finalized_blocks, vec![bh(7)]);
+        let proof = result.finality_proof.expect("finalized round must carry a finality proof");
+        // Real, populated proof — not None, not empty.
+        assert_eq!(proof.signatures.len(), 2);
+        assert_eq!(proof.security_level, SecurityLevel::Minimal);
+        assert_eq!(proof.total_weight, w(20));
+        // aggregate_signature is a real 32-byte BLAKE3 commitment.
+        assert_eq!(proof.aggregate_signature.len(), 32);
+        assert!(proof.aggregate_signature.iter().any(|&b| b != 0));
+        // Participant bitmap marks both signers (bits 0 and 1 set).
+        assert_eq!(proof.participant_bitmap[0] & 0b11, 0b11);
+        // Signatures carry the real validator ids and per-signer indices.
+        assert_eq!(proof.signatures[0].index.0, 0);
+        assert_eq!(proof.signatures[1].index.0, 1);
+    }
+
+    #[test]
+    fn unfinalized_round_has_no_finality_proof() {
+        // No attestations → cannot meet Full → no proof.
+        let c = AttestationCollection::new(bh(8), SecurityLevel::Full, w(100));
+        let mut engine = ConsensusEngine::new(SecurityLevel::Full);
+        let result = engine.finalize_round(&c, 10);
+        assert!(result.finalized_blocks.is_empty());
+        assert!(result.finality_proof.is_none());
+    }
+
+    #[test]
+    fn proposal_content_hash_is_real_and_deterministic() {
+        // content_hash must be a real BLAKE3 hash (non-zero) and stable.
+        let mk = |round: u64| ProposalMessage {
+            proposer: Hash256([1u8; 32]),
+            block_hash: bh(3),
+            block_height: aevor_core::primitives::BlockHeight(9),
+            round,
+            timestamp: aevor_core::consensus::ConsensusTimestamp::GENESIS,
+            signature: aevor_core::primitives::Signature([0u8; 64]),
+            tee_attestation: None,
+        };
+        let p = mk(5);
+        let h1 = p.content_hash();
+        let h2 = p.content_hash();
+        assert_eq!(h1, h2);
+        assert_ne!(h1, Hash256::ZERO);
+        // A different proposal (different round) yields a different hash.
+        assert_ne!(p.content_hash(), mk(6).content_hash());
     }
 
     #[test]

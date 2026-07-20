@@ -39,9 +39,9 @@ mod tests {
     #[test]
     fn service_discovery_find_by_type() {
         let mut dns = ServiceDiscoveryDns::new();
-        dns.register(record(TeeServiceType::Execution, TeePlatform::IntelSgx));
-        dns.register(record(TeeServiceType::Attestation, TeePlatform::AmdSev));
-        let q = DiscoveryQuery { service_type: TeeServiceType::Execution, preferred_platform: None };
+        dns.register(record(TeeServiceType::Compute, TeePlatform::IntelSgx));
+        dns.register(record(TeeServiceType::Storage, TeePlatform::AmdSev));
+        let q = DiscoveryQuery { service_type: TeeServiceType::Compute, preferred_platform: None };
         let found = dns.find(&q);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].platform, TeePlatform::IntelSgx);
@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn service_discovery_empty_result() {
         let dns = ServiceDiscoveryDns::default();
-        let q = DiscoveryQuery { service_type: TeeServiceType::Execution, preferred_platform: None };
+        let q = DiscoveryQuery { service_type: TeeServiceType::Compute, preferred_platform: None };
         assert!(dns.find(&q).is_empty());
     }
 }

@@ -307,3 +307,4 @@ mod tests {
         assert_eq!(subnet.to_string(), "subnet-42000");
         assert!(!subnet.is_mainnet());
     }
+}

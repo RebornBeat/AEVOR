@@ -23,26 +23,32 @@ impl CrossPlatformAttestationSet {
 /// Proof of mathematical certainty from `PoU` consensus.
 pub type MathematicalCertaintyProof = MathematicalCertainty;
 
+/// Seal attestation evidence for submission. Delegates to the shared primitive
+/// in `aevor_crypto::attestation` so the consensus layer and the client (and the
+/// TEE layer's key) never diverge.
+#[must_use]
+pub fn seal(evidence: AttestationEvidence) -> AttestationEvidence {
+    aevor_crypto::attestation::seal_evidence(evidence)
+}
+
 /// Verifies attestation evidence from any TEE platform.
 ///
-/// **Infrastructure vs Policy separation:** `verify` checks structural validity
-/// only — non-empty report and a recognised platform. Whether `is_production`
-/// is required is an **application-layer policy** enforced by the caller
-/// (e.g. consensus config). Use `verify_with_policy` when production enforcement
-/// is required.
+/// **Infrastructure vs Policy separation:** `verify` checks *cryptographic*
+/// validity — a valid attestation-key signature over the canonical body and a
+/// non-degenerate code measurement (shared with the client via
+/// `aevor_crypto::attestation`). Whether `is_production` is required is an
+/// **application-layer policy** enforced by the caller via `verify_with_policy`.
 pub struct AttestationVerifier;
 
 impl AttestationVerifier {
-    /// Verify attestation evidence from a TEE execution (structural check only).
-    ///
-    /// Returns `true` if the evidence is structurally valid: non-empty raw
-    /// report and a known platform. Production vs simulation enforcement is
-    /// left to the caller via `verify_with_policy`.
+    /// Verify attestation evidence cryptographically (shared implementation);
+    /// production vs simulation enforcement is left to `verify_with_policy`.
     ///
     /// # Errors
-    /// Returns an error if the evidence structure is malformed.
+    /// Returns an error if a future verification step fails; the simulation path
+    /// reports validity via the `bool`.
     pub fn verify(evidence: &AttestationEvidence) -> crate::ConsensusResult<bool> {
-        Ok(!evidence.raw_report.is_empty())
+        Ok(aevor_crypto::attestation::verify_evidence(evidence))
     }
 
     /// Verify evidence and enforce the `require_production` policy.
@@ -106,14 +112,16 @@ mod tests {
     fn hash(n: u8) -> Hash256 { Hash256([n; 32]) }
 
     fn evidence_on(platform: TeeAttestationPlatform, code: Hash256, production: bool) -> AttestationEvidence {
-        AttestationEvidence {
+        // Seal so the evidence carries a valid attestation signature over its
+        // canonical body (the same primitive the TEE layer uses).
+        seal(AttestationEvidence {
             platform,
-            raw_report: vec![0xDE, 0xAD],
+            raw_report: Vec::new(),
             code_measurement: code,
             nonce: [0u8; 32],
             is_production: production,
             svn: 1,
-        }
+        })
     }
 
     fn evidence(code: Hash256, production: bool) -> AttestationEvidence {

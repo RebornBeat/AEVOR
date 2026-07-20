@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use aevor_core::primitives::Hash256;
+use aevor_crypto::signatures::Ed25519KeyPair;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DnsKey { pub flags: u16, pub protocol: u8, pub algorithm: u8, pub public_key: Vec<u8> }
@@ -31,16 +32,58 @@ impl DnssecChain {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DnssecValidation { pub chain: DnssecChain, pub validated: bool }
 
+/// DNSSEC algorithm number for Ed25519 (RFC 8080).
+pub const ALGORITHM_ED25519: u8 = 15;
+
 pub struct DnssecSigner;
 impl DnssecSigner {
-    pub fn sign(_data: &[u8], _key: &DnsKey) -> Rrsig {
-        Rrsig { type_covered: 1, algorithm: 13, signature: Vec::new() }
+    /// Sign record bytes with an Ed25519 zone key, producing a real RRSIG
+    /// (DNSSEC algorithm 15 / Ed25519).
+    #[must_use]
+    pub fn sign(data: &[u8], key: &Ed25519KeyPair, type_covered: u16) -> Rrsig {
+        let sig = key.sign(data);
+        Rrsig {
+            type_covered,
+            algorithm: ALGORITHM_ED25519,
+            signature: sig.0 .0.to_vec(),
+        }
+    }
+
+    /// The public DNSKEY (a key-signing-key flags=257) for an Ed25519 zone key.
+    #[must_use]
+    pub fn public_dnskey(key: &Ed25519KeyPair) -> DnsKey {
+        DnsKey {
+            flags: 257,
+            protocol: 3,
+            algorithm: ALGORITHM_ED25519,
+            public_key: key.public_key_bytes().to_vec(),
+        }
     }
 }
 
 pub struct DnssecVerifier;
 impl DnssecVerifier {
-    pub fn verify(_sig: &Rrsig, _data: &[u8], _key: &DnsKey) -> bool { true }
+    /// Really verify an RRSIG over `data` under a DNSKEY.
+    ///
+    /// Returns `true` only if the signature is a valid Ed25519 signature
+    /// (algorithm 15) over `data` for the key. Previously this always returned
+    /// `true` — a validation bypass; it now performs real cryptographic
+    /// verification.
+    #[must_use]
+    pub fn verify(sig: &Rrsig, data: &[u8], key: &DnsKey) -> bool {
+        if sig.algorithm != ALGORITHM_ED25519 || key.algorithm != ALGORITHM_ED25519 {
+            return false;
+        }
+        let pk: [u8; 32] = match key.public_key.as_slice().try_into() {
+            Ok(p) => p,
+            Err(_) => return false,
+        };
+        let s: [u8; 64] = match sig.signature.as_slice().try_into() {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
+        Ed25519KeyPair::verify_raw(&pk, data, &s)
+    }
 }
 
 #[cfg(test)]
@@ -66,16 +109,22 @@ mod tests {
 
     #[test]
     fn dnssec_signer_produces_rrsig() {
-        let k = key(vec![0xAB; 32]);
-        let sig = DnssecSigner::sign(b"test data", &k);
-        assert_eq!(sig.algorithm, 13); // ECDSA P-256
+        let kp = Ed25519KeyPair::from_seed([0xAB; 32]);
+        let sig = DnssecSigner::sign(b"test data", &kp, 1);
+        assert_eq!(sig.algorithm, ALGORITHM_ED25519);
+        assert_eq!(sig.signature.len(), 64);
     }
 
     #[test]
-    fn dnssec_verifier_accepts_valid() {
-        let k = key(vec![1u8; 32]);
-        let sig = DnssecSigner::sign(b"data", &k);
-        assert!(DnssecVerifier::verify(&sig, b"data", &k));
+    fn dnssec_verifier_accepts_valid_and_rejects_tampered() {
+        let kp = Ed25519KeyPair::from_seed([1u8; 32]);
+        let sig = DnssecSigner::sign(b"data", &kp, 1);
+        let dnskey = DnssecSigner::public_dnskey(&kp);
+        assert!(DnssecVerifier::verify(&sig, b"data", &dnskey), "valid signature accepted");
+        assert!(
+            !DnssecVerifier::verify(&sig, b"tampered", &dnskey),
+            "signature over different data rejected"
+        );
     }
 
     #[test]

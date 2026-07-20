@@ -31,9 +31,9 @@ impl X25519KeyPair {
             .map_err(|e| crate::CryptoError::KeyGenerationFailed(e.to_string()))?;
 
         // Clamp the scalar per RFC7748 §5.
-        secret[0] &= 248;
-        secret[31] &= 127;
-        secret[31] |= 64;
+        secret[0] &= 0xF8;
+        secret[31] &= 0x7F;
+        secret[31] |= 0x40;
 
         // Public key = scalar * basepoint
         let public = x25519_dalek::x25519(secret, x25519_dalek::X25519_BASEPOINT_BYTES);

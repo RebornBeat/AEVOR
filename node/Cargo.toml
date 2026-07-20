@@ -15,6 +15,7 @@ name = "aevor-node"
 path = "src/main.rs"
 
 [dependencies]
+bincode    = { workspace = true }
 # Foundation
 aevor-core      = { workspace = true }
 aevor-config    = { workspace = true }
@@ -56,4 +57,5 @@ toml            = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+bincode    = { workspace = true }
 tokio      = { workspace = true, features = ["test-util"] }

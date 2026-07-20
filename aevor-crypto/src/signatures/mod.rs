@@ -157,6 +157,25 @@ impl BlsKeyPair {
         })
     }
 
+    /// Deterministically derive a BLS key pair from 32 bytes of input keying
+    /// material (RFC 9380 / EIP-2333 style `key_gen`). Same IKM ⇒ same key —
+    /// useful for reproducible tests and benchmarks. Not for production keys
+    /// (those must come from OS entropy via [`generate`](Self::generate)).
+    ///
+    /// # Panics
+    /// Does not panic in practice: BLS `key_gen` only rejects IKM shorter than
+    /// 32 bytes, and the input here is exactly 32 bytes.
+    #[must_use]
+    pub fn from_ikm(ikm: [u8; 32]) -> Self {
+        let sk = blst::min_sig::SecretKey::key_gen(&ikm, &[])
+            .expect("BLS key_gen from 32-byte IKM is infallible");
+        let pk = sk.sk_to_pk();
+        Self {
+            secret_bytes: sk.to_bytes().to_vec(),
+            public_bytes: pk.compress().to_vec(),
+        }
+    }
+
     /// The public key.
     pub fn public_key(&self) -> BlsPublicKey {
         BlsPublicKey(self.public_bytes.clone())

@@ -66,6 +66,12 @@
 /// Node orchestrator: top-level node lifecycle and subsystem coordination.
 pub mod orchestrator;
 
+/// The real, runnable node engine wiring all subsystems end-to-end.
+pub mod engine;
+
+/// Node-side request/response server (`NodeServer`).
+pub mod server;
+
 /// Initialization sequence: ordered startup of all subsystems.
 pub mod init;
 

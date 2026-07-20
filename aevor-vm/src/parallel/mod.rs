@@ -235,6 +235,9 @@ mod tests {
         assert_eq!(tracer.node_count(), 2);
         assert_eq!(tracer.edge_count(), 0); // independent — no causal dependency
     }
+
+    #[test]
+    fn object_dag_three_disjoint_contracts_are_conflict_free() {
         // Whitepaper §13: "Object DAG analyzes dependencies at the individual object
         // level rather than broad account or contract level, enabling much more precise
         // coordination that maximizes parallel execution opportunities."

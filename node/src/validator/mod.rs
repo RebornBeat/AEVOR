@@ -1,6 +1,7 @@
 //! Validator node orchestration.
 use serde::{Deserialize, Serialize};
 use aevor_core::tee::TeePlatform;
+use crate::engine::{BlockOutcome, CommitteeMember, FinalityOutcome, NodeEngine};
 use crate::NodeResult;
 
 #[derive(Debug)]
@@ -38,6 +39,32 @@ impl ValidatorNode {
         }
         self.state = ValidatorState::Active;
         Ok(())
+    }
+
+    /// Produce a block and finalize it over `committee`.
+    ///
+    /// A validator both executes transactions (like a full node) and
+    /// participates in consensus, collecting committee attestations into a
+    /// finality proof. Drives the same [`NodeEngine`] as every other mode; the
+    /// added policy is finalization. Must be [`ValidatorState::Active`].
+    ///
+    /// # Errors
+    /// Returns `NodeError::InitializationFailed` if the validator is not active,
+    /// or propagates an engine error.
+    pub fn produce_and_finalize(
+        &self,
+        engine: &mut NodeEngine,
+        committee: &[CommitteeMember<'_>],
+    ) -> NodeResult<(BlockOutcome, FinalityOutcome)> {
+        if !matches!(self.state, ValidatorState::Active) {
+            return Err(crate::NodeError::InitializationFailed {
+                subsystem: "validator-node".into(),
+                reason: "cannot finalize unless Active".into(),
+            });
+        }
+        let outcome = engine.produce_block()?;
+        let finality = engine.finalize_block(outcome.block_hash, committee)?;
+        Ok((outcome, finality))
     }
 }
 impl Default for ValidatorNode { fn default() -> Self { Self::new() } }

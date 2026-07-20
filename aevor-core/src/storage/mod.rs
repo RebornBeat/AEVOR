@@ -149,13 +149,18 @@ pub struct MerkleProof {
 impl MerkleProof {
     /// Verify the proof by recomputing the root from the leaf.
     pub fn verify(&self) -> bool {
-        // Full verification is implemented in aevor-crypto::merkle.
-        // This structural check validates the proof has coherent dimensions.
-        if self.siblings.is_empty() {
+        // Real cryptographic inclusion verification using the CANONICAL Merkle
+        // hash functions ([`merkle_leaf_hash`]/[`merkle_node_hash`]) — the same
+        // functions the prover (aevor-storage) uses to generate proofs, so the
+        // two can never drift.
+        if !self.is_inclusion {
             return false;
         }
-        // The proof depth must be consistent with the tree depth (256 for full address space).
-        self.siblings.len() <= 256
+        let mut hash = merkle_leaf_hash(&self.key.0, &self.value.0);
+        for sibling in &self.siblings {
+            hash = merkle_node_hash(&hash, sibling);
+        }
+        hash == self.root.0
     }
 
     /// Verify this proof against a specific root hash and leaf value.
@@ -182,6 +187,39 @@ impl MerkleProof {
     pub fn is_inclusion_proof(&self) -> bool {
         self.is_inclusion
     }
+}
+
+/// Canonical Merkle leaf hash: `BLAKE3(0x00 ‖ key_len(u64 LE) ‖ key ‖ value)`.
+///
+/// This and [`merkle_node_hash`] are the single source of truth for Merkle
+/// hashing. Both the prover (`aevor-storage`) and the verifier
+/// ([`MerkleProof::verify`]) call these, so a change to the hashing scheme
+/// updates generation and verification together — they cannot drift apart.
+#[must_use]
+pub fn merkle_leaf_hash(key: &[u8], value: &[u8]) -> crate::primitives::Hash256 {
+    let mut input = Vec::with_capacity(1 + 8 + key.len() + value.len());
+    input.push(0x00);
+    input.extend_from_slice(&(key.len() as u64).to_le_bytes());
+    input.extend_from_slice(key);
+    input.extend_from_slice(value);
+    crate::primitives::Hash256(*blake3::hash(&input).as_bytes())
+}
+
+/// Canonical Merkle internal-node hash: `BLAKE3(0x01 ‖ min(a,b) ‖ max(a,b))`.
+///
+/// Commutative, so a proof is just an ordered list of sibling hashes with no
+/// left/right direction bits. See [`merkle_leaf_hash`].
+#[must_use]
+pub fn merkle_node_hash(
+    a: &crate::primitives::Hash256,
+    b: &crate::primitives::Hash256,
+) -> crate::primitives::Hash256 {
+    let (lo, hi) = if a.0 <= b.0 { (a, b) } else { (b, a) };
+    let mut input = [0u8; 65];
+    input[0] = 0x01;
+    input[1..33].copy_from_slice(&lo.0);
+    input[33..65].copy_from_slice(&hi.0);
+    crate::primitives::Hash256(*blake3::hash(&input).as_bytes())
 }
 
 // ============================================================

@@ -1,6 +1,6 @@
 //! Multi-network routing for API requests.
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct MultiNetworkApi { pub network: String, pub backend: String }
 impl MultiNetworkApi {
     /// Create a new multi-network API router.

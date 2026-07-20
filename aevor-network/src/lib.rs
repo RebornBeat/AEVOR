@@ -68,6 +68,9 @@ pub mod rdma;
 /// Data availability: erasure coding with confidentiality preservation.
 pub mod availability;
 
+/// In-process message transport for propagation logic.
+pub mod gossip;
+
 /// Bandwidth management: fair allocation, congestion control, rate limiting.
 pub mod bandwidth;
 
@@ -357,11 +360,19 @@ mod tests {
     }
 
     #[test]
-    fn erasure_encode_produces_shards() {
+    fn erasure_encode_and_recover_from_loss() {
+        // Default config: 8 data + 4 parity. Encode, lose 4 shards, reconstruct.
         let da = DataAvailability::new(ErasureConfig::default());
         let data = vec![1u8; 64];
-        let shards = da.encode(&data);
-        assert!(!shards.is_empty());
+        let encoded = da.encode(&data);
+        assert_eq!(encoded.shards.len(), 12);
+
+        let mut received: Vec<Option<Vec<u8>>> =
+            encoded.shards.iter().cloned().map(Some).collect();
+        for slot in received.iter_mut().take(4) {
+            *slot = None;
+        }
+        assert_eq!(da.reconstruct(&received, encoded.original_len).unwrap(), data);
     }
 
     #[test]

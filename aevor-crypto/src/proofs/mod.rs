@@ -3,6 +3,9 @@
 //! Proof *generation* belongs in `aevor-zk`. This module defines the types
 //! and structural verification for passing proofs across subsystem boundaries.
 
+/// Real Pedersen commitments (confidential-amount primitive).
+pub mod pedersen;
+
 use serde::{Deserialize, Serialize};
 use aevor_core::primitives::Hash256;
 use aevor_core::crypto::ProvingSystem;

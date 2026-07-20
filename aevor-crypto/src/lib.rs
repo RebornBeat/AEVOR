@@ -43,6 +43,9 @@
 /// Hash functions: BLAKE3 (primary), SHA-256, SHA-512, Keccak-256 (bridge compatibility).
 pub mod hash;
 
+/// Shared attestation signing primitive (TEE + consensus layers).
+pub mod attestation;
+
 /// Digital signature schemes: Ed25519 (transactions), BLS12-381 (consensus aggregation).
 pub mod signatures;
 
@@ -73,6 +76,12 @@ pub mod merkle;
 
 /// Post-quantum hybrid schemes: current algorithms + CRYSTALS-Dilithium for future-proofing.
 pub mod post_quantum;
+
+/// Crypto agility: scheme-tagged sign/verify envelope.
+pub mod agility;
+
+/// Account identity and key migration (classical → post-quantum).
+pub mod account;
 
 // ============================================================
 // PRELUDE
@@ -110,15 +119,17 @@ pub mod prelude {
         CommitmentOpening, CommitmentScheme,
     };
     pub use crate::bls::{
-        BlsAggregateSignature, BlsAggregator, BlsBatchVerifier,
+        BlsAggregateSignature, BlsAggregator, BlsBatchVerifier, aggregate_public_keys,
         ParticipantBitmap,
     };
     pub use crate::merkle::{
         MerkleTree, MerkleProof, MerkleRoot, SparseMerkleTree,
         IncrementalMerkleTree,
     };
+    pub use crate::account::{AccountId, AccountKeyRecord, MigrationError};
     pub use crate::post_quantum::{
         HybridKeyPair, DilithiumPublicKey, DilithiumSignature,
+        MlDsa65KeyPair,
         HybridSignature, QuantumResistanceLevel,
     };
     pub use crate::{CryptoError, CryptoResult};

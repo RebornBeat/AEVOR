@@ -27,7 +27,7 @@ impl ContextFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aevor_core::primitives::{Address, Amount, GasAmount, GasPrice, Hash256, Nonce, Signature};
+    use aevor_core::primitives::{Address, Amount, GasAmount, GasPrice, Hash256, Nonce};
     use aevor_core::transaction::{SignedTransaction, Transaction, TransactionType};
     use aevor_core::privacy::PrivacyLevel;
 
@@ -37,7 +37,7 @@ mod tests {
             chain_id: aevor_core::primitives::ChainId::MAINNET,
             tx_type: TransactionType::Transfer,
             sender: Address([1u8; 32]),
-            sender_public_key: aevor_core::primitives::PublicKey([0u8; 32]),
+            sender_public_key: aevor_core::crypto::MultiPublicKey::new(aevor_core::crypto::SignatureSchemeId::Ed25519, vec![0u8; 32]),
             nonce: Nonce(0),
             inputs: vec![],
             outputs: vec![],
@@ -51,7 +51,7 @@ mod tests {
         };
         SignedTransaction {
             transaction: tx,
-            signature: Signature([0u8; 64]),
+            signature: aevor_core::crypto::MultiSignature::new(aevor_core::crypto::SignatureSchemeId::Ed25519, vec![0u8; 64]),
             multi_signatures: vec![],
             privacy_proof: None,
         }

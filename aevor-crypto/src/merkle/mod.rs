@@ -51,7 +51,7 @@ impl MerkleTree {
         let mut pos = n + index;
 
         while pos > 1 {
-            let sibling = if pos % 2 == 0 { pos + 1 } else { pos - 1 };
+            let sibling = if pos.is_multiple_of(2) { pos + 1 } else { pos - 1 };
             siblings.push(self.nodes[sibling]);
             pos /= 2;
         }

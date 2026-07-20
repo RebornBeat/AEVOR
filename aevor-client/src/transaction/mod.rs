@@ -115,8 +115,8 @@ impl TransactionClient {
 mod tests {
     use super::*;
     use aevor_core::primitives::{
-        Address, Amount, ChainId, GasAmount, GasPrice, Hash256, Nonce, ObjectId, PublicKey,
-        Signature, TransactionHash,
+        Address, Amount, ChainId, GasAmount, GasPrice, Hash256, Nonce, ObjectId,
+        TransactionHash,
     };
     use aevor_core::transaction::{
         SignedTransaction, Transaction, TransactionInput, TransactionOutput, TransactionType,
@@ -140,7 +140,7 @@ mod tests {
             chain_id: ChainId::MAINNET,
             tx_type: TransactionType::Transfer,
             sender: addr(1),
-            sender_public_key: PublicKey([0u8; 32]),
+            sender_public_key: aevor_core::crypto::MultiPublicKey::new(aevor_core::crypto::SignatureSchemeId::Ed25519, vec![0u8; 32]),
             nonce: Nonce(0),
             inputs: vec![TransactionInput {
                 object_id: obj_id(1),
@@ -165,7 +165,7 @@ mod tests {
         };
         SignedTransaction {
             transaction,
-            signature: Signature([0u8; 64]),
+            signature: aevor_core::crypto::MultiSignature::new(aevor_core::crypto::SignatureSchemeId::Ed25519, vec![0u8; 64]),
             multi_signatures: vec![],
             privacy_proof: None,
         }

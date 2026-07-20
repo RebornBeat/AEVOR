@@ -40,6 +40,11 @@ pub struct FaucetStatus {
 
 pub struct Faucet { config: FaucetConfig }
 impl Faucet {
+    /// Create a faucet for the given network.
+    ///
+    /// # Errors
+    /// Returns `FaucetError::NetworkNotSupported` if `config.network` is `"mainnet"`
+    /// (the faucet only operates on test networks).
     pub fn new(config: FaucetConfig) -> FaucetResult<Self> {
         if config.network == "mainnet" {
             return Err(FaucetError::NetworkNotSupported { network: config.network.clone() });

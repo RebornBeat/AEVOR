@@ -68,16 +68,16 @@ pub fn generate_report(user_data: &[u8]) -> TeeResult<AttestationReport> {
     getrandom::getrandom(&mut nonce)
         .map_err(|e| TeeError::AttestationFailed { reason: e.to_string() })?;
 
-    Ok(AttestationReport {
+    Ok(crate::attestation::seal(AttestationReport {
         platform: TeePlatform::AwsNitro,
-        raw_report: user_data.to_vec(),
+        raw_report: Vec::new(),
         code_measurement: pcr0,      // PCR0: enclave image measurement
         signer_measurement: Hash256::ZERO, // PCR8: signing cert (empty in sim)
         nonce,
         is_production: false, // Simulation mode
         svn: 0,
         user_data: user_data.to_vec(),
-    })
+    }))
 }
 
 #[cfg(test)]

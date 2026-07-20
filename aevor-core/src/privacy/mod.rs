@@ -757,7 +757,7 @@ mod tests {
 pub struct ConditionalDisclosure {
     /// The field being conditionally disclosed.
     pub field: String,
-    /// Application-defined condition identifier (e.g. "auction_closed", "payment_confirmed").
+    /// Application-defined condition identifier (e.g. "`auction_closed`", "`payment_confirmed`").
     pub condition_id: String,
     /// Addresses authorized to receive the disclosure once the condition is met.
     pub authorized: Vec<Address>,

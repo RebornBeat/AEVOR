@@ -3,8 +3,12 @@
 //! Classical algorithms remain primary for performance; PQ algorithms
 //! provide cryptographic agility for future-proofing.
 
+/// Real ML-DSA (FIPS 204) signatures.
+pub mod ml_dsa;
+
+pub use ml_dsa::MlDsa65KeyPair;
+
 use serde::{Deserialize, Serialize};
-use zeroize::Zeroize;
 
 /// Quantum resistance level of a cryptographic construction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -49,92 +53,79 @@ impl HybridSignature {
 /// `pqcrypto-dilithium` crate integration is a drop-in replacement.
 pub struct HybridKeyPair {
     classical: crate::signatures::Ed25519KeyPair,
-    pq_secret: Vec<u8>,
-    pq_public: Vec<u8>,
+    pq: crate::post_quantum::ml_dsa::MlDsa65KeyPair,
 }
 
 impl HybridKeyPair {
-    /// Generate a new hybrid key pair.
+    /// Generate a new hybrid key pair (real Ed25519 + real ML-DSA-65).
     ///
     /// # Errors
-    /// Returns an error if OS entropy is unavailable or the Ed25519 key generation fails.
+    /// Returns an error if OS entropy is unavailable or key generation fails.
     pub fn generate() -> crate::CryptoResult<Self> {
-        let classical = crate::signatures::Ed25519KeyPair::generate()?;
-
-        // Dilithium stub: derive a deterministic PQ key from random seed.
-        // Full implementation uses pqcrypto-dilithium::dilithium3::keypair().
-        let mut pq_seed = [0u8; 32];
-        getrandom::getrandom(&mut pq_seed)
-            .map_err(|e| crate::CryptoError::KeyGenerationFailed(e.to_string()))?;
-
-        // Public key = BLAKE3(seed || "dilithium-pk")
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(&pq_seed);
-        hasher.update(b"dilithium-pk");
-        let pq_public = hasher.finalize().as_bytes().to_vec();
-
         Ok(Self {
-            classical,
-            pq_secret: pq_seed.to_vec(),
-            pq_public,
+            classical: crate::signatures::Ed25519KeyPair::generate()?,
+            pq: crate::post_quantum::ml_dsa::MlDsa65KeyPair::generate()?,
         })
     }
 
     /// The classical Ed25519 public key.
+    #[must_use]
     pub fn classical_public_key(&self) -> crate::signatures::Ed25519PublicKey {
         self.classical.public_key()
     }
 
-    /// The Dilithium public key.
+    /// The classical Ed25519 public key bytes (32).
+    #[must_use]
+    pub fn classical_public_key_bytes(&self) -> [u8; 32] {
+        self.classical.public_key_bytes()
+    }
+
+    /// The ML-DSA-65 (Dilithium) public key.
+    #[must_use]
     pub fn dilithium_public_key(&self) -> DilithiumPublicKey {
-        DilithiumPublicKey(self.pq_public.clone())
+        DilithiumPublicKey(self.pq.public_key_bytes().to_vec())
+    }
+
+    /// The ML-DSA-65 public key bytes (1952).
+    #[must_use]
+    pub fn ml_dsa_public_key_bytes(&self) -> Vec<u8> {
+        self.pq.public_key_bytes().to_vec()
     }
 
     /// Sign a message with both classical and post-quantum components.
+    ///
+    /// The result is safe against a future quantum adversary: forging it
+    /// requires breaking **both** Ed25519 and ML-DSA-65, so when Ed25519 falls
+    /// the ML-DSA-65 component still protects the signature.
+    ///
+    /// # Panics
+    /// Only if ML-DSA-65 signing exhausts its internal rejection-sampling bound,
+    /// which is astronomically improbable.
+    #[must_use]
     pub fn sign(&self, message: &[u8]) -> HybridSignature {
         let classical = self.classical.sign(message);
-
-        // Dilithium stub: signature = BLAKE3(secret || message)
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(&self.pq_secret);
-        hasher.update(message);
-        let pq_sig = DilithiumSignature(hasher.finalize().as_bytes().to_vec());
-
+        // ML-DSA signing is practically infallible (internal rejection loop).
+        let pq_sig = self.pq.sign(message).expect("ML-DSA-65 signing");
         HybridSignature {
             classical,
-            post_quantum: pq_sig,
+            post_quantum: DilithiumSignature(pq_sig),
             level: QuantumResistanceLevel::Hybrid,
         }
     }
 
-    /// Verify a hybrid signature.
+    /// Verify a hybrid signature against this key pair. **Both** the classical
+    /// and post-quantum components must verify.
+    #[must_use]
     pub fn verify(&self, message: &[u8], signature: &HybridSignature) -> bool {
-        // Classical component must verify.
-        if !self.classical.public_key().verify(message, &signature.classical).is_valid() {
-            return false;
-        }
-        // PQ component: verify stub (BLAKE3 check).
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(&self.pq_secret);
-        hasher.update(message);
-        let expected = hasher.finalize().as_bytes().to_vec();
-        signature.post_quantum.0 == expected
-    }
-}
-
-impl Drop for HybridKeyPair {
-    fn drop(&mut self) {
-        self.pq_secret.zeroize();
-    }
-}
-
-impl Clone for HybridKeyPair {
-    fn clone(&self) -> Self {
-        Self {
-            classical: self.classical.clone(),
-            pq_secret: self.pq_secret.clone(),
-            pq_public: self.pq_public.clone(),
-        }
+        self.classical
+            .public_key()
+            .verify(message, &signature.classical)
+            .is_valid()
+            && crate::post_quantum::ml_dsa::verify(
+                &self.pq.public_key_bytes(),
+                message,
+                &signature.post_quantum.0,
+            )
     }
 }
 
@@ -151,7 +142,8 @@ mod tests {
     #[test]
     fn hybrid_keypair_generates() {
         let kp = HybridKeyPair::generate().unwrap();
-        assert!(!kp.pq_public.is_empty());
+        assert_eq!(kp.classical_public_key_bytes().len(), 32);
+        assert_eq!(kp.ml_dsa_public_key_bytes().len(), 1952);
     }
 
     #[test]

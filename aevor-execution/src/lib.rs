@@ -73,6 +73,9 @@ pub mod metrics;
 /// Cross-contract execution: coordinating multi-contract atomic operations.
 pub mod cross_contract;
 
+/// Composed cross-crate execution pipeline (DAG + storage + crypto integration).
+pub mod composed;
+
 /// Transaction rejection log: records why transactions were rejected (gas, privacy,
 /// pre-execution conflicts) without any state being unwound.
 pub mod rollback;

@@ -87,6 +87,9 @@ pub mod privacy;
 /// Cross-contract calls: inter-contract communication with dependency tracking.
 pub mod cross_contract;
 
+/// Deterministic bytecode interpreter for the AevorVM instruction set.
+pub mod interpreter;
+
 /// Execution context: transaction context, block context, TEE context.
 pub mod context;
 

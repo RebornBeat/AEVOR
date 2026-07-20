@@ -119,7 +119,7 @@ impl EscalationTrigger {
 
     /// Evaluate whether this trigger fires for the given transaction value.
     pub fn fires_for_value(&self, value_nano: u128) -> bool {
-        self.value_threshold_nano.map_or(false, |t| value_nano > t)
+        self.value_threshold_nano.is_some_and(|t| value_nano > t)
     }
 }
 
@@ -200,7 +200,7 @@ impl ValidatorTopologyScore {
     /// inverse latency, giving a higher score to reliable low-latency validators.
     #[allow(clippy::cast_precision_loss)]
     pub fn composite_score(&self) -> f64 {
-        self.reliability_score * (1000.0 / (1.0 + self.estimated_rtt_ms as f64))
+        self.reliability_score * (1000.0 / (1.0 + f64::from(self.estimated_rtt_ms)))
     }
 }
 

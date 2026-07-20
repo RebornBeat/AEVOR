@@ -36,7 +36,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aevor/aevor"
 authors = ["AEVOR Contributors"]
@@ -90,8 +90,15 @@ blake3          = { version = "1" }
 sha2          = { version = "0.10" }
 sha3          = { version = "0.10" }
 ed25519-dalek   = { version = "2", features = ["rand_core"] }
+curve25519-dalek = { version = "4", features = ["digest"] }
+bulletproofs      = { version = "5" }
+merlin           = { version = "3" }
+rayon            = { version = "1" }
+hickory-resolver = { version = "0.24" }
 x25519-dalek    = { version = "2" }
 blst          = { version = "0.3" }
+# Post-quantum signatures (ML-DSA / FIPS 204) — pure Rust, expert-implemented
+fips204       = { version = "0.4.6" }
 hkdf          = { version = "0.12" }
 chacha20poly1305 = { version = "0.10", features = ["stream"] }
 aes-gcm       = { version = "0.10" }

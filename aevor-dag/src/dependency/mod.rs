@@ -53,21 +53,91 @@ pub struct DependencyAnalyzer;
 impl DependencyAnalyzer {
     pub fn analyze(read_write_sets: &[ReadWriteSet]) -> DependencyGraph {
         let vertices: Vec<TransactionHash> = read_write_sets.iter().map(|rw| rw.transaction).collect();
-        let mut edges = std::collections::HashMap::new();
-        let mut reverse_edges = std::collections::HashMap::new();
+        let mut edges: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+        let mut reverse_edges: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
 
-        for (i, a) in read_write_sets.iter().enumerate() {
-            for (j, b) in read_write_sets.iter().enumerate() {
-                if i == j { continue; }
-                if ConflictDetector::conflict_type(a, b).is_some() {
-                    edges.entry(i).or_insert_with(Vec::new).push(j);
-                    reverse_edges.entry(j).or_insert_with(Vec::new).push(i);
+        // Directional dependency edges: for a conflicting pair (i, j) with i < j,
+        // the later transaction j depends on the earlier transaction i. Edges
+        // point only forward in submission order, so the graph is acyclic —
+        // matching AEVOR's rule that conflicts are resolved by submission order
+        // (the earlier transaction wins; the later one waits or is rejected).
+        for i in 0..read_write_sets.len() {
+            for j in (i + 1)..read_write_sets.len() {
+                if ConflictDetector::conflict_type(&read_write_sets[i], &read_write_sets[j]).is_some() {
+                    edges.entry(i).or_default().push(j); // j depends on i
+                    reverse_edges.entry(j).or_default().push(i); // j's dependency: i
                 }
             }
         }
 
-        let topo: Vec<usize> = (0..vertices.len()).collect(); // Simplified topo sort
-        DependencyGraph { vertices, edges, reverse_edges, topological_order: topo }
+        let topological_order = Self::kahn_topological_order(vertices.len(), &edges, &reverse_edges);
+        DependencyGraph { vertices, edges, reverse_edges, topological_order }
+    }
+
+    /// Kahn's algorithm: produce a dependency-respecting linear execution order.
+    ///
+    /// Ready vertices (no remaining dependencies) are emitted in ascending index
+    /// order, so the result is deterministic.
+    fn kahn_topological_order(
+        n: usize,
+        edges: &std::collections::HashMap<usize, Vec<usize>>,
+        reverse_edges: &std::collections::HashMap<usize, Vec<usize>>,
+    ) -> Vec<usize> {
+        let mut in_degree: Vec<usize> = (0..n)
+            .map(|v| reverse_edges.get(&v).map_or(0, Vec::len))
+            .collect();
+        let mut ready: std::collections::BTreeSet<usize> =
+            (0..n).filter(|v| in_degree[*v] == 0).collect();
+        let mut order = Vec::with_capacity(n);
+        while let Some(&v) = ready.iter().next() {
+            ready.remove(&v);
+            order.push(v);
+            if let Some(successors) = edges.get(&v) {
+                for &w in successors {
+                    in_degree[w] -= 1;
+                    if in_degree[w] == 0 {
+                        ready.insert(w);
+                    }
+                }
+            }
+        }
+        order
+    }
+
+    /// Compute parallel execution levels ("waves").
+    ///
+    /// Each inner vector is a set of transaction indices whose dependencies are
+    /// all satisfied by earlier levels, so every transaction within a level may
+    /// execute **concurrently**. This is AEVOR's parallel execution model:
+    /// independent transactions run in parallel; dependent ones are ordered
+    /// across successive levels. An empty graph yields no levels; fully
+    /// independent transactions yield a single level.
+    #[must_use]
+    pub fn parallel_execution_levels(graph: &DependencyGraph) -> Vec<Vec<usize>> {
+        let n = graph.vertices.len();
+        let mut in_degree: Vec<usize> = (0..n)
+            .map(|v| graph.reverse_edges.get(&v).map_or(0, Vec::len))
+            .collect();
+        let mut current: Vec<usize> = (0..n).filter(|v| in_degree[*v] == 0).collect();
+        current.sort_unstable();
+        let mut levels = Vec::new();
+        while !current.is_empty() {
+            let mut next: Vec<usize> = Vec::new();
+            for &v in &current {
+                if let Some(successors) = graph.edges.get(&v) {
+                    for &w in successors {
+                        in_degree[w] -= 1;
+                        if in_degree[w] == 0 {
+                            next.push(w);
+                        }
+                    }
+                }
+            }
+            next.sort_unstable();
+            levels.push(current);
+            current = next;
+        }
+        levels
     }
 }
 
@@ -197,5 +267,62 @@ mod tests {
         assert!(ConflictDetector::conflict_type(&a, &b).is_none());
         assert!(ConflictDetector::conflict_type(&a, &c).is_none());
         assert!(ConflictDetector::conflict_type(&b, &c).is_none());
+    }
+
+    #[test]
+    fn topological_order_respects_dependencies() {
+        // tx0 writes obj5; tx1 reads obj5 → tx1 depends on tx0.
+        let graph = DependencyAnalyzer::analyze(&[rw(1, &[], &[5]), rw(2, &[5], &[])]);
+        let pos0 = graph.topological_order.iter().position(|&v| v == 0).unwrap();
+        let pos1 = graph.topological_order.iter().position(|&v| v == 1).unwrap();
+        assert!(pos0 < pos1, "dependency (0 before 1) must be respected");
+        assert_eq!(graph.topological_order.len(), 2);
+    }
+
+    #[test]
+    fn topological_order_is_complete_for_chain() {
+        let graph = DependencyAnalyzer::analyze(&[
+            rw(1, &[], &[10]),
+            rw(2, &[10], &[20]),
+            rw(3, &[20], &[]),
+        ]);
+        assert_eq!(graph.topological_order, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn independent_transactions_form_single_parallel_level() {
+        let graph = DependencyAnalyzer::analyze(&[
+            rw(1, &[], &[1]),
+            rw(2, &[], &[2]),
+            rw(3, &[], &[3]),
+        ]);
+        let levels = DependencyAnalyzer::parallel_execution_levels(&graph);
+        assert_eq!(levels.len(), 1);
+        assert_eq!(levels[0], vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn dependency_chain_forms_sequential_levels() {
+        let graph = DependencyAnalyzer::analyze(&[
+            rw(1, &[], &[10]),
+            rw(2, &[10], &[20]),
+            rw(3, &[20], &[]),
+        ]);
+        let levels = DependencyAnalyzer::parallel_execution_levels(&graph);
+        assert_eq!(levels, vec![vec![0], vec![1], vec![2]]);
+    }
+
+    #[test]
+    fn mixed_graph_groups_independent_then_dependent() {
+        // 0 and 1 independent; 2 depends on both.
+        let graph = DependencyAnalyzer::analyze(&[
+            rw(1, &[], &[100]),
+            rw(2, &[], &[200]),
+            rw(3, &[100, 200], &[]),
+        ]);
+        let levels = DependencyAnalyzer::parallel_execution_levels(&graph);
+        assert_eq!(levels.len(), 2);
+        assert_eq!(levels[0], vec![0, 1]);
+        assert_eq!(levels[1], vec![2]);
     }
 }

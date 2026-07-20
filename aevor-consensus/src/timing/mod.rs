@@ -13,6 +13,7 @@ pub struct EpochReference {
 }
 
 /// Consensus-derived clock (no external time sources).
+#[allow(clippy::struct_field_names)] // `current_` prefix is semantically meaningful: these are the clock's current values
 pub struct ConsensusClock {
     current_round: u64,
     current_sequence: u64,

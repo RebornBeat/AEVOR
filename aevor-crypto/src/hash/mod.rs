@@ -26,36 +26,10 @@ impl HashAlgorithm {
     }
 }
 
-/// BLAKE3 hash output (32 bytes).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Blake3Hash(pub Hash256);
-
-impl Blake3Hash {
-    /// Hash `data` with BLAKE3.
-    pub fn hash(data: &[u8]) -> Self {
-        Self(Hash256(*blake3::hash(data).as_bytes()))
-    }
-    /// View the inner `Hash256`.
-    pub fn as_hash(&self) -> &Hash256 { &self.0 }
-}
-
-/// BLAKE3 incremental hasher — feed data in chunks, finalize once.
-pub struct Blake3Hasher(blake3::Hasher);
-
-impl Blake3Hasher {
-    /// Create a new BLAKE3 hasher.
-    pub fn new() -> Self { Self(blake3::Hasher::new()) }
-    /// Feed more data into the hasher.
-    pub fn update(&mut self, data: &[u8]) { self.0.update(data); }
-    /// Finalize and return the hash.
-    pub fn finalize(&self) -> Blake3Hash {
-        Blake3Hash(Hash256(*self.0.finalize().as_bytes()))
-    }
-}
-
-impl Default for Blake3Hasher {
-    fn default() -> Self { Self::new() }
-}
+// BLAKE3 lives canonically in aevor-core so every crate (including aevor-core
+// itself) shares one definition. Re-exported here for ergonomic
+// `aevor_crypto::hash::{Blake3Hasher, Blake3Hash}` access.
+pub use aevor_core::hash::{Blake3Hash, Blake3Hasher};
 
 /// SHA-256 hash output (32 bytes).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

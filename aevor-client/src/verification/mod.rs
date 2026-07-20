@@ -55,11 +55,16 @@ pub type ClientAttestationVerifier = AttestationVerifier;
 impl AttestationVerifier {
     /// Verify that an attestation report is genuine.
     ///
-    /// Delegates to `aevor-tee` for platform-specific verification.
+    /// Real verification: the attestation evidence must carry a valid seal (the
+    /// same cryptographic check a validator performs, shared via
+    /// `aevor_crypto::attestation`), and the execution must reference a non-zero
+    /// input. Production hardware cert-chain verification is the feature-gated
+    /// extension; the production-vs-simulation acceptance policy is a consensus
+    /// concern, not the client's.
+    #[must_use]
     pub fn verify(attestation: &aevor_core::consensus::ExecutionAttestation) -> bool {
-        // Full implementation: call aevor_tee::attestation::verify_report()
-        // For now: structural check only
-        !attestation.evidence.raw_report.is_empty() && !attestation.input_hash.is_zero()
+        aevor_crypto::attestation::verify_evidence(&attestation.evidence)
+            && !attestation.input_hash.is_zero()
     }
 }
 
@@ -114,15 +119,29 @@ mod tests {
     }
 
     fn make_attestation(empty_report: bool) -> ExecutionAttestation {
-        ExecutionAttestation {
-            evidence: AttestationEvidence {
+        let evidence = if empty_report {
+            // Invalid: empty quote, zero measurement.
+            AttestationEvidence {
                 platform: TeeAttestationPlatform::IntelSgx,
-                raw_report: if empty_report { vec![] } else { vec![0xDE, 0xAD] },
+                raw_report: vec![],
                 code_measurement: Hash256::ZERO,
                 nonce: [0u8; 32],
                 is_production: false,
                 svn: 0,
-            },
+            }
+        } else {
+            // Valid: a properly sealed evidence with a real measurement.
+            aevor_crypto::attestation::seal_evidence(AttestationEvidence {
+                platform: TeeAttestationPlatform::IntelSgx,
+                raw_report: vec![],
+                code_measurement: Hash256([7u8; 32]),
+                nonce: [1u8; 32],
+                is_production: false,
+                svn: 0,
+            })
+        };
+        ExecutionAttestation {
+            evidence,
             input_hash: if empty_report { Hash256::ZERO } else { Hash256([1u8; 32]) },
             output_hash: Hash256::ZERO,
             transaction_hash: Hash256::ZERO,

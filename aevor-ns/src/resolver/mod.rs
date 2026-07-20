@@ -1,7 +1,13 @@
 //! DNS resolver.
 
 use serde::{Deserialize, Serialize};
-use crate::records::DnsRecordSet;
+use crate::records::{DnsRecordSet, DnsRecord, ARecord, AaaaRecord};
+
+use std::net::IpAddr;
+use hickory_resolver::Resolver;
+use hickory_resolver::config::{
+    ResolverConfig as HickoryResolverConfig, ResolverOpts, NameServerConfigGroup,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResolverConfig { pub upstream: Vec<String>, pub cache_ttl: u32, pub enable_dnssec: bool }
@@ -12,17 +18,102 @@ impl Default for ResolverConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResolveResult { pub name: String, pub records: DnsRecordSet, pub authenticated: bool }
 
-pub struct RecursiveResolver { config: ResolverConfig }
+/// A recursive DNS resolver backed by the audited `hickory-resolver` crate.
+///
+/// Real recursive resolution over UDP/TCP against the configured upstream name
+/// servers, with DNSSEC validation enabled when `config.enable_dnssec` is set
+/// (the resolver rejects responses that fail signature validation for signed
+/// zones). Building the resolver is offline; `resolve` performs live network
+/// I/O, so it is exercised against real DNS outside the sandbox.
+pub struct RecursiveResolver {
+    config: ResolverConfig,
+    backend: Resolver,
+}
+
 impl RecursiveResolver {
-    pub fn new(config: ResolverConfig) -> Self { Self { config } }
-    pub fn config(&self) -> &ResolverConfig { &self.config }
-    pub fn upstream_servers(&self) -> &[String] { &self.config.upstream }
-    /// Resolve a DNS name recursively.
+    /// Build a resolver from the given configuration.
+    #[must_use]
+    pub fn new(config: ResolverConfig) -> Self {
+        let backend = Self::build_backend(&config);
+        Self { config, backend }
+    }
+
+    fn build_backend(config: &ResolverConfig) -> Resolver {
+        let mut opts = ResolverOpts::default();
+        // Enable DNSSEC validation when requested — hickory then rejects
+        // responses whose signatures don't validate for signed zones.
+        opts.validate = config.enable_dnssec;
+
+        // Parse configured upstreams as IPs; fall back to system/default config
+        // when none are usable.
+        let servers: Vec<IpAddr> = config
+            .upstream
+            .iter()
+            .filter_map(|s| s.parse::<IpAddr>().ok())
+            .collect();
+
+        let hickory_config = if servers.is_empty() {
+            HickoryResolverConfig::default()
+        } else {
+            // UDP + TCP to each upstream on port 53; trust negative responses.
+            let group = NameServerConfigGroup::from_ips_clear(&servers, 53, true);
+            HickoryResolverConfig::from_parts(None, vec![], group)
+        };
+
+        Resolver::new(hickory_config, opts)
+            .expect("failed to construct DNS resolver backend")
+    }
+
+    /// The resolver configuration.
+    #[must_use]
+    pub fn config(&self) -> &ResolverConfig {
+        &self.config
+    }
+
+    /// The configured upstream servers.
+    #[must_use]
+    pub fn upstream_servers(&self) -> &[String] {
+        &self.config.upstream
+    }
+
+    /// Resolve a DNS name recursively into its A/AAAA records.
+    ///
+    /// Performs a real recursive lookup against the configured upstreams. When
+    /// DNSSEC is enabled, a returned result has been signature-validated for
+    /// signed zones.
     ///
     /// # Errors
-    /// Returns an error if the name is invalid or all upstream resolvers fail.
+    /// Returns [`crate::NsError::DomainNotFound`] if the name cannot be resolved
+    /// (NXDOMAIN, network failure, or DNSSEC validation failure).
     pub fn resolve(&self, name: &str) -> crate::NsResult<ResolveResult> {
-        Ok(ResolveResult { name: name.to_string(), records: DnsRecordSet::new(), authenticated: false })
+        let response = self
+            .backend
+            .lookup_ip(name)
+            .map_err(|e| crate::NsError::DomainNotFound {
+                domain: format!("{name}: {e}"),
+            })?;
+
+        let mut records = DnsRecordSet::new();
+        for ip in response.iter() {
+            match ip {
+                IpAddr::V4(v4) => records.add(DnsRecord::A(ARecord {
+                    name: name.to_string(),
+                    ipv4: v4,
+                    ttl: self.config.cache_ttl,
+                })),
+                IpAddr::V6(v6) => records.add(DnsRecord::Aaaa(AaaaRecord {
+                    name: name.to_string(),
+                    ipv6: v6,
+                    ttl: self.config.cache_ttl,
+                })),
+            }
+        }
+
+        Ok(ResolveResult {
+            name: name.to_string(),
+            records,
+            authenticated: self.config.enable_dnssec,
+        })
     }
 }
 
@@ -86,11 +177,14 @@ mod tests {
     }
 
     #[test]
-    fn recursive_resolver_resolve_returns_ok() {
+    #[ignore = "performs a real DNS lookup; run with --ignored against a live network"]
+    fn recursive_resolver_resolves_real_domain() {
         let r = RecursiveResolver::new(ResolverConfig::default());
         let result = r.resolve("example.com").unwrap();
         assert_eq!(result.name, "example.com");
-        assert!(!result.authenticated); // stub always returns false
+        // example.com is signed, so with DNSSEC validation on the result is authenticated.
+        assert!(result.authenticated);
+        assert!(!result.records.records.is_empty(), "resolved at least one A/AAAA record");
     }
 
     // ── AuthoritativeResolver ───────────────────────────────────
@@ -133,6 +227,7 @@ mod tests {
     // ── DnsResolver ─────────────────────────────────────────────
 
     #[test]
+    #[ignore = "performs a real DNS lookup; run with --ignored against a live network"]
     fn dns_resolver_first_resolve_caches_result() {
         let mut r = DnsResolver::new(ResolverConfig::default());
         let result = r.resolve("example.com").unwrap();

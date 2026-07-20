@@ -49,16 +49,46 @@ impl LaplaceMechanism {
     /// The Laplace scale parameter: sensitivity / epsilon.
     pub fn scale(&self) -> f64 { self.config.sensitivity / self.config.epsilon }
 
-    /// Apply noise to a true value and return a `NoisedMetric`.
-    ///
-    /// In production, samples from Laplace(0, scale). Here we return the
-    /// true value plus zero noise for deterministic testing.
+    /// Apply real Laplace noise to a true value, deriving the noise seed
+    /// deterministically from the value. For caller-controlled entropy (fresh
+    /// noise per query), use [`Self::apply_seeded`].
     pub fn apply(&self, true_value: f64) -> NoisedMetric {
+        self.apply_seeded(true_value, true_value.to_bits())
+    }
+
+    /// Apply real Laplace(0, scale) noise sampled deterministically from `seed`.
+    ///
+    /// Noise is drawn by inverse-CDF transform from a `SplitMix64`-derived
+    /// uniform, so the result is reproducible for a given `(value, seed)` — the
+    /// property a verifier needs — while different seeds yield independent
+    /// noise.
+    pub fn apply_seeded(&self, true_value: f64, seed: u64) -> NoisedMetric {
         NoisedMetric {
-            noised_value: true_value, // Real impl adds Laplace noise
+            noised_value: true_value + laplace_noise(self.scale(), seed),
             epsilon_consumed: self.config.epsilon,
         }
     }
+}
+
+/// One uniform value in the open interval (0, 1) from a `SplitMix64` step.
+fn uniform_open01(seed: u64) -> f64 {
+    let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^= z >> 31;
+    // Take 53 bits → [0, 1), then shift into (0, 1) to avoid the endpoints.
+    #[allow(clippy::cast_precision_loss)]
+    let numerator = (z >> 11) as f64 + 0.5;
+    numerator / 9_007_199_254_740_992.0 // 2^53
+}
+
+/// Sample Laplace(0, `scale`) noise via inverse-CDF transform.
+fn laplace_noise(scale: f64, seed: u64) -> f64 {
+    let u = uniform_open01(seed);
+    let centered = u - 0.5; // in (-0.5, 0.5)
+    let sign = if centered < 0.0 { -1.0 } else { 1.0 };
+    // inverse CDF: -scale * sgn(x) * ln(1 - 2|x|)
+    -scale * sign * (1.0 - 2.0 * centered.abs()).ln()
 }
 
 #[cfg(test)]
@@ -97,12 +127,36 @@ mod tests {
     }
 
     #[test]
-    fn laplace_mechanism_apply_preserves_true_value_in_stub() {
+    fn laplace_noise_is_deterministic_for_a_seed() {
         let mech = LaplaceMechanism::new(DpConfig::consensus_defaults());
-        let result = mech.apply(42.5);
-        // Stub implementation: noised_value == true_value
-        assert!((result.noised_value - 42.5).abs() < 1e-9);
-        assert!((result.epsilon_consumed - 1.0).abs() < 1e-9);
+        let a = mech.apply_seeded(42.5, 12345);
+        let b = mech.apply_seeded(42.5, 12345);
+        assert!((a.noised_value - b.noised_value).abs() < 1e-12);
+        assert!((a.epsilon_consumed - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn laplace_noise_actually_perturbs_and_varies_by_seed() {
+        let mech = LaplaceMechanism::new(DpConfig::consensus_defaults());
+        // Different seeds generally produce different noised values.
+        let x = mech.apply_seeded(100.0, 1).noised_value;
+        let y = mech.apply_seeded(100.0, 2).noised_value;
+        assert!((x - y).abs() > 1e-9, "distinct seeds should give distinct noise");
+        // And at least one differs from the true value (noise is real).
+        assert!((x - 100.0).abs() > 1e-9 || (y - 100.0).abs() > 1e-9);
+    }
+
+    #[test]
+    fn laplace_noise_is_approximately_zero_mean() {
+        // Averaged over many samples, Laplace(0, b) noise cancels to ~0.
+        let mech = LaplaceMechanism::new(DpConfig { epsilon: 1.0, delta: 0.0, sensitivity: 1.0 });
+        let n = 20_000u64;
+        let mut sum = 0.0;
+        for seed in 0..n {
+            sum += mech.apply_seeded(0.0, seed.wrapping_mul(0x9E37_79B9_7F4A_7C15)).noised_value;
+        }
+        let mean = sum / n as f64;
+        assert!(mean.abs() < 0.1, "empirical mean {mean} should be near 0");
     }
 
     #[test]

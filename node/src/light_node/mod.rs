@@ -1,5 +1,7 @@
 //! Light node (header-only verification).
 
+use aevor_core::storage::{MerkleProof, MerkleRoot};
+
 /// A light node that verifies block headers without downloading full blocks.
 ///
 /// The `checkpoint` is a trusted block hash or height string from which the
@@ -16,6 +18,20 @@ impl LightNode {
 
     /// Whether this light node has a trusted checkpoint anchor.
     pub fn has_checkpoint(&self) -> bool { self.checkpoint.is_some() }
+
+    /// Verify an object's inclusion proof against a trusted state root.
+    ///
+    /// This is the light client's defining operation: unlike a full node or
+    /// validator, it does **not** execute transactions or hold full state. It
+    /// trusts a root (from a checkpoint or a finalized header) and checks
+    /// inclusion proofs against it, using the same canonical
+    /// [`MerkleProof::verify`] the prover's hashing is defined against. Returns
+    /// `true` only if `proof` is a valid inclusion proof rooted at
+    /// `trusted_root`.
+    #[must_use]
+    pub fn verify_object(&self, proof: &MerkleProof, trusted_root: &MerkleRoot) -> bool {
+        proof.is_inclusion && &proof.root == trusted_root && proof.verify()
+    }
 }
 
 #[cfg(test)]

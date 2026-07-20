@@ -67,7 +67,7 @@ impl CheckpointCreator {
 
     /// Returns `true` if a checkpoint should be created at this epoch.
     pub fn should_checkpoint(&self, epoch: EpochNumber) -> bool {
-        epoch.as_u64() % self.checkpoint_interval_epochs == 0
+        epoch.as_u64().is_multiple_of(self.checkpoint_interval_epochs)
     }
 
     /// Build a checkpoint for the given block.

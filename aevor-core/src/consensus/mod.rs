@@ -29,6 +29,7 @@ use crate::primitives::{
 /// imposes no artificial performance ceiling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum SecurityLevel {
     /// 2–3% of validators. Estimated confirmation: 20–50ms on current networks.
     /// Actual confirmation may be faster as network conditions improve.
@@ -38,6 +39,7 @@ pub enum SecurityLevel {
     /// 10–20% of validators. Estimated confirmation: 100–200ms on current networks.
     /// Actual confirmation may be faster as network conditions improve.
     /// Use for: standard transactions, routine smart contracts.
+    #[default]
     Basic = 1,
 
     /// \>33% of validators. Byzantine fault tolerant. Estimated: 500–800ms.
@@ -103,11 +105,6 @@ impl SecurityLevel {
     }
 }
 
-impl Default for SecurityLevel {
-    fn default() -> Self {
-        Self::Basic
-    }
-}
 
 impl std::fmt::Display for SecurityLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

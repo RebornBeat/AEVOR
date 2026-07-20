@@ -208,7 +208,10 @@ pub const MIN_CROSS_PLATFORM_CONSISTENCY_SCORE: f64 = 0.999;
 /// `DDoS` connection rate threshold (connections per second per IP).
 pub const DDOS_CONNECTION_RATE_THRESHOLD: u64 = 100;
 
-/// Maximum audit log entries before rotation.
+/// Audit-log rotation threshold: the number of entries retained before the
+/// log rotates. This is an operational retention bound (bounding memory/disk
+/// for the in-memory audit ring), NOT a throughput ceiling — it does not
+/// limit how many events the system can process or record over time.
 pub const AUDIT_LOG_MAX_ENTRIES: usize = 1_000_000;
 
 // ============================================================

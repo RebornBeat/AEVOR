@@ -9,6 +9,10 @@ repository.workspace = true
 [dependencies]
 aevor-core   = { workspace = true }
 aevor-crypto = { workspace = true }
+bulletproofs = { workspace = true }
+merlin       = { workspace = true }
+curve25519-dalek = { workspace = true }
+sha2         = { workspace = true }
 aevor-tee    = { workspace = true }
 serde        = { workspace = true }
 thiserror    = { workspace = true }

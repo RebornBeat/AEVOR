@@ -99,7 +99,7 @@ pub mod prelude {
     };
     pub use crate::types::{
         ApiTransaction, ApiBlock, ApiObject, ApiValidator, ApiQuery,
-        ApiReceipt, ApiError, Pagination, SortOrder,
+        ApiReceipt, ApiErrorResponse, Pagination, SortOrder,
     };
     pub use crate::auth::{
         ApiAuth, ApiKey, JwtToken, TeeBackedAuth, AuthMiddleware,

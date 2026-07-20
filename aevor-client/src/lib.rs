@@ -77,6 +77,12 @@ pub mod signing;
 /// Response verification: Merkle proof and attestation verification.
 pub mod verification;
 
+/// Agility-aware transaction submission and querying.
+pub mod exec;
+
+/// Real socket transport (`TcpNodeConnection`).
+pub mod transport;
+
 // ============================================================
 // PRELUDE
 // ============================================================
