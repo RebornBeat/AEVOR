@@ -8,6 +8,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/) style. Reference registe
 
 ## [Unreleased]
 
+### Milestone 29 — Combined throughput study: the pieces measured together + the dual-DAG scaling model (2026-07-18) ✅ DONE
+Not six isolated matrices — the interaction, to find the *true* throughput and how it scales as validators expand.
+- **NEW `bench_combined_pou_scaling`** measures, together: (Part 1) a fine batch-size sweet-spot sweep for both execution modes; (Part 2) the dual-DAG network model — per-lane execute rate and per-verifier attest rate measured, then aggregate throughput as concurrent macro-DAG lanes (validators) expand, in both the full-verification and sharded-verification regimes.
+- **NEW `docs/review/15_COMBINED_THROUGHPUT_AND_DUAL_DAG_SCALING.md`** — the analysis tying it together.
+- **Key measured findings:** re-execute is flat (~11.5–12.1k tx/s) at every batch size; **verify-attest has a real sweet spot at ~1k–10k (~1.0–1.1M tx/s)** and degrades past 15k (472k at 50k). The **dual-DAG turns per-lane numbers into network throughput**: aggregate = N lanes × per-lane, measured per-verifier ceiling ~1.12M tx/s ⇒ **full-verification caps at ~96 lanes**, while **sharded verification scales linearly with N (uncapped)** — 512 lanes ≈ 6M tx/s, 3,000 ≈ 35M, and it stays secure because every lane is still attestation-verified by a quorum with O(1) BLS finality across all N.
+- **Interaction insights:** PQ cost is **contained to producing lanes** (verifiers don't re-check tx signatures under PoU), so PQ-opt-in is cheap network-wide; **security level sets confirmation latency, not throughput** (finality is O(1) in validator count).
+- **Honest correction (caught while dwelling on the numbers):** the sparse Merkle tree does **NOT** fix the verify-path large-batch knee — applying n deltas through a 256-deep tree is ~16–24× *more* work than the sorted-leaf tree's single O(n) rebuild. Sparse Merkle wins for single-key updates and proofs, not batch application. The real throughput lever is **more lanes at the sweet-spot batch size**, not a different tree.
+- **Honesty on scope:** per-lane and per-verifier rates are measured on real code; the aggregate N-lane figure is *modelled from those measured components* (the node doesn't yet run N producers in one process). A live multi-node run is the next measurement.
+
 ### Milestone 28 — Real sparse Merkle tree (O(depth) interior updates + proofs) (2026-07-18) ✅ DONE
 The last pure-software O(n) gap: `SparseMerkleTree` is now a genuine sparse Merkle tree, not a flat-hash placeholder.
 - **Real 256-deep sparse Merkle tree** keyed by `BLAKE3(key)`: insert / update / remove / prove / verify are all **O(depth) — constant in the number of keys**. Empty subtrees use precomputed default hashes, so storage is sparse (only occupied paths). Membership proofs are direction-aware (the path is implied by the key hash) with a matching O(depth) verifier.

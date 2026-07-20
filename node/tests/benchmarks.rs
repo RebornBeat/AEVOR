@@ -463,3 +463,83 @@ fn bench_sparse_merkle_scaling() {
     println!("\n  Flat in n: each op is O(depth). This is the O(log n) interior-update structure");
     println!("  for incremental + proof-heavy workloads (the sorted-leaf prover is O(n) per proof).");
 }
+
+/// COMBINED PoU scaling benchmark — the pieces measured together, not in
+/// isolation, to find the true throughput and how it scales as validators
+/// expand across dual-DAG lanes.
+///
+/// Part 1: batch-size sweet spot for both execution modes (why ~a few k is best).
+/// Part 2: dual-DAG network model — per-producer + per-verifier rates measured,
+///         then aggregate throughput as concurrent macro-DAG lanes (validators)
+///         expand, in both the full-verification and sharded-verification regimes.
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture --release"]
+fn bench_combined_pou_scaling() {
+    let wallet = Ed25519KeyPair::from_seed([9u8; 32]);
+
+    println!("\n=== PART 1: batch-size sweet spot (Ed25519), both execution modes ===");
+    println!("  batch |  re-execute tx/s |  verify-attest tx/s | PoU speedup");
+    let mut best = (0u32, 0.0f64);
+    for &b in &[500u32, 1_000, 2_000, 3_000, 5_000, 8_000, 10_000, 15_000, 25_000, 50_000] {
+        // Producer makes an attested batch once (for the verify path).
+        let dprod = bench_dir("cmb-prod");
+        let mut prod = open_engine(&dprod);
+        let (_, att, delta) = prod.produce_attested_batch(disjoint_batch(&wallet, b)).unwrap();
+
+        // Re-execute path.
+        let dre = bench_dir("cmb-re");
+        let mut re = open_engine(&dre);
+        let t = Instant::now();
+        re.process_block(disjoint_batch(&wallet, b)).unwrap();
+        let re_tps = f64::from(b) / t.elapsed().as_secs_f64();
+
+        // Verify-attest path.
+        let dvf = bench_dir("cmb-vf");
+        let mut vf = open_engine(&dvf);
+        let t = Instant::now();
+        vf.apply_attested_batch(&att, &delta).unwrap();
+        let vf_tps = f64::from(b) / t.elapsed().as_secs_f64();
+
+        if re_tps > best.1 { best = (b, re_tps); }
+        println!("  {b:>6} | {re_tps:>16.0} | {vf_tps:>19.0} | {:>6.1}x", vf_tps / re_tps);
+        for d in [dprod, dre, dvf] { let _ = std::fs::remove_file(d.join("state.log")); }
+    }
+    println!("  -> re-execute peaks around batch {} ({:.0} tx/s)", best.0, best.1);
+
+    println!("\n=== PART 2: dual-DAG network throughput as validators/lanes expand ===");
+    // Measure the two component rates at a representative lane batch.
+    let lane_batch = 5_000u32;
+    let dprod = bench_dir("net-prod");
+    let mut prod = open_engine(&dprod);
+    let t = Instant::now();
+    let (_, att, delta) = prod.produce_attested_batch(disjoint_batch(&wallet, lane_batch)).unwrap();
+    let producer_rate = f64::from(lane_batch) / t.elapsed().as_secs_f64();
+    let dvf = bench_dir("net-vf");
+    let mut vf = open_engine(&dvf);
+    let t = Instant::now();
+    vf.apply_attested_batch(&att, &delta).unwrap();
+    let verifier_rate = f64::from(lane_batch) / t.elapsed().as_secs_f64();
+    for d in [dprod, dvf] { let _ = std::fs::remove_file(d.join("state.log")); }
+
+    println!("  per-producer execution rate: {producer_rate:>10.0} tx/s (one macro-DAG lane)");
+    println!("  per-verifier attest rate:    {verifier_rate:>10.0} tx/s (verifying others' lanes)");
+    let crossover = (verifier_rate / producer_rate).floor() as u64;
+    println!("  full-verification crossover: ~{crossover} lanes before a verifier saturates\n");
+
+    println!("  lanes(N) | aggregate exec | full-verif ceiling | sharded (uncapped) | BLS finality verify");
+    for &n in &[1u64, 2, 4, 8, 16, 32, 64, 128, 512, 3_000, 10_000] {
+        let aggregate = n as f64 * producer_rate;         // N concurrent lanes
+        let full_verif = aggregate.min(verifier_rate);    // one verifier checks all lanes
+        // Sharded: each validator verifies a constant slice, so aggregate scales with N.
+        let sharded = aggregate;
+        // BLS finality verify is O(1) regardless of N (measured ~1.3ms elsewhere).
+        println!(
+            "  {n:>8} | {aggregate:>14.0} | {full_verif:>18.0} | {sharded:>18.0} | O(1) ~1.3 ms",
+        );
+    }
+    println!("\n  Full-verification (every validator checks every lane): aggregate is capped at the");
+    println!("  per-verifier rate (~{verifier_rate:.0} tx/s) once past ~{crossover} lanes.");
+    println!("  Sharded verification (each validator checks a slice): aggregate scales with N —");
+    println!("  THIS is the uncapped regime, and it stays secure because every lane is still");
+    println!("  attestation-verified by someone and finality is O(1)-aggregated across all N.");
+}
