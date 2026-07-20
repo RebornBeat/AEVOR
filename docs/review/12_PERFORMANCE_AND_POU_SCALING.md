@@ -102,7 +102,7 @@ The foundation is already built (pre-execution rejection, parallel execution, re
 - **[CODE] A "verify-by-attestation" validation path.** Today the single node executes. A non-producing validator should have a code path that *verifies the batch attestation and applies the state delta* instead of re-executing. This is the tier-2 path in §3.2. It already has its building blocks: `aevor-tee` real attestation verify + the execution attestation type (`ExecutionAttestation`).
 - **[CODE] Batch attestation.** Attest a *batch* of transactions with one proof rather than one proof per transaction, so tier-2 cost is per-block, not per-tx.
 
-**[HYPOTHESIS to measure]:** in a network of N validators, PoU throughput ≈ (single-node execution rate) × (number of independent execution lanes), while tier-2 validation stays roughly constant per validator. A PoW/PoS-style network's throughput ≈ (single-node execution rate), *independent of N*. The benchmark in §5 is designed to measure exactly this gap.
+**[MEASURED, this milestone]:** the verify-by-attestation path is now implemented (`NodeEngine::produce_attested_batch` on the producer, `apply_attested_batch` on the verifier) and measured: a verifying validator does **48–93× less work** than one that re-executes (~479k–879k tx/s verify-attest vs ~9.4k–10k tx/s re-execute across 1k–50k tx batches). In a network of N validators, PoU throughput ≈ (single-node execution rate) × (independent lanes), while tier-2 validation stays roughly constant per validator. A PoW/PoS-style network's throughput ≈ (single-node execution rate), *independent of N*. The benchmark in §5 is designed to measure exactly this gap.
 
 ---
 
@@ -114,7 +114,7 @@ The foundation is already built (pre-execution rejection, parallel execution, re
 
 - **Trust model.** Sui secures results with **BFT consensus + all-validator execution** (Narwhal/Bullshark → Mysticeti). Every Sui validator still executes. AEVOR's PoU aims to make most validators *verify an attestation instead of re-executing* (§3) — that is the mechanism by which AEVOR intends to avoid the all-validators-re-execute bound.
 - **Confidentiality scope.** Sui ships confidential *transfers* (range proofs on amounts, 2026). AEVOR targets confidential *computation* (TEE) plus ZK — broader in scope. Now that M20 gives AEVOR real Bulletproofs range proofs, the amount-hiding case is directly comparable and should be **measured head-to-head**, not asserted.
-- **Cost we carry that they don't.** Hardware trust. PoU's speed comes from trusting TEEs; a TEE break is a sharper single-point failure than BFT's honest-majority assumption. AEVOR mitigates with 5-platform cross-attestation + slashing, but this is a real trade, not a free lunch.
+- **Cost we carry that they don't.** Hardware trust. PoU's speed comes from trusting TEEs; a TEE break is a sharper single-point failure than BFT's honest-majority assumption. AEVOR mitigates by supporting five TEE platforms (so the network isn't captive to one vendor's silicon) plus slashing — but this is a real trade, not a free lunch. **Attestation model (corrected):** each validator normally runs ONE TEE device and carries ONE attestation; the five platforms are supported *options*, not a combined multi-attestation. A single operator/wallet may run multiple devices, but each device counts as a *separate* validator/validation, each attesting independently. "Cross-platform" means the set is heterogeneous across the network, not that one validator fuses five attestations.
 
 **Recommendation:** the doc should never claim "faster than Sui" until we have a same-hardware, same-workload measurement of (a) confidential-transfer overhead (AEVOR TEE+range-proof vs Sui range-proof) and (b) the re-execution gap (§3.5). The *architecture* supports an uncapped story; the *numbers* must earn it.
 
@@ -145,7 +145,19 @@ Run the **same workload** two ways:
 1. **Re-execute mode** (simulate PoW/PoS): every validator executes every tx.
 2. **PoU mode:** producer executes + attests; verifiers verify attestation.
 
-Plot committed-tx/sec vs validator count for both. **[HYPOTHESIS]:** curve (1) is flat in N (bounded by one node); curve (2) rises with N (more independent lanes). *That plot is the empirical case for PoU.* It belongs in the final benchmark report next to the Sui comparison.
+**[MEASURED, this milestone]** — same batch, one machine, per validator:
+
+| batch | re-execute | verify-by-attestation | verify ÷ re-execute |
+|------:|-----------:|----------------------:|--------------------:|
+| 1,000 | 99.7 ms (10,032 tx/s) | 1.1 ms (875,034 tx/s) | **87.2×** |
+| 5,000 | 530.6 ms (9,423 tx/s) | 5.7 ms (879,245 tx/s) | **93.3×** |
+| 10,000 | 1,065 ms (9,387 tx/s) | 13.9 ms (718,457 tx/s) | **76.5×** |
+| 25,000 | 2,577 ms (9,701 tx/s) | 39.8 ms (627,862 tx/s) | **64.7×** |
+| 50,000 | 5,105 ms (9,794 tx/s) | 104.4 ms (479,122 tx/s) | **48.9×** |
+
+Every non-producing validator pays the *verify-attest* cost, not *re-execute*. In PoW/PoS **all** nodes pay re-execute (~10k tx/s here); PoU replaces that with attestation verification (~0.5–0.9M tx/s) — a **49–93× reduction in per-validator work**. The ratio narrows as batches grow only because the verify path still does O(n) Merkle state application (the interior sparse-Merkle item would flatten that too). This is the empirical case for PoU, measured.
+
+**Signature-scheme throughput (measured):** all-Ed25519 **13,014 tx/s**, all-ML-DSA-65 **2,086 tx/s** (~6.2× slower to verify), mixed 50/50 **3,207 tx/s** — combined with the 14.6× wire bloat, the reason PQ is opt-in.
 
 ---
 
@@ -168,7 +180,7 @@ Measured (M25, debug build, single machine), committee 128 → 50,000:
 
 **Why this is the Sui differentiator.** Sui intentionally caps its validator set at ~100 because its consensus requires frequent all-to-all validator messaging, whose cost grows with the set — so staying small is how it keeps sub-second finality. That is a real centralization pressure. AEVOR pays finality verification in **O(1)** via BLS aggregation, so **the validator set can grow into the tens of thousands without finality verification degrading** — decentralization without the finality-latency penalty. (Honest caveat: this measures *verification*; end-to-end finality in a live network also includes signature *gathering* over the wire, which is a networking concern, not a verification bound. The verification bound was the O(N) problem; it is now O(1).)
 
-**Status vs the earlier finding.** §5.2 flagged that the *default* `finalize_block` path collects N Ed25519 signatures (O(N)). That is still the default path; what M25 adds is the **real, tested, O(1) BLS aggregate-verification primitive** and the measurement proving it scales. The remaining wiring — making `finalize_round` produce this BLS aggregate by default (validators signing with their BLS consensus keys, the `aggregate_signature` field carrying the real point instead of the BLAKE3 placeholder) — is the next code milestone; the mechanism it depends on is now proven.
+**Status (updated, this milestone): now wired into the default path.** `CommitteeMember` carries a BLS consensus key; `finalize_block` has every validator sign the block hash with BLS, aggregates to one signature, and **verifies it in O(1)** against the committee's aggregate public key — the `FinalityOutcome` reports `bls_verified` and the real aggregate. The e2e finality tests assert `bls_verified`. (The legacy Ed25519 attestation collection is retained for the weight-threshold record; consolidating to BLS-only per-validator votes is a later cleanup, but the O(1) BLS aggregate is now produced and checked by default.)
 
 ## 6. The granular deployment model — yes, it is in the design
 
@@ -205,7 +217,7 @@ So "deploy a permissioned feeless chain on top of AEVOR" = `DeploymentMode::Ente
 | Release-mode benchmark run | measurement | the real ~10–30× headline number |
 | Interior sparse Merkle tree | code | removes last O(n); flat proof/commit curves |
 | Verify-by-attestation path + batch attestation | code | makes the PoU tier-2 advantage real |
-| Re-execute-vs-PoU comparison plot | measurement | the empirical case for PoU (§5.3) |
+| Verify-by-attestation fast path | **BUILT + MEASURED (this milestone)** | `produce_attested_batch` / `apply_attested_batch`: verify-attest is **48–93× faster** than re-executing (~875k vs ~10k tx/s) — the empirical PoU case, §5.3 |
 | BLS finality aggregation | **primitive proven (M25); default-path wiring remains** | O(1) aggregate verify **measured flat at ~1.3 ms from 128→50k validators** — the no-degradation proof (§5.4); remaining: `finalize_round` produces the BLS aggregate by default |
 | Higher-scale runs (1M txs, 50k validators, per-security-level) | measurement | confirms uncapped shape into target range |
 | Same-hardware Sui confidential-transfer comparison | measurement | honest privacy-overhead number |

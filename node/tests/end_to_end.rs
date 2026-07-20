@@ -10,7 +10,7 @@ use aevor_core::consensus::SecurityLevel;
 use aevor_core::primitives::{Address, Hash256, ObjectId};
 use aevor_core::privacy::PrivacyLevel;
 use aevor_crypto::agility::Signer;
-use aevor_crypto::signatures::Ed25519KeyPair;
+use aevor_crypto::signatures::{BlsKeyPair, Ed25519KeyPair};
 use aevor_vm::bytecode::BytecodeCodec;
 use aevor_vm::instructions::Instruction::{Add, Div, Ld};
 
@@ -112,13 +112,16 @@ fn full_pipeline_wallet_to_finality() {
     let v1 = Ed25519KeyPair::from_seed([1; 32]);
     let v2 = Ed25519KeyPair::from_seed([2; 32]);
     let v3 = Ed25519KeyPair::from_seed([3; 32]);
+    let (b1, b2, b3) = (BlsKeyPair::from_ikm([1; 32]), BlsKeyPair::from_ikm([2; 32]), BlsKeyPair::from_ikm([3; 32]));
     let committee = vec![
-        CommitteeMember { keypair: &v1, weight: 40 },
-        CommitteeMember { keypair: &v2, weight: 40 },
-        CommitteeMember { keypair: &v3, weight: 40 },
+        CommitteeMember { keypair: &v1, bls: &b1, weight: 40 },
+        CommitteeMember { keypair: &v2, bls: &b2, weight: 40 },
+        CommitteeMember { keypair: &v3, bls: &b3, weight: 40 },
     ];
     let fin = node.finalize_block(out.block_hash, &committee).unwrap();
     assert!(fin.finalized, "committee weight clears the security level");
+    assert!(fin.bls_verified, "aggregated BLS finality signature verifies (O(1))");
+    assert!(!fin.aggregate_signature.is_empty(), "real BLS aggregate produced");
     assert_eq!(fin.signature_count, 3, "finality proof carries all 3 signatures");
     assert_eq!(fin.signed_weight, 120);
 
@@ -447,10 +450,11 @@ fn node_modes_apply_distinct_policies() {
     let v1 = Ed25519KeyPair::from_seed([21u8; 32]);
     let v2 = Ed25519KeyPair::from_seed([22u8; 32]);
     let v3 = Ed25519KeyPair::from_seed([23u8; 32]);
+    let (b1, b2, b3) = (BlsKeyPair::from_ikm([21u8; 32]), BlsKeyPair::from_ikm([22u8; 32]), BlsKeyPair::from_ikm([23u8; 32]));
     let committee = [
-        CommitteeMember { keypair: &v1, weight: 40 },
-        CommitteeMember { keypair: &v2, weight: 40 },
-        CommitteeMember { keypair: &v3, weight: 40 },
+        CommitteeMember { keypair: &v1, bls: &b1, weight: 40 },
+        CommitteeMember { keypair: &v2, bls: &b2, weight: 40 },
+        CommitteeMember { keypair: &v3, bls: &b3, weight: 40 },
     ];
 
     let mut validator = ValidatorNode::new();
@@ -462,6 +466,7 @@ fn node_modes_apply_distinct_policies() {
     let (vout, finality) = validator.produce_and_finalize(&mut engine2, &committee).unwrap();
     assert_eq!(vout.accepted, 1, "validator executed and produced a block");
     assert!(finality.finalized, "validator finalized over the committee");
+    assert!(finality.bls_verified, "validator's BLS aggregate finality verifies");
 
     // --- Light node: verifies a proof against a trusted root, no engine ---
     let proof = engine.prove_object(&obj(10)).unwrap().expect("object present");
@@ -520,4 +525,47 @@ fn client_submits_and_queries_over_real_socket() {
     }
 
     let _ = std::fs::remove_file(dir.join("state.log"));
+}
+
+#[test]
+fn pou_verify_by_attestation_reproduces_state_without_reexecuting() {
+    // Producer executes a batch in its TEE and emits (attestation, delta).
+    // A verifier applies it WITHOUT re-executing and must reach the SAME state
+    // root — the Proof-of-Uncorruption fast path. Tampering is rejected.
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let wallet = Ed25519KeyPair::from_seed([9u8; 32]);
+
+    let dir_p = temp_dir("pou-p");
+    let mut producer = open_node(&dir_p);
+    let txs: Vec<_> = (0..40u8).map(|i| signed_tx(&wallet, i, &[], &[i], prog.clone())).collect();
+    let (outcome, attestation, delta) = producer.produce_attested_batch(txs).unwrap();
+    assert_eq!(outcome.accepted, 40);
+
+    // Verifier reproduces state from the attestation + delta (no VM execution).
+    let dir_v = temp_dir("pou-v");
+    let mut verifier = open_node(&dir_v);
+    verifier.apply_attested_batch(&attestation, &delta).unwrap();
+    assert_eq!(
+        verifier.state_root(),
+        producer.state_root(),
+        "verifier reproduced the producer's state via attestation, without re-executing"
+    );
+
+    // A corrupted delta does not reproduce the attested new root → rejected.
+    let dir_v2 = temp_dir("pou-v2");
+    let mut v2 = open_node(&dir_v2);
+    let mut bad = delta.clone();
+    bad[0].1 = vec![0xFFu8; 8];
+    assert!(v2.apply_attested_batch(&attestation, &bad).is_err(), "corrupted delta rejected");
+
+    // A forged attestation is rejected.
+    let dir_v3 = temp_dir("pou-v3");
+    let mut v3 = open_node(&dir_v3);
+    let mut forged = attestation.clone();
+    forged.signature = vec![0u8; 64];
+    assert!(v3.apply_attested_batch(&forged, &delta).is_err(), "forged attestation rejected");
+
+    for d in [dir_p, dir_v, dir_v2, dir_v3] {
+        let _ = std::fs::remove_file(d.join("state.log"));
+    }
 }

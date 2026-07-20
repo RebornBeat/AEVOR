@@ -47,10 +47,12 @@ impl HybridSignature {
     }
 }
 
-/// Hybrid key pair: Ed25519 + Dilithium.
+/// Hybrid key pair: Ed25519 + ML-DSA-65 (both real).
 ///
-/// The Dilithium component uses a stub implementation — the full
-/// `pqcrypto-dilithium` crate integration is a drop-in replacement.
+/// The post-quantum component is real ML-DSA-65 via the vetted `fips204` crate
+/// (see `ml_dsa.rs`); the classical component is real Ed25519. A hybrid
+/// signature is valid only if *both* components verify, so the account stays
+/// secure as long as either primitive remains unbroken.
 pub struct HybridKeyPair {
     classical: crate::signatures::Ed25519KeyPair,
     pq: crate::post_quantum::ml_dsa::MlDsa65KeyPair,

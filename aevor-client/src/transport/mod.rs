@@ -24,6 +24,7 @@ const MAX_FRAME: usize = 64 * 1024 * 1024;
 
 /// A request from a client to a node.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum NodeRequest {
     /// Submit a signed transaction to the node's mempool.
     Submit(SignedTransaction),

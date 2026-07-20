@@ -26,7 +26,8 @@ use aevor_core::privacy::PrivacyLevel;
 use aevor_core::storage::{MerkleProof, MerkleRoot, StorageKey, StorageValue};
 use aevor_crypto::agility::verify_transaction;
 use aevor_crypto::hash::Blake3Hasher;
-use aevor_crypto::signatures::Ed25519KeyPair;
+use aevor_crypto::bls::{aggregate_public_keys, BlsAggregator};
+use aevor_crypto::signatures::{BlsKeyPair, Ed25519KeyPair};
 use aevor_dag::dependency::ReadWriteSet;
 use aevor_execution::composed::ComposedExecutor;
 use aevor_storage::backend::{BackendConfig, LogBackend};
@@ -54,8 +55,11 @@ fn read_write_set_of(tx: &aevor_core::transaction::Transaction) -> ReadWriteSet 
 
 /// A member of the finalizing committee: a validator keypair and its weight.
 pub struct CommitteeMember<'a> {
-    /// The validator's signing key.
+    /// The validator's Ed25519 signing key (per-validator vote record).
     pub keypair: &'a Ed25519KeyPair,
+    /// The validator's BLS12-381 consensus key, used for O(1)-verifiable
+    /// finality aggregation (one aggregate signature for the whole committee).
+    pub bls: &'a BlsKeyPair,
     /// The validator's voting weight.
     pub weight: u64,
 }
@@ -88,6 +92,11 @@ pub struct FinalityOutcome {
     pub signature_count: usize,
     /// Signed voting weight recorded in the proof.
     pub signed_weight: u64,
+    /// Whether the aggregated BLS12-381 finality signature verified against the
+    /// committee's aggregate public key — O(1) regardless of committee size.
+    pub bls_verified: bool,
+    /// The aggregated BLS finality signature (single point; empty if none).
+    pub aggregate_signature: Vec<u8>,
 }
 
 /// The running node: real subsystems, composed.
@@ -99,6 +108,71 @@ pub struct NodeEngine {
     height: u64,
     gas_limit_per_tx: GasAmount,
     mempool: Vec<SignedTransaction>,
+}
+
+/// A produced block together with its execution attestation and the state
+/// delta a verifier needs to reproduce it without re-executing.
+pub type AttestedBatch = (BlockOutcome, ExecutionAttestation, Vec<(ObjectId, Vec<u8>)>);
+
+/// An attestation over a state transition produced by a validator's TEE.
+///
+/// Binds the prior state root, the new state root, and a commitment to the
+/// accepted transactions, sealed by the producing validator. Verifying it is
+/// the evidence that the transition came from uncorrupted execution — so other
+/// validators can apply the delta without re-executing. (Seal/verify use the
+/// simulation attestation key today; real hardware attestation replaces the
+/// seal without changing this shape.)
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ExecutionAttestation {
+    /// State root before the batch.
+    pub prior_root: [u8; 32],
+    /// State root after the batch.
+    pub new_root: [u8; 32],
+    /// BLAKE3 commitment over the accepted transaction hashes.
+    pub tx_commitment: [u8; 32],
+    /// TEE seal over the canonical body (64 bytes).
+    pub signature: Vec<u8>,
+}
+
+impl ExecutionAttestation {
+    fn body(prior: &[u8; 32], new: &[u8; 32], txc: &[u8; 32]) -> Vec<u8> {
+        let mut b = Vec::with_capacity(96);
+        b.extend_from_slice(prior);
+        b.extend_from_slice(new);
+        b.extend_from_slice(txc);
+        b
+    }
+
+    /// Seal an attestation over a transition (producing validator's TEE).
+    #[must_use]
+    pub fn seal(prior_root: [u8; 32], new_root: [u8; 32], tx_commitment: [u8; 32]) -> Self {
+        let signature =
+            aevor_crypto::attestation::sim_sign(&Self::body(&prior_root, &new_root, &tx_commitment))
+                .to_vec();
+        Self { prior_root, new_root, tx_commitment, signature }
+    }
+
+    /// Verify the attestation seal (verifying validator).
+    #[must_use]
+    pub fn verify(&self) -> bool {
+        let Ok(sig): Result<[u8; 64], _> = self.signature.as_slice().try_into() else {
+            return false;
+        };
+        aevor_crypto::attestation::sim_verify(
+            &Self::body(&self.prior_root, &self.new_root, &self.tx_commitment),
+            &sig,
+        )
+    }
+}
+
+/// Result of the shared verify+execute+commit core.
+struct BatchApplied {
+    accepted: usize,
+    rejected: usize,
+    bad_signature: usize,
+    gas_used: u64,
+    written_object_ids: Vec<ObjectId>,
+    tx_hashes: Vec<Hash256>,
 }
 
 impl NodeEngine {
@@ -191,46 +265,12 @@ impl NodeEngine {
     ///
     /// [`finalize_block`]: NodeEngine::finalize_block
     pub fn process_block(&mut self, txs: Vec<SignedTransaction>) -> NodeResult<BlockOutcome> {
-        // 1. Signature gate: only well-signed transactions proceed.
-        let mut valid: Vec<(ReadWriteSet, Vec<u8>)> = Vec::new();
-        let mut bad_signature = 0usize;
-        for tx in txs {
-            if verify_transaction(&tx) {
-                let rw = read_write_set_of(&tx.transaction);
-                valid.push((rw, tx.transaction.payload));
-            } else {
-                bad_signature += 1;
-            }
-        }
-
-        // 2. Execute through the composed pipeline: DAG conflict rejection →
-        //    VM execution → durable persistence.
-        let outcome = self
-            .executor
-            .process_program_batch(&valid, self.gas_limit_per_tx)
-            .map_err(|e| NodeError::SubsystemCrash {
-                subsystem: "execution".to_string(),
-                reason: e.to_string(),
-            })?;
-
-        // 3. Commit each written object into the authenticated state tree.
-        let mut accepted_tx_hashes: Vec<Hash256> = Vec::new();
-        for object_id in &outcome.written_object_ids {
-            let record = self
-                .executor
-                .object(object_id)
-                .map_err(|e| NodeError::SubsystemCrash {
-                    subsystem: "storage".to_string(),
-                    reason: e.to_string(),
-                })?;
-            if let Some(record) = record {
-                self.state
-                    .insert(&Self::state_key(object_id), StorageValue::from_bytes(record.data));
-            }
-        }
-        for (rw, _) in &valid {
-            accepted_tx_hashes.push(rw.transaction);
-        }
+        let applied = self.verify_execute_commit(txs)?;
+        let bad_signature = applied.bad_signature;
+        let accepted = applied.accepted;
+        let rejected = applied.rejected;
+        let gas_used = applied.gas_used;
+        let accepted_tx_hashes = applied.tx_hashes;
 
         self.height += 1;
         let state_root = self.state.root();
@@ -247,12 +287,166 @@ impl NodeEngine {
         Ok(BlockOutcome {
             height: self.height,
             block_hash,
+            accepted,
+            rejected,
+            bad_signature,
+            state_root,
+            gas_used,
+        })
+    }
+
+    /// Shared core: signature gate → DAG conflict rejection → VM execution →
+    /// commit written objects into the state tree. Used by both the full path
+    /// (`process_block`) and the producing side of the attested path
+    /// (`produce_attested_batch`) so there is a single execution codepath.
+    fn verify_execute_commit(&mut self, txs: Vec<SignedTransaction>) -> NodeResult<BatchApplied> {
+        let mut valid: Vec<(ReadWriteSet, Vec<u8>)> = Vec::new();
+        let mut bad_signature = 0usize;
+        for tx in txs {
+            if verify_transaction(&tx) {
+                let rw = read_write_set_of(&tx.transaction);
+                valid.push((rw, tx.transaction.payload));
+            } else {
+                bad_signature += 1;
+            }
+        }
+
+        let outcome = self
+            .executor
+            .process_program_batch(&valid, self.gas_limit_per_tx)
+            .map_err(|e| NodeError::SubsystemCrash {
+                subsystem: "execution".to_string(),
+                reason: e.to_string(),
+            })?;
+
+        for object_id in &outcome.written_object_ids {
+            let record = self
+                .executor
+                .object(object_id)
+                .map_err(|e| NodeError::SubsystemCrash {
+                    subsystem: "storage".to_string(),
+                    reason: e.to_string(),
+                })?;
+            if let Some(record) = record {
+                self.state
+                    .insert(&Self::state_key(object_id), StorageValue::from_bytes(record.data));
+            }
+        }
+
+        let tx_hashes = valid.iter().map(|(rw, _)| rw.transaction).collect();
+
+        Ok(BatchApplied {
             accepted: outcome.accepted,
             rejected: outcome.rejected,
             bad_signature,
-            state_root,
             gas_used: outcome.total_gas_used,
+            written_object_ids: outcome.written_object_ids.clone(),
+            tx_hashes,
         })
+    }
+
+    /// Produce a block AND an execution attestation over the state transition,
+    /// plus the state delta needed to reproduce it. This is the *producing*
+    /// validator's role under Proof of Uncorruption: execute once, in its TEE,
+    /// and emit a proof other validators verify WITHOUT re-executing (see
+    /// [`apply_attested_batch`](Self::apply_attested_batch)).
+    ///
+    /// # Errors
+    /// Propagates execution/storage subsystem failures.
+    pub fn produce_attested_batch(
+        &mut self,
+        txs: Vec<SignedTransaction>,
+    ) -> NodeResult<AttestedBatch> {
+        let prior_root = self.state.root();
+        let applied = self.verify_execute_commit(txs)?;
+
+        // Materialize the state delta (written object -> data) for shipment.
+        let mut delta: Vec<(ObjectId, Vec<u8>)> =
+            Vec::with_capacity(applied.written_object_ids.len());
+        for object_id in &applied.written_object_ids {
+            if let Some(record) = self.executor.object(object_id).map_err(|e| {
+                NodeError::SubsystemCrash {
+                    subsystem: "storage".to_string(),
+                    reason: e.to_string(),
+                }
+            })? {
+                delta.push((*object_id, record.data));
+            }
+        }
+
+        self.height += 1;
+        let state_root = self.state.root();
+
+        let mut txh = Blake3Hasher::new();
+        for h in &applied.tx_hashes {
+            txh.update(&h.0);
+        }
+        let tx_commitment = txh.finalize().0;
+
+        let attestation =
+            ExecutionAttestation::seal(prior_root.0 .0, state_root.0 .0, tx_commitment.0);
+
+        let mut hasher = Blake3Hasher::new();
+        hasher.update(&self.height.to_le_bytes());
+        hasher.update(&state_root.0 .0);
+        for h in &applied.tx_hashes {
+            hasher.update(&h.0);
+        }
+        let block_hash: BlockHash = hasher.finalize().0;
+
+        let outcome = BlockOutcome {
+            height: self.height,
+            block_hash,
+            accepted: applied.accepted,
+            rejected: applied.rejected,
+            bad_signature: applied.bad_signature,
+            state_root,
+            gas_used: applied.gas_used,
+        };
+        Ok((outcome, attestation, delta))
+    }
+
+    /// Apply an attested batch as a *verifying* validator: check the producer's
+    /// execution attestation and apply the state delta — WITHOUT re-executing
+    /// the VM or re-verifying individual transaction signatures. This is the
+    /// Proof-of-Uncorruption fast path ("valid until proven corrupted"): a
+    /// producer that ships a delta inconsistent with its attested new root, or
+    /// an unauthentic attestation, is rejected here.
+    ///
+    /// # Errors
+    /// Returns an error if the attestation is invalid, the prior root does not
+    /// match local state, or the applied delta does not reproduce the attested
+    /// new root (corruption detected).
+    pub fn apply_attested_batch(
+        &mut self,
+        attestation: &ExecutionAttestation,
+        delta: &[(ObjectId, Vec<u8>)],
+    ) -> NodeResult<()> {
+        if !attestation.verify() {
+            return Err(NodeError::SubsystemCrash {
+                subsystem: "attestation".to_string(),
+                reason: "execution attestation failed verification".to_string(),
+            });
+        }
+        if self.state.root().0 .0 != attestation.prior_root {
+            return Err(NodeError::SubsystemCrash {
+                subsystem: "attestation".to_string(),
+                reason: "attested prior root does not match local state".to_string(),
+            });
+        }
+        // Apply the delta directly — NO VM execution, NO signature re-check.
+        for (object_id, data) in delta {
+            self.state
+                .insert(&Self::state_key(object_id), StorageValue::from_bytes(data.clone()));
+        }
+        self.height += 1;
+        if self.state.root().0 .0 != attestation.new_root {
+            return Err(NodeError::SubsystemCrash {
+                subsystem: "attestation".to_string(),
+                reason: "applied delta does not reproduce attested new root".to_string(),
+            });
+        }
+        Ok(())
     }
 
     /// Finalize a block by collecting attestations from a validator committee
@@ -286,16 +480,40 @@ impl NodeEngine {
         }
 
         let result = self.consensus.finalize_round(&collection, 0);
+
+        // Real BLS12-381 aggregate finality: each validator signs the block hash
+        // with its consensus key; the aggregate is ONE signature verified in a
+        // single pairing check against the committee's aggregate public key —
+        // O(1) regardless of committee size (see the no-degradation benchmark).
+        let msg = block_hash.0;
+        let mut aggregator = BlsAggregator::new(Hash256(msg), committee.len());
+        for (i, member) in committee.iter().enumerate() {
+            let _ = aggregator.add_signature(i, &member.bls.sign(&msg));
+        }
+        let (bls_verified, aggregate_signature) = match aggregator.aggregate() {
+            Ok(agg) => {
+                let pubkeys: Vec<_> = committee.iter().map(|m| m.bls.public_key()).collect();
+                let verified = aggregate_public_keys(&pubkeys)
+                    .is_ok_and(|key| agg.verify_with_aggregate_key(&msg, &key));
+                (verified, agg.aggregate)
+            }
+            Err(_) => (false, Vec::new()),
+        };
+
         match result.finality_proof {
             Some(proof) => Ok(FinalityOutcome {
                 finalized: true,
                 signature_count: proof.signatures.len(),
                 signed_weight: proof.total_weight.0,
+                bls_verified,
+                aggregate_signature,
             }),
             None => Ok(FinalityOutcome {
                 finalized: false,
                 signature_count: 0,
                 signed_weight: 0,
+                bls_verified: false,
+                aggregate_signature: Vec::new(),
             }),
         }
     }
