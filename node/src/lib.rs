@@ -69,6 +69,9 @@ pub mod orchestrator;
 /// The real, runnable node engine wiring all subsystems end-to-end.
 pub mod engine;
 
+/// Subnet deployment policy: feeless/fee, permissioned, and enforced privacy baseline.
+pub mod subnet;
+
 /// Node-side request/response server (`NodeServer`).
 pub mod server;
 
@@ -92,6 +95,11 @@ pub mod full_node;
 
 /// Archive node: complete historical state with extended storage.
 pub mod archive;
+
+/// Hardware-agnostic compute abstraction (CPU cores now; GPU/TPU/NPU as
+/// pluggable accelerator backends) so every validator maximises throughput on
+/// whatever processing units it has.
+pub mod compute;
 
 /// Light node: header-only verification for edge deployment.
 pub mod light_node;
@@ -236,6 +244,7 @@ pub const TOTAL_SUBSYSTEM_COUNT: usize = 21;
 // ============================================================
 
 #[cfg(test)]
+#[allow(clippy::assertions_on_constants)] // these tests deliberately assert compile-time invariants
 mod tests {
     use super::*;
 

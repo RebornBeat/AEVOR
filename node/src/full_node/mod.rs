@@ -16,9 +16,18 @@ impl FullNode {
     pub fn new() -> Self { Self { running: false } }
     /// Start the full node.
     ///
+    /// Sizes the compute pool to the host's cores so intra-lane parallel
+    /// execution uses all available hardware (see [`crate::compute`]).
+    ///
     /// # Errors
     /// Returns an error if the node fails to connect to the network or storage.
-    pub fn start(&mut self) -> NodeResult<()> { self.running = true; Ok(()) }
+    pub fn start(&mut self) -> NodeResult<()> {
+        // Scale parallel execution to this validator's hardware. Not an error if
+        // the global pool was already configured elsewhere.
+        let _ = crate::compute::ComputeProfile::detect().configure();
+        self.running = true;
+        Ok(())
+    }
     pub fn is_running(&self) -> bool { self.running }
 
     /// Produce a block from the engine's mempool.

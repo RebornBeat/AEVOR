@@ -148,6 +148,88 @@ impl FeePolicy {
             }
         }
     }
+
+    /// Return this policy after a block, advancing a `MarketBased` base fee by the
+    /// congestion rule (see [`next_base_fee`]). `Free` and `Fixed` policies are
+    /// returned unchanged — only market fees float with demand.
+    #[must_use]
+    pub fn after_block(
+        &self,
+        block_gas_used: u64,
+        target_gas: u64,
+        adjustment_bps: u32,
+        min_price: u64,
+    ) -> Self {
+        match self {
+            Self::MarketBased { base_fee, max_multiplier } => Self::MarketBased {
+                base_fee: crate::primitives::GasPrice(next_base_fee(
+                    base_fee.0,
+                    block_gas_used,
+                    target_gas,
+                    adjustment_bps,
+                    min_price,
+                )),
+                max_multiplier: *max_multiplier,
+            },
+            other => other.clone(),
+        }
+    }
+}
+
+// ============================================================
+// FEE MARKET ALGORITHM (congestion + bloat)
+// ============================================================
+
+/// Default flat intrinsic gas charged per transaction, independent of size.
+pub const DEFAULT_INTRINSIC_TX_GAS: u64 = 100;
+
+/// Default gas charged per byte of a transaction's serialized size. This is the
+/// lever that prices *bloat*: a post-quantum ML-DSA signature (~5.5 KB) costs far
+/// more intrinsic gas than an Ed25519 one (~64 B), because it imposes more
+/// storage and bandwidth on every validator forever.
+pub const DEFAULT_GAS_PER_BYTE: u64 = 1;
+
+/// Intrinsic gas for a transaction of `size_bytes` serialized bytes: a flat base
+/// plus a per-byte charge. This is the size/bloat component of a transaction's
+/// total gas — larger transactions (notably post-quantum-signed ones) pay
+/// proportionally more, folded into the one `fee = gas * price` formula rather
+/// than bolted on as a separate premium.
+#[must_use]
+pub fn intrinsic_gas(size_bytes: usize, base_tx_gas: u64, gas_per_byte: u64) -> u64 {
+    base_tx_gas.saturating_add((size_bytes as u64).saturating_mul(gas_per_byte))
+}
+
+/// The congestion-based base-fee update, in nano/gas — an EIP-1559-style rule
+/// computed in integer math so it is deterministic across validators.
+///
+/// ```text
+/// next = base * (1 + adjustment_bps/10000 * (gas_used - target_gas)/target_gas)
+/// ```
+///
+/// clamped to a floor of `min_price`. When a block uses **more** gas than the
+/// target the base fee **rises** (demand throttling, and validators earn more
+/// under load); when it uses **less** the base fee **falls** back toward the
+/// floor (idle blocks are cheap). At exactly the target the fee is unchanged.
+/// The fee reacts to *congestion*, never to the token's market price.
+#[must_use]
+pub fn next_base_fee(
+    base: u64,
+    gas_used: u64,
+    target_gas: u64,
+    adjustment_bps: u32,
+    min_price: u64,
+) -> u64 {
+    if target_gas == 0 {
+        return base.max(min_price);
+    }
+    let base_i = i128::from(base);
+    let used = i128::from(gas_used);
+    let target = i128::from(target_gas);
+    let adj = i128::from(adjustment_bps);
+    // delta = base * adj_bps * (used - target) / (target * 10_000)
+    let delta = base_i * adj * (used - target) / (target * 10_000);
+    let next = (base_i + delta).max(i128::from(min_price)).max(0);
+    u64::try_from(next).unwrap_or(u64::MAX)
 }
 
 // ============================================================
@@ -365,6 +447,65 @@ impl EconomicPrimitive for CrossSubnetEconomics {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn base_fee_rises_under_congestion_and_falls_when_idle() {
+        // target 50% of a 30M block = 15M gas; max 12.5% adjustment per block.
+        let target = 15_000_000u64;
+        let adj_bps = 1_250; // 12.5%
+        let min = 100u64;
+        let base = 1_000u64;
+        // A full block (2x target) pushes the fee up by the max step.
+        let up = next_base_fee(base, 30_000_000, target, adj_bps, min);
+        assert!(up > base, "congestion raises the base fee");
+        assert_eq!(up, 1_125, "capped at +12.5% when a full step above target");
+        // An empty block pushes it down.
+        let down = next_base_fee(base, 0, target, adj_bps, min);
+        assert!(down < base, "idle blocks lower the base fee");
+        assert_eq!(down, 875, "-12.5% when a full step below target");
+        // Exactly at target: unchanged.
+        assert_eq!(next_base_fee(base, target, target, adj_bps, min), base);
+    }
+
+    #[test]
+    fn base_fee_never_drops_below_the_floor() {
+        // Repeatedly idle from a low base stays at the floor, not zero/negative.
+        let mut base = 120u64;
+        for _ in 0..100 {
+            base = next_base_fee(base, 0, 15_000_000, 1_250, 100);
+        }
+        assert_eq!(base, 100, "base fee floors at min_price");
+    }
+
+    #[test]
+    fn intrinsic_gas_prices_post_quantum_bloat_higher() {
+        // A post-quantum ML-DSA signed tx is far larger than an Ed25519 one, so
+        // it costs proportionally more intrinsic gas.
+        let ed25519_tx = intrinsic_gas(380, DEFAULT_INTRINSIC_TX_GAS, DEFAULT_GAS_PER_BYTE);
+        let ml_dsa_tx = intrinsic_gas(5_545, DEFAULT_INTRINSIC_TX_GAS, DEFAULT_GAS_PER_BYTE);
+        assert!(ml_dsa_tx > ed25519_tx * 10, "PQ tx costs >10x the intrinsic gas");
+        assert_eq!(ed25519_tx, 480);
+        assert_eq!(ml_dsa_tx, 5_645);
+    }
+
+    #[test]
+    fn market_policy_advances_with_congestion() {
+        let p = FeePolicy::MarketBased {
+            base_fee: crate::primitives::GasPrice(1_000),
+            max_multiplier: 8,
+        };
+        let hot = p.after_block(30_000_000, 15_000_000, 1_250, 100);
+        if let FeePolicy::MarketBased { base_fee, .. } = hot {
+            assert_eq!(base_fee.0, 1_125);
+        } else {
+            panic!("expected MarketBased");
+        }
+        // A free policy is unaffected.
+        assert_eq!(
+            FeePolicy::Free.after_block(30_000_000, 15_000_000, 1_250, 100),
+            FeePolicy::Free
+        );
+    }
     use crate::primitives::{Address, Amount, EpochNumber, GasAmount, GasPrice, Hash256};
 
     fn addr(n: u8) -> Address { Address([n; 32]) }

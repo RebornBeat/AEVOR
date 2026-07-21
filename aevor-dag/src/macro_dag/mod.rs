@@ -90,6 +90,74 @@ pub struct BlockOrdering {
     pub is_canonical: bool,
 }
 
+impl BlockOrdering {
+    /// Deterministically order a set of concurrently-produced blocks (same
+    /// height, no cross-reference) by block hash.
+    ///
+    /// This is the leaderless "mathematical ordering of concurrent blocks"
+    /// (whitepaper): every honest validator, given the same set of concurrent
+    /// blocks, computes the *identical* total order with no single producer
+    /// acting as a sequencing bottleneck. Combined with cross-lane conflict
+    /// rejection (lanes touch disjoint objects), applying blocks in this order
+    /// yields the same state on every validator regardless of the order the
+    /// blocks arrived over the network.
+    #[must_use]
+    pub fn deterministic(block_hashes: &[BlockHash]) -> Self {
+        let mut ordered: Vec<BlockHash> = block_hashes.to_vec();
+        ordered.sort_by_key(|h| h.0);
+        let is_canonical = ordered.len() <= 1;
+        Self { ordered_blocks: ordered, is_canonical }
+    }
+}
+
+/// Deterministic assignment of a verifying quorum to each lane — the mechanism
+/// behind **sharded verification**.
+///
+/// Under full verification every validator re-checks every lane's attestation,
+/// which caps aggregate throughput at one verifier's rate once the lane count
+/// grows. Sharded verification instead assigns each lane a *quorum* of
+/// validators; a validator only verifies (and, under state sharding, applies)
+/// the lanes it is assigned. Because the assignment is a deterministic function
+/// of the lane hash and the validator set, every honest validator agrees on who
+/// covers which lane with no coordination. Each validator's load is then a
+/// bounded slice, so aggregate throughput scales linearly with the validator
+/// count — the uncapped regime — while every lane is still covered by a quorum
+/// (corruption on a lane is caught by any of its assigned verifiers → slashed)
+/// and finality remains O(1)-aggregated across all validators.
+pub struct LaneAssignment;
+
+impl LaneAssignment {
+    /// The validator indices assigned to verify `lane_hash`. Deterministic:
+    /// a window of `quorum_size` consecutive validators starting at an index
+    /// derived from the lane hash (mod the validator count).
+    #[must_use]
+    pub fn quorum_for_lane(
+        lane_hash: &BlockHash,
+        validator_count: usize,
+        quorum_size: usize,
+    ) -> Vec<usize> {
+        if validator_count == 0 {
+            return Vec::new();
+        }
+        let q = quorum_size.clamp(1, validator_count);
+        let b = lane_hash.0;
+        let seed = u64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]);
+        let start = usize::try_from(seed % validator_count as u64).unwrap_or(0);
+        (0..q).map(|i| (start + i) % validator_count).collect()
+    }
+
+    /// Whether `validator_index` is in the verifying quorum for `lane_hash`.
+    #[must_use]
+    pub fn is_assigned(
+        validator_index: usize,
+        lane_hash: &BlockHash,
+        validator_count: usize,
+        quorum_size: usize,
+    ) -> bool {
+        Self::quorum_for_lane(lane_hash, validator_count, quorum_size).contains(&validator_index)
+    }
+}
+
 /// A snapshot of the Macro-DAG at a specific consensus timestamp.
 ///
 /// Used by finality gadgets to anchor the DAG state at a given point in time

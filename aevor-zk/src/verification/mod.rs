@@ -16,8 +16,10 @@ impl ProofVerifier {
     pub fn verify(proof: &[u8], vkey: &VerifyingKey, inputs: &PublicInputs) -> VerificationResult {
         // Verify: proof non-empty, inputs match expected count for this circuit
         // Verify proof non-empty and inputs are consistent with vkey circuit
-        let valid = !proof.is_empty() && !vkey.key_bytes.is_empty() && !inputs.values.is_empty();
-        VerificationResult { valid, circuit_hash: vkey.circuit_hash }
+        // NOT PRODUCTION: real SNARK verification is out of mainnet scope
+        // (privacy is TEE/VM-based; Bulletproofs is the shipped ZK). Fail-closed.
+        let _ = (proof, inputs);
+        VerificationResult { valid: false, circuit_hash: vkey.circuit_hash }
     }
 }
 
@@ -50,7 +52,7 @@ mod tests {
     fn proof_verifier_accepts_valid_proof_and_inputs() {
         let proof = vec![0u8; 192];
         let result = ProofVerifier::verify(&proof, &vkey(1), &inputs());
-        assert!(result.valid);
+        assert!(!result.valid); // fail-closed (NOT PRODUCTION)
         assert_eq!(result.circuit_hash, Hash256([1; 32]));
     }
 
@@ -74,7 +76,7 @@ mod tests {
         bv.add(vec![0u8; 192], vkey(1), inputs());
         bv.add(vec![0u8; 192], vkey(2), inputs());
         assert_eq!(bv.count(), 2);
-        assert!(bv.verify_all());
+        assert!(!bv.verify_all()); // fail-closed (NOT PRODUCTION)
     }
 
     #[test]

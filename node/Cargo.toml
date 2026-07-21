@@ -15,6 +15,7 @@ name = "aevor-node"
 path = "src/main.rs"
 
 [dependencies]
+rayon            = { workspace = true }
 bincode    = { workspace = true }
 # Foundation
 aevor-core      = { workspace = true }

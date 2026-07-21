@@ -19,7 +19,9 @@ impl Halo2Prover {
 
 pub struct Halo2Verifier;
 impl Halo2Verifier {
-    pub fn verify(proof: &Halo2Proof) -> bool { !proof.proof_bytes.is_empty() }
+    /// NOT PRODUCTION. Real Halo2 verification is out of mainnet scope; fail-closed.
+    #[must_use]
+    pub fn verify(_proof: &Halo2Proof) -> bool { false }
 }
 
 #[cfg(test)]
@@ -37,7 +39,7 @@ mod tests {
     #[test]
     fn halo2_verifier_accepts_nonempty_proof() {
         let proof = Halo2Prover::prove(&[]);
-        assert!(Halo2Verifier::verify(&proof));
+        assert!(!Halo2Verifier::verify(&proof)); // fail-closed (NOT PRODUCTION)
     }
 
     #[test]

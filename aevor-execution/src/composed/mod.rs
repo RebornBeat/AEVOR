@@ -58,6 +58,10 @@ pub struct ProgramOutcome {
     pub programs_executed: usize,
     /// Object ids written by accepted transactions (for state-tree commitment).
     pub written_object_ids: Vec<ObjectId>,
+    /// Per-accepted-transaction execution gas, keyed by transaction hash. Lets
+    /// the caller settle fees against each sender individually rather than only
+    /// in aggregate.
+    pub accepted_tx_gas: Vec<(aevor_core::primitives::Hash256, u64)>,
 }
 
 /// A composed executor wiring DAG conflict detection, BLAKE3 hashing, and
@@ -325,12 +329,14 @@ impl ComposedExecutor {
             total_gas_used: 0,
             programs_executed: 0,
             written_object_ids: Vec::new(),
+            accepted_tx_gas: Vec::new(),
         };
 
         for ((rw, _), (ok, executed, gas_used)) in accepted.iter().zip(exec.iter()) {
             if *ok {
                 outcome.accepted += 1;
                 outcome.total_gas_used += *gas_used;
+                outcome.accepted_tx_gas.push((rw.transaction, *gas_used));
                 if *executed {
                     outcome.programs_executed += 1;
                 }

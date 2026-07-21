@@ -21,7 +21,7 @@
 use std::time::Instant;
 
 use aevor_core::consensus::SecurityLevel;
-use aevor_core::primitives::{Address, Hash256, Nonce, ObjectId};
+use aevor_core::primitives::{Address, Amount, Hash256, Nonce, ObjectId};
 use aevor_core::privacy::PrivacyLevel;
 use aevor_core::transaction::{SignedTransaction, Transaction};
 use aevor_crypto::agility::{sign_transaction, Signer};
@@ -29,7 +29,7 @@ use aevor_crypto::signatures::{BlsKeyPair, Ed25519KeyPair};
 use aevor_vm::bytecode::BytecodeCodec;
 use aevor_vm::instructions::Instruction::{Add, Ld};
 
-use node::engine::{CommitteeMember, NodeEngine};
+use node::engine::{CommitteeMember, MerkleBackend, NodeEngine};
 
 /// A distinct object id for each index (supports large batches, unlike a u8).
 fn obj_n(n: u32) -> ObjectId {
@@ -54,13 +54,52 @@ fn bench_dir(tag: &str) -> std::path::PathBuf {
 }
 
 fn open_engine(dir: &std::path::Path) -> NodeEngine {
-    NodeEngine::open(
+    let mut e = NodeEngine::open(
         dir.to_path_buf(),
         Address::from_bytes([1u8; 32]),
         PrivacyLevel::Public,
         SecurityLevel::Minimal,
     )
-    .expect("node opens")
+    .expect("node opens");
+    bench_fund(&mut e);
+    e
+}
+
+/// Genesis allocation for benchmarks: `disjoint_batch` builds every transaction
+/// with `new_simple`, so they all share the zero sender. Fund it far beyond any
+/// benchmark's needs so the account-settlement layer always has balance to debit
+/// (the point of these benchmarks is throughput, not exhausting a wallet).
+fn bench_fund(e: &mut NodeEngine) {
+    e.fund(Address::ZERO, Amount::from_nano(u128::MAX / 2));
+}
+
+/// Report the economics *settled by the run itself* (not a standalone
+/// simulation): gas, the congestion base fee, the block fee actually charged and
+/// debited, the validator reward accrued, and a fiat display at three token
+/// prices. Conservation holds by construction: block fee == validator credit ==
+/// sender debit.
+#[allow(clippy::cast_precision_loss)]
+fn print_block_economics(label: &str, out: &node::engine::BlockOutcome, base_fee: u64, reward_nano: u128) {
+    let acc = f64::from(u32::try_from(out.accepted).unwrap_or(u32::MAX)).max(1.0);
+    let fee_nano = out.fee_charged.as_nano();
+    let avr = fee_nano as f64 / 1e9;
+    println!("    --- ECONOMICS ({label}): settled with the run, not simulated ---");
+    println!(
+        "      accepted {} | insufficient-funds drops {} | base fee {base_fee} nano/gas",
+        out.accepted, out.insufficient_funds
+    );
+    println!(
+        "      total gas {} | gas/tx {:.1} | block fee {fee_nano} nano ({avr:.6} AVR) | fee/tx {:.1} nano",
+        out.gas_used,
+        out.gas_used as f64 / acc,
+        fee_nano as f64 / acc
+    );
+    println!(
+        "      validator reward accrued {reward_nano} nano (= sender debited: conservation) | fiat/block ${:.6} @ $0.01/AVR  ${:.4} @ $1/AVR  ${:.2} @ $150/AVR",
+        avr * 0.01,
+        avr,
+        avr * 150.0
+    );
 }
 
 /// Build `count` disjoint, well-signed transactions (each writes its own object,
@@ -478,13 +517,17 @@ fn bench_combined_pou_scaling() {
     let wallet = Ed25519KeyPair::from_seed([9u8; 32]);
 
     println!("\n=== PART 1: batch-size sweet spot (Ed25519), both execution modes ===");
-    println!("  batch |  re-execute tx/s |  verify-attest tx/s | PoU speedup");
+    println!("  batch |  re-execute tx/s |  verify-attest tx/s | PoU speedup | fee/tx nano | block fee AVR | base fee");
     let mut best = (0u32, 0.0f64);
     for &b in &[500u32, 1_000, 2_000, 3_000, 5_000, 8_000, 10_000, 15_000, 25_000, 50_000] {
-        // Producer makes an attested batch once (for the verify path).
+        // Producer makes an attested batch once (for the verify path). This also
+        // settles the block's fees, so its outcome carries the economics.
         let dprod = bench_dir("cmb-prod");
         let mut prod = open_engine(&dprod);
-        let (_, att, delta) = prod.produce_attested_batch(disjoint_batch(&wallet, b)).unwrap();
+        let (out, att, delta) = prod.produce_attested_batch(disjoint_batch(&wallet, b)).unwrap();
+        let fee_per_tx = out.fee_charged.as_nano() as f64 / f64::from(b);
+        let block_avr = out.fee_charged.as_nano() as f64 / 1e9;
+        let base_fee = prod.current_base_fee();
 
         // Re-execute path.
         let dre = bench_dir("cmb-re");
@@ -501,10 +544,17 @@ fn bench_combined_pou_scaling() {
         let vf_tps = f64::from(b) / t.elapsed().as_secs_f64();
 
         if re_tps > best.1 { best = (b, re_tps); }
-        println!("  {b:>6} | {re_tps:>16.0} | {vf_tps:>19.0} | {:>6.1}x", vf_tps / re_tps);
+        println!(
+            "  {b:>6} | {re_tps:>16.0} | {vf_tps:>19.0} | {:>6.1}x | {fee_per_tx:>11.1} | {block_avr:>12.6} | {base_fee:>7}",
+            vf_tps / re_tps
+        );
         for d in [dprod, dre, dvf] { let _ = std::fs::remove_file(d.join("state.log")); }
     }
     println!("  -> re-execute peaks around batch {} ({:.0} tx/s)", best.0, best.1);
+    println!("  -> ECONOMICS: fee/tx is flat (~intrinsic+exec gas x base fee) and cheap at every");
+    println!("     batch size; total block fee scales linearly with batch. The economic sweet");
+    println!("     spot coincides with the throughput sweet spot: the batch that maximizes tx/s");
+    println!("     also maximizes fee revenue per unit wall-clock at the same flat per-tx cost.");
 
     println!("\n=== PART 2: dual-DAG network throughput as validators/lanes expand ===");
     // Measure the two component rates at a representative lane batch.
@@ -542,4 +592,381 @@ fn bench_combined_pou_scaling() {
     println!("  Sharded verification (each validator checks a slice): aggregate scales with N —");
     println!("  THIS is the uncapped regime, and it stays secure because every lane is still");
     println!("  attestation-verified by someone and finality is O(1)-aggregated across all N.");
+}
+
+fn open_engine_backend(dir: &std::path::Path, backend: MerkleBackend) -> NodeEngine {
+    let mut e = NodeEngine::open_with_backend(
+        dir.to_path_buf(),
+        Address::from_bytes([1u8; 32]),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+        backend,
+    )
+    .expect("node opens");
+    bench_fund(&mut e);
+    e
+}
+
+/// FULL MATRIX — the sorted-vs-sparse Merkle backend measured in the REAL engine
+/// paths (re-execute, verify-attest, proof generation) across batch sizes. This
+/// replaces the earlier analysis of sparse-vs-sorted with actual numbers: sorted
+/// wins batch commit (O(n) once), sparse wins proof generation (O(depth) vs O(n)).
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture --release"]
+fn bench_full_matrix() {
+    let wallet = Ed25519KeyPair::from_seed([9u8; 32]);
+    println!("\n=== FULL MATRIX: Merkle backend x batch x mode (real engine, measured) ===");
+    println!("  backend | batch | re-execute tx/s | verify-attest tx/s | proof-gen us");
+    for backend in [MerkleBackend::Sorted, MerkleBackend::Sparse] {
+        let name = match backend {
+            MerkleBackend::Sorted => "sorted",
+            MerkleBackend::Sparse => "sparse",
+        };
+        for &b in &[1_000u32, 5_000, 10_000, 25_000, 50_000] {
+            // Re-execute path (full VM), on this backend.
+            let dre = bench_dir("fm-re");
+            let mut re = open_engine_backend(&dre, backend);
+            let t = Instant::now();
+            re.process_block(disjoint_batch(&wallet, b)).unwrap();
+            let re_tps = f64::from(b) / t.elapsed().as_secs_f64();
+
+            // Proof generation for one object after the commit (cold path).
+            let t = Instant::now();
+            let _ = re.prove_object(&obj_n(0)).unwrap();
+            let proof_us = t.elapsed().as_secs_f64() * 1e6;
+
+            // Verify-attest path (no VM), on this backend.
+            let dprod = bench_dir("fm-prod");
+            let mut prod = open_engine_backend(&dprod, backend);
+            let (_, att, delta) =
+                prod.produce_attested_batch(disjoint_batch(&wallet, b)).unwrap();
+            let dvf = bench_dir("fm-vf");
+            let mut vf = open_engine_backend(&dvf, backend);
+            let t = Instant::now();
+            vf.apply_attested_batch(&att, &delta).unwrap();
+            let vf_tps = f64::from(b) / t.elapsed().as_secs_f64();
+
+            println!("  {name:>7} | {b:>6} | {re_tps:>15.0} | {vf_tps:>18.0} | {proof_us:>10.1}");
+            for d in [dre, dprod, dvf] {
+                let _ = std::fs::remove_file(d.join("state.log"));
+            }
+        }
+    }
+    println!("\n  -> sorted wins the batch commit (single O(n) rebuild); sparse wins proof");
+    println!("     generation (O(depth) vs O(n) rebuild). Right structure per workload.");
+}
+
+fn disjoint_batch_offset(wallet: &Ed25519KeyPair, count: u32, offset: u32) -> Vec<SignedTransaction> {
+    let program = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    (0..count)
+        .map(|i| {
+            let tx = Transaction::new_simple(
+                wallet.public_key_multi(),
+                Nonce(u64::from(i)),
+                &[],
+                &[obj_n(offset + i)],
+                program.clone(),
+            );
+            sign_transaction(tx, wallet)
+        })
+        .collect()
+}
+
+/// F-A1 verification: a verifier applying N concurrently-produced lanes per
+/// round (the macro-DAG multi-lane path). Aggregate work per round = N × per-lane.
+/// NOTE: this box is single-core, so lanes are *produced* serially here; on a
+/// real network each lane is produced on its own validator's hardware in
+/// parallel. This measures the verifier's aggregate apply capacity per round.
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture --release"]
+fn bench_multi_lane_round() {
+    use node::engine::LaneBlock;
+    let per_lane = 2_000u32;
+    println!("\n=== Multi-lane round: verifier applying N concurrent lanes (macro-DAG) ===");
+    println!("  lanes | txs/lane | total txs | apply wall | verifier aggregate tx/s");
+    for &n in &[1u32, 2, 4, 8, 16, 32] {
+        // Produce N lanes on DISJOINT object ranges.
+        let mut lanes = Vec::with_capacity(n as usize);
+        for lane_id in 0..n {
+            let wallet = Ed25519KeyPair::from_seed([(lane_id + 1) as u8; 32]);
+            let dir = bench_dir("mlb-src");
+            let mut eng = open_engine(&dir);
+            let txs = disjoint_batch_offset(&wallet, per_lane, lane_id * per_lane);
+            let (_o, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
+            lanes.push(LaneBlock { lane_id, producer: aevor_core::primitives::Hash256([lane_id as u8; 32]), attestation, delta });
+            let _ = std::fs::remove_file(dir.join("state.log"));
+        }
+        // Apply the whole round on a fresh verifier.
+        let dv = bench_dir("mlb-verify");
+        let mut ver = open_engine(&dv);
+        let t = Instant::now();
+        let out = ver.apply_lane_round(lanes).unwrap();
+        let wall = t.elapsed().as_secs_f64();
+        assert_eq!(out.lanes_applied, n as usize);
+        let total = f64::from(n * per_lane);
+        println!(
+            "  {n:>5} | {per_lane:>8} | {:>9} | {:>7.1} ms | {:>15.0}",
+            n * per_lane,
+            wall * 1e3,
+            total / wall
+        );
+        let _ = std::fs::remove_file(dv.join("state.log"));
+    }
+    println!("\n  A verifier applies N lanes' work per round; network aggregate = N x per-lane");
+    println!("  (each lane produced on its own validator in parallel — not measurable on 1 core).");
+}
+
+/// F-A2 verification: under sharded verification each validator processes only
+/// its assigned slice (~quorum lanes), so its load stays BOUNDED as the
+/// validator/lane count grows — while the network aggregate = N x per-lane.
+/// This is the uncapped regime (contrast full verification, capped at one
+/// verifier's rate). Validator-0's slice time should be ~flat across N.
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture --release"]
+fn bench_sharded_verification_scaling() {
+    use node::engine::LaneBlock;
+    let per_lane = 500u32;
+    let quorum = 3usize;
+    println!("\n=== Sharded verification: per-validator load bounded as N grows ===");
+    println!("  N (val=lanes) | validator-0 slice lanes | slice apply | slice tx/s | network lanes");
+    for &n in &[8usize, 16, 32, 64, 128] {
+        // One lane per validator, disjoint object ranges.
+        let mut lanes = Vec::with_capacity(n);
+        for lane_id in 0..n {
+            let wallet = Ed25519KeyPair::from_seed([(lane_id % 250 + 1) as u8; 32]);
+            let dir = bench_dir("shb-src");
+            let mut eng = open_engine(&dir);
+            let txs = disjoint_batch_offset(&wallet, per_lane, lane_id as u32 * per_lane);
+            let (_o, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
+            lanes.push(LaneBlock { lane_id: lane_id as u32, producer: aevor_core::primitives::Hash256([lane_id as u8; 32]), attestation, delta });
+            let _ = std::fs::remove_file(dir.join("state.log"));
+        }
+        // Measure ONLY validator-0's assigned slice.
+        let dv = bench_dir("shb-v0");
+        let mut node = open_engine(&dv);
+        let t = Instant::now();
+        let out = node.apply_lane_round_sharded(lanes, 0, n, quorum).unwrap();
+        let wall = t.elapsed().as_secs_f64().max(1e-9);
+        let slice_tx = f64::from(out.lanes_applied as u32 * per_lane);
+        println!(
+            "  {n:>13} | {:>23} | {:>7.2} ms | {:>10.0} | {:>13}",
+            out.lanes_applied,
+            wall * 1e3,
+            slice_tx / wall,
+            n
+        );
+        let _ = std::fs::remove_file(dv.join("state.log"));
+    }
+    println!("\n  validator-0's slice (~quorum lanes) stays ~constant while N grows: per-validator");
+    println!("  load is bounded, network aggregate = N x per-lane => uncapped, unlike full verification.");
+}
+
+/// FINAL consolidated benchmark — one lane's complete PoU lifecycle at the
+/// sweet-spot batch, showing WHERE the time goes and therefore what the true
+/// bottleneck is, then the network aggregate projection. This ties every prior
+/// finding into one picture: production is the per-lane bottleneck; verification
+/// is heavily over-provisioned; scaling is N lanes x per-lane production.
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture --release"]
+fn bench_full_pipeline() {
+    let wallet = Ed25519KeyPair::from_seed([9u8; 32]);
+    let batch = 5_000u32; // the measured sweet spot
+
+    // Stage 1 — PRODUCE: execute (VM) + commit (Merkle) + attest. Per-lane cost.
+    let dprod = bench_dir("fp-prod");
+    let mut prod = open_engine(&dprod);
+    let t = Instant::now();
+    let (out, att, delta) = prod.produce_attested_batch(disjoint_batch(&wallet, batch)).unwrap();
+    let produce_s = t.elapsed().as_secs_f64();
+    let produce_rate = f64::from(batch) / produce_s;
+    let prod_base_fee = prod.current_base_fee();
+    let prod_reward = prod.validator_reward().as_nano();
+
+    // Stage 2 — VERIFY: check attestation + apply delta (NO re-execution). Per-verifier cost.
+    let dvf = bench_dir("fp-vf");
+    let mut vf = open_engine(&dvf);
+    let t = Instant::now();
+    vf.apply_attested_batch(&att, &delta).unwrap();
+    let verify_s = t.elapsed().as_secs_f64();
+    let verify_rate = f64::from(batch) / verify_s;
+
+    // Stage 3 — re-execute baseline (what a chain WITHOUT PoU forces every node to do).
+    let dre = bench_dir("fp-re");
+    let mut re = open_engine(&dre);
+    let t = Instant::now();
+    re.process_block(disjoint_batch(&wallet, batch)).unwrap();
+    let reexec_rate = f64::from(batch) / t.elapsed().as_secs_f64();
+
+    println!("\n=== FINAL: complete PoU pipeline @ {batch} tx/lane (sweet spot) ===\n");
+    println!("  Stage              rate (tx/s)     share of a lane's wall-clock");
+    println!("  PRODUCE (execute)  {produce_rate:>11.0}     <- the per-lane BOTTLENECK");
+    println!("  VERIFY  (attest)   {verify_rate:>11.0}     {:.0}x faster than produce (over-provisioned)", verify_rate / produce_rate);
+    println!("  re-execute (no PoU){reexec_rate:>11.0}     for contrast: every node re-doing the work");
+    println!("  FINALIZE (BLS)     O(1) ~1.3 ms      flat to 50k validators (measured separately)\n");
+
+    println!("  => The bottleneck is PRODUCTION, not verification or finality.");
+    println!("     Verifiers run ~{:.0}x faster than producers, so they never gate the network.", verify_rate / produce_rate);
+    println!("     Two levers maximise throughput: (a) per-lane production (multi-core execution),");
+    println!("     (b) number of lanes. Verification and finality have huge headroom.\n");
+
+    println!("  Network aggregate = N lanes x per-lane production (each lane on its own hardware):");
+    println!("    lanes(N) |   aggregate tx/s   | one verifier keeps up?");
+    let verifier_ceiling = verify_rate;
+    for &n in &[1u64, 8, 64, 96, 512, 3_000, 10_000] {
+        let agg = n as f64 * produce_rate;
+        let full_ok = if agg <= verifier_ceiling { "yes (full verif)" } else { "no -> shard verif" };
+        println!("    {n:>8} | {agg:>18.0} | {full_ok}");
+    }
+    println!("\n  Full verification saturates one verifier at ~{:.0} lanes; sharded verification", verifier_ceiling / produce_rate);
+    println!("  (F-A2) removes that limit — aggregate then scales linearly with N, uncapped.");
+
+    // Economics settled by the production run itself — the "hook economics into
+    // the throughput pipeline" this finalization calls for: same block, one
+    // number for gas/fee/reward, not a separate simulation.
+    print_block_economics("PRODUCE lane block", &out, prod_base_fee, prod_reward);
+
+    for d in [dprod, dvf, dre] {
+        let _ = std::fs::remove_file(d.join("state.log"));
+    }
+}
+
+/// Measure real gas-per-transaction across program sizes and translate it into a
+/// fee under the reconciled, single-source-of-truth fee model
+/// (`fee = gas_used * gas_price`, price from the shared `FeeConfig`). Reports the
+/// mainnet cost and confirms a feeless subnet is zero. Run with:
+/// `cargo test -p node --test benchmarks bench_gas_and_fee_estimates -- --ignored --nocapture --release`
+#[test]
+#[ignore]
+fn bench_gas_and_fee_estimates() {
+    use node::subnet::SubnetPolicy;
+    let wallet = Ed25519KeyPair::from_seed([5u8; 32]);
+
+    let mainnet = SubnetPolicy::public_mainnet();
+    let price = mainnet.effective_gas_price().0;
+    println!("\n=== GAS / FEE ESTIMATES (single-source fee: gas_used * gas_price) ===");
+    println!("mainnet effective gas price = {price} nano/gas  (FeeConfig::default base fee)");
+    println!(
+        "{:>10} {:>10} {:>20} {:>18}",
+        "instrs/tx", "gas/tx", "mainnet fee (nanoAVR)", "mainnet fee (AVR)"
+    );
+    for (i, blocks) in [1u32, 10, 100, 1000].into_iter().enumerate() {
+        // Fresh engine per size so each is measured at the base (uncongested) fee.
+        let mut eng = NodeEngine::open(
+            bench_dir(&format!("gas-fee-{i}")),
+            Address::from_bytes([1u8; 32]),
+            PrivacyLevel::Public,
+            SecurityLevel::Minimal,
+        )
+        .unwrap();
+        let instrs: Vec<_> =
+            std::iter::repeat_n([Ld(2), Ld(3), Add], blocks as usize).flatten().collect();
+        let program = BytecodeCodec::encode(&instrs);
+        let n_instrs = blocks * 3;
+        let tx = Transaction::new_simple(
+            wallet.public_key_multi(),
+            Nonce(1000 + i as u64),
+            &[],
+            &[obj_n(1_000_000 + blocks)],
+            program,
+        );
+        let signed = sign_transaction(tx, &wallet);
+        let out = eng.process_block(vec![signed]).unwrap();
+        let gas = out.gas_used;
+        let fee = mainnet.fee_for(gas);
+        #[allow(clippy::cast_precision_loss)]
+        let fee_avr = fee.as_nano() as f64 / 1e9;
+        // Total gas now includes intrinsic (size/bloat) gas; fee_charged is the
+        // dynamic market fee, equal to the base-price fee on this first block.
+        assert_eq!(out.fee_charged.as_nano(), fee.as_nano());
+        println!("{n_instrs:>10} {gas:>10} {:>20} {fee_avr:>18.9}", fee.as_nano());
+    }
+
+    let feeless = SubnetPolicy::feeless_permissioned(vec![], PrivacyLevel::Public);
+    println!(
+        "feeless subnet fee for even 1,000,000 gas = {} nanoAVR (zero)",
+        feeless.fee_for(1_000_000).as_nano()
+    );
+    println!("note: gas already includes the ~TEE execution premium from the VM gas schedule.");
+}
+
+/// Simulate the fee market end-to-end and print the dynamics: the base-fee
+/// trajectory through congested and idle blocks, the post-quantum bloat premium,
+/// the fiat cost at several token prices, and validator reward accrual. Run with:
+/// `cargo test -p node --test benchmarks bench_fee_market_dynamics -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn bench_fee_market_dynamics() {
+    use aevor_crypto::post_quantum::ml_dsa::MlDsa65KeyPair;
+    use node::subnet::SubnetPolicy;
+
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let owner = Address::from_bytes([1u8; 32]);
+    let ed = Ed25519KeyPair::from_seed([7u8; 32]);
+
+    fn sx<S: Signer>(w: &S, nonce: u8, write: u8, prog: &[u8]) -> SignedTransaction {
+        let tx = Transaction::new_simple(
+            w.public_key_multi(),
+            Nonce(u64::from(nonce)),
+            &[],
+            &[obj_n(u32::from(write))],
+            prog.to_vec(),
+        );
+        sign_transaction(tx, w)
+    }
+
+    println!("\n=== FEE MARKET DYNAMICS (congestion-based, token-price-independent) ===");
+    let subnet = SubnetPolicy::public_with_congestion(1_000, 2_000, 5_000, 1_250, 100);
+    let mut node = NodeEngine::open_on_subnet(
+        bench_dir("fm-dyn"),
+        owner,
+        subnet,
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    bench_fund(&mut node);
+    println!("subnet: budget 2000 gas/block, target 1000, +/-12.5% max step, floor 100 nano/gas");
+    println!("{:>6} {:>10} {:>10} {:>14} {:>16}", "block", "gas", "over/under", "base fee", "cumul reward");
+    let mut nonce = 0u8;
+    // 3 congested blocks (5 txs each), then 8 idle blocks (1 tx each).
+    for round in 0..11u8 {
+        let n = if round < 3 { 5 } else { 1 };
+        let txs: Vec<_> = (0..n)
+            .map(|_| {
+                nonce = nonce.wrapping_add(1);
+                sx(&ed, nonce, nonce, &prog)
+            })
+            .collect();
+        let out = node.process_block(txs).unwrap();
+        let target = 1_000i64;
+        let delta = out.gas_used as i64 - target;
+        println!(
+            "{:>6} {:>10} {:>+10} {:>14} {:>16}",
+            round + 1,
+            out.gas_used,
+            delta,
+            node.current_base_fee(),
+            node.validator_reward().as_nano()
+        );
+    }
+
+    // PQ vs Ed25519 bloat premium (uncongested).
+    let big = || SubnetPolicy::public_with_congestion(1_000, 30_000_000, 5_000, 1_250, 100);
+    let mut n_ed = NodeEngine::open_on_subnet(bench_dir("fm-ed"), owner, big(), PrivacyLevel::Public, SecurityLevel::Minimal).unwrap();
+    bench_fund(&mut n_ed);
+    let mut n_pq = NodeEngine::open_on_subnet(bench_dir("fm-pq"), owner, big(), PrivacyLevel::Public, SecurityLevel::Minimal).unwrap();
+    bench_fund(&mut n_pq);
+    let ed_fee = n_ed.process_block(vec![sx(&ed, 0, 0, &prog)]).unwrap().fee_charged.as_nano();
+    let pq = MlDsa65KeyPair::generate().unwrap();
+    let pq_fee = n_pq.process_block(vec![sx(&pq, 0, 0, &prog)]).unwrap().fee_charged.as_nano();
+    println!("\nbloat premium: Ed25519 tx {ed_fee} nanoAVR  vs  post-quantum tx {pq_fee} nanoAVR  ({}x)", pq_fee / ed_fee.max(1));
+
+    // Fiat cost of the Ed25519 tx at several hypothetical token prices.
+    #[allow(clippy::cast_precision_loss)]
+    let avr = ed_fee as f64 * 1e-9;
+    println!("\ntoken-price independence (native fee fixed at {ed_fee} nanoAVR = {avr:.9} AVR):");
+    for price in [0.01, 1.0, 10.0, 150.0] {
+        println!("  at ${price:>7}/AVR  ->  ${:.9} per tx", avr * price);
+    }
+    println!("congestion sets the native fee; token price only scales the fiat display.");
 }

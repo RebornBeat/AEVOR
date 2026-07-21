@@ -72,8 +72,10 @@ pub struct PlonkVerifier;
 
 impl PlonkVerifier {
     /// Verify a PLONK proof against a verifying key.
-    pub fn verify(proof: &PlonkProof, vkey: &PlonkVerifyingKey) -> bool {
-        !proof.proof_bytes.is_empty() && proof.vkey_hash == vkey.circuit_hash
+    /// NOT PRODUCTION. Real PLONK verification is out of mainnet scope; fail-closed.
+    #[must_use]
+    pub fn verify(_proof: &PlonkProof, _vkey: &PlonkVerifyingKey) -> bool {
+        false
     }
 }
 
@@ -129,7 +131,7 @@ mod tests {
         let circuit = circuit_hash(7);
         let proof = prover.prove(&[], &pkey(circuit)).unwrap();
         let vk = vkey(circuit);
-        assert!(PlonkVerifier::verify(&proof, &vk));
+        assert!(!PlonkVerifier::verify(&proof, &vk)); // fail-closed (NOT PRODUCTION)
     }
 
     #[test]

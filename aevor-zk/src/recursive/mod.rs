@@ -45,7 +45,9 @@ pub struct RecursiveVerifier;
 
 impl RecursiveVerifier {
     /// Verify an aggregated proof.
-    pub fn verify(agg: &AggregatedProof) -> bool { agg.count > 0 }
+    /// NOT PRODUCTION. Real recursive-proof verification is out of mainnet scope; fail-closed.
+    #[must_use]
+    pub fn verify(_agg: &AggregatedProof) -> bool { false }
 
     /// Verify an aggregated proof against its commitment hash.
     pub fn verify_with_commitment(agg: &AggregatedProof, commitment: &Hash256) -> bool {
@@ -107,7 +109,7 @@ mod tests {
     fn recursive_verifier_accepts_nonempty_aggregated_proof() {
         let proofs = vec![proof(1)];
         let (agg, _) = RecursiveProver::aggregate(&proofs);
-        assert!(RecursiveVerifier::verify(&agg));
+        assert!(!RecursiveVerifier::verify(&agg)); // fail-closed (NOT PRODUCTION)
     }
 
     #[test]
@@ -120,7 +122,7 @@ mod tests {
     fn verify_with_commitment_roundtrip() {
         let proofs = vec![proof(5), proof(6)];
         let (agg, commitment) = RecursiveProver::aggregate(&proofs);
-        assert!(RecursiveVerifier::verify_with_commitment(&agg, &commitment));
+        assert!(!RecursiveVerifier::verify_with_commitment(&agg, &commitment)); // fail-closed
     }
 
     #[test]

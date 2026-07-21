@@ -71,8 +71,10 @@ pub struct StarkVerifier;
 
 impl StarkVerifier {
     /// Verify a STARK proof.
-    pub fn verify(proof: &StarkProof) -> bool {
-        !proof.proof_bytes.is_empty() && !proof.fri_parameters.is_empty()
+    /// NOT PRODUCTION. Real STARK verification is out of mainnet scope; fail-closed.
+    #[must_use]
+    pub fn verify(_proof: &StarkProof) -> bool {
+        false
     }
 }
 
@@ -119,7 +121,7 @@ mod tests {
     fn stark_verifier_accepts_valid_proof() {
         let prover = StarkProver::new(StarkConfig::default());
         let proof = prover.prove(b"data").unwrap();
-        assert!(StarkVerifier::verify(&proof));
+        assert!(!StarkVerifier::verify(&proof)); // fail-closed (NOT PRODUCTION)
     }
 
     #[test]

@@ -44,8 +44,13 @@ impl Groth16Prover {
 
 pub struct Groth16Verifier;
 impl Groth16Verifier {
-    pub fn verify(proof: &Groth16Proof, vkey: &Groth16VerifyingKey) -> bool {
-        !proof.proof_bytes.is_empty() && proof.vkey_hash == vkey.circuit_hash
+    /// NOT PRODUCTION. Real Groth16 verification is out of mainnet scope
+    /// (AEVOR mainnet privacy is TEE + object-level + VM-enforced; Bulletproofs
+    /// is the shipped ZK primitive). Fail-closed so no path can trust this stub
+    /// as cryptographic verification. A real backend replaces this body.
+    #[must_use]
+    pub fn verify(_proof: &Groth16Proof, _vkey: &Groth16VerifyingKey) -> bool {
+        false
     }
 }
 
@@ -87,7 +92,8 @@ mod tests {
         let ch = circuit_hash(7);
         let pk = pkey(ch);
         let proof = Groth16Prover::prove(&[], &pk).unwrap();
-        assert!(Groth16Verifier::verify(&proof, &vkey(ch)));
+        // Fail-closed: the stub verifier accepts nothing (NOT PRODUCTION).
+        assert!(!Groth16Verifier::verify(&proof, &vkey(ch)));
     }
 
     #[test]

@@ -142,7 +142,10 @@ impl ProofVerifier {
                 system: "Groth16".into(),
             });
         }
-        Ok(!proof.proof_bytes.is_empty() && proof.vkey_hash == vkey.circuit_hash)
+        // NOT PRODUCTION: real SNARK verification is out of mainnet scope
+        // (privacy is TEE/VM-based; Bulletproofs is the shipped ZK). Fail-closed.
+        let _ = proof;
+        Ok(false)
     }
 
     /// Verify a PLONK proof against a verifying key.
@@ -153,7 +156,10 @@ impl ProofVerifier {
         proof: &PlonkProof,
         vkey: &VerifyingKey,
     ) -> crate::CryptoResult<bool> {
-        Ok(!proof.proof_bytes.is_empty() && proof.vkey_hash == vkey.circuit_hash)
+        // NOT PRODUCTION: real SNARK verification is out of mainnet scope
+        // (privacy is TEE/VM-based; Bulletproofs is the shipped ZK). Fail-closed.
+        let _ = (proof, vkey);
+        Ok(false)
     }
 }
 

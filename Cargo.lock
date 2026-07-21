@@ -1699,6 +1699,7 @@ dependencies = [
  "bincode",
  "clap",
  "dirs",
+ "rayon",
  "serde",
  "serde_json",
  "thiserror",

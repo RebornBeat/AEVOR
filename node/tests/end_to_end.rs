@@ -14,10 +14,17 @@ use aevor_crypto::signatures::{BlsKeyPair, Ed25519KeyPair};
 use aevor_vm::bytecode::BytecodeCodec;
 use aevor_vm::instructions::Instruction::{Add, Div, Ld};
 
-use node::engine::{CommitteeMember, NodeEngine, SignedTransaction};
+use node::engine::{CommitteeMember, LaneBlock, MerkleBackend, NodeEngine, SignedTransaction};
 
 fn obj(n: u8) -> ObjectId {
     ObjectId(Hash256([n; 32]))
+}
+
+/// Genesis allocation for tests: transactions built with `new_simple` all share
+/// the zero sender address, so fund it generously to cover their fees under the
+/// account settlement layer. Feeless subnets charge nothing regardless.
+fn genesis_fund(node: &mut NodeEngine) {
+    node.fund(Address::ZERO, aevor_core::primitives::Amount::from_nano(u128::MAX / 2));
 }
 
 /// Build a wallet-signed transaction (the "create a wallet + sign" path).
@@ -70,13 +77,18 @@ fn temp_dir(tag: &str) -> std::path::PathBuf {
 }
 
 fn open_node(dir: &std::path::Path) -> NodeEngine {
-    NodeEngine::open(
+    let mut node = NodeEngine::open(
         dir.to_path_buf(),
         Address::from_bytes([1u8; 32]),
         PrivacyLevel::Public,
         SecurityLevel::Minimal,
     )
-    .expect("node opens")
+    .expect("node opens");
+    // Genesis allocation: test transactions built with `new_simple` all share the
+    // zero sender address, so fund it generously to cover their fees under the
+    // account settlement layer. (Feeless subnets charge nothing regardless.)
+    genesis_fund(&mut node);
+    node
 }
 
 #[test]
@@ -528,6 +540,58 @@ fn client_submits_and_queries_over_real_socket() {
 }
 
 #[test]
+fn sparse_merkle_backend_reproduces_state_and_proves_in_engine() {
+    // The engine, run with the SPARSE Merkle backend, must behave identically:
+    // a verifier reproduces the producer's root via attestation, and inclusion
+    // proofs verify. This proves the pluggable backend is correct end-to-end,
+    // not just as a standalone structure.
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let wallet = Ed25519KeyPair::from_seed([9u8; 32]);
+
+    let dir_p = temp_dir("sparse-p");
+    let mut producer = NodeEngine::open_with_backend(
+        dir_p.to_path_buf(),
+        Address::from_bytes([1u8; 32]),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+        MerkleBackend::Sparse,
+    )
+    .expect("sparse node opens");
+    let txs: Vec<_> = (0..40u8).map(|i| signed_tx(&wallet, i, &[], &[i], prog.clone())).collect();
+    genesis_fund(&mut producer);
+    let (outcome, attestation, delta) = producer.produce_attested_batch(txs).unwrap();
+    assert_eq!(outcome.accepted, 40);
+
+    let dir_v = temp_dir("sparse-v");
+    let mut verifier = NodeEngine::open_with_backend(
+        dir_v.to_path_buf(),
+        Address::from_bytes([1u8; 32]),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+        MerkleBackend::Sparse,
+    )
+    .expect("sparse verifier opens");
+    verifier.apply_attested_batch(&attestation, &delta).unwrap();
+    assert_eq!(
+        verifier.state_root(),
+        producer.state_root(),
+        "sparse-backend verifier reproduced the producer's root via attestation"
+    );
+
+    // An inclusion proof for a written object from the sparse-backed engine verifies.
+    let proof = producer
+        .prove_object(&obj(7))
+        .expect("prove ok")
+        .expect("object 7 is present");
+    assert!(NodeEngine::verify_proof(&proof), "sparse-backend proof verifies");
+    assert_eq!(proof.siblings.len(), 256, "sparse proof has full-depth path");
+
+    for d in [dir_p, dir_v] {
+        let _ = std::fs::remove_file(d.join("state.log"));
+    }
+}
+
+#[test]
 fn pou_verify_by_attestation_reproduces_state_without_reexecuting() {
     // Producer executes a batch in its TEE and emits (attestation, delta).
     // A verifier applies it WITHOUT re-executing and must reach the SAME state
@@ -568,4 +632,590 @@ fn pou_verify_by_attestation_reproduces_state_without_reexecuting() {
     for d in [dir_p, dir_v, dir_v2, dir_v3] {
         let _ = std::fs::remove_file(d.join("state.log"));
     }
+}
+
+#[test]
+fn multi_lane_round_deterministic_ordering_consistent_state() {
+    // F-A1: the node-side macro-DAG multi-lane path. Several validators produce
+    // blocks CONCURRENTLY (disjoint object ranges); the node orders them
+    // deterministically (leaderless) and applies them. Every validator reaches
+    // the SAME state root regardless of the order lanes arrived — consensus on
+    // ordering with no single producer bottleneck.
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+
+    fn make_lane(prog: &[u8], lane_id: u32, seed: u8, obj_base: u8) -> LaneBlock {
+        let wallet = Ed25519KeyPair::from_seed([seed; 32]);
+        let dir = temp_dir(&format!("lane-src-{lane_id}"));
+        let mut eng = open_node(&dir);
+        let txs: Vec<_> = (0..10u8)
+            .map(|i| signed_tx(&wallet, i, &[], &[obj_base + i], prog.to_vec()))
+            .collect();
+        let (_out, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
+        let _ = std::fs::remove_file(dir.join("state.log"));
+        LaneBlock { lane_id, producer: aevor_core::primitives::Hash256([lane_id as u8; 32]), attestation, delta }
+    }
+
+    // Three concurrent lanes on disjoint object ranges.
+    let lane_a = make_lane(&prog, 1, 11, 0); // objects 0..9
+    let lane_b = make_lane(&prog, 2, 22, 50); // objects 50..59
+    let lane_c = make_lane(&prog, 3, 33, 100); // objects 100..109
+
+    // Node 1 receives lanes in arrival order [A, B, C].
+    let dir1 = temp_dir("mlr-1");
+    let mut node1 = open_node(&dir1);
+    let out1 = node1
+        .apply_lane_round(vec![lane_a.clone(), lane_b.clone(), lane_c.clone()])
+        .unwrap();
+
+    // Node 2 receives the SAME lanes in a DIFFERENT arrival order [C, A, B].
+    let dir2 = temp_dir("mlr-2");
+    let mut node2 = open_node(&dir2);
+    let out2 = node2
+        .apply_lane_round(vec![lane_c.clone(), lane_a.clone(), lane_b.clone()])
+        .unwrap();
+
+    assert_eq!(
+        node1.state_root(),
+        node2.state_root(),
+        "identical state root regardless of the order lanes arrived (leaderless ordering)"
+    );
+    assert_eq!(
+        out1.ordered_lanes, out2.ordered_lanes,
+        "deterministic lane order, independent of arrival order"
+    );
+    assert_eq!(out1.lanes_applied, 3);
+    assert_eq!(
+        out1.objects_applied, 30,
+        "three lanes x 10 objects each = 30 objects of aggregate work in one round"
+    );
+
+    // A node that applied only ONE lane must NOT match the three-lane root —
+    // the round genuinely aggregated three lanes, it isn't trivially equal.
+    let dir_one = temp_dir("mlr-one");
+    let mut node_one = open_node(&dir_one);
+    node_one.apply_lane_round(vec![lane_a.clone()]).unwrap();
+    assert_ne!(
+        node_one.state_root(),
+        node1.state_root(),
+        "one lane != three lanes (the round aggregated real work)"
+    );
+
+    // Rejection: a forged lane attestation.
+    let dir3 = temp_dir("mlr-3");
+    let mut node3 = open_node(&dir3);
+    let mut forged = lane_a.clone();
+    forged.attestation.signature = vec![0u8; 64];
+    assert!(
+        node3.apply_lane_round(vec![forged]).is_err(),
+        "forged lane attestation rejected"
+    );
+
+    // Rejection: two lanes claiming the same transaction set.
+    let dir4 = temp_dir("mlr-4");
+    let mut node4 = open_node(&dir4);
+    assert!(
+        node4.apply_lane_round(vec![lane_a.clone(), lane_a.clone()]).is_err(),
+        "two lanes with the same tx set rejected (cross-lane conflict)"
+    );
+
+    for d in [dir1, dir2, dir_one, dir3, dir4] {
+        let _ = std::fs::remove_file(d.join("state.log"));
+    }
+}
+
+#[test]
+fn sharded_verification_bounded_slice_full_coverage() {
+    // F-A2: sharded verification. Each lane is deterministically assigned a
+    // verifying quorum; each validator processes only its assigned slice. Across
+    // the set every lane is still covered by a quorum, but no validator carries
+    // every lane — so per-validator load is bounded and the aggregate scales
+    // with the validator count (the uncapped regime).
+    use aevor_dag::macro_dag::LaneAssignment;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+
+    fn mk(prog: &[u8], lane_id: u32, seed: u8, base: u8) -> LaneBlock {
+        let wallet = Ed25519KeyPair::from_seed([seed; 32]);
+        let dir = temp_dir(&format!("shard-src-{lane_id}"));
+        let mut eng = open_node(&dir);
+        let txs: Vec<_> = (0..4u8)
+            .map(|i| signed_tx(&wallet, i, &[], &[base + i], prog.to_vec()))
+            .collect();
+        let (_o, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
+        let _ = std::fs::remove_file(dir.join("state.log"));
+        LaneBlock { lane_id, producer: aevor_core::primitives::Hash256([lane_id as u8; 32]), attestation, delta }
+    }
+
+    let m = 12u32;
+    let validator_count = 6usize;
+    let quorum = 2usize;
+    // Disjoint object ranges: lane i -> objects [i*4, i*4+4).
+    let lanes: Vec<LaneBlock> = (0..m).map(|i| mk(&prog, i, (i + 1) as u8, (i as u8) * 4)).collect();
+
+    // Every lane is covered by exactly `quorum` validators (deterministically).
+    for lane in &lanes {
+        let q = LaneAssignment::quorum_for_lane(
+            &aevor_core::primitives::Hash256(lane.attestation.tx_commitment),
+            validator_count,
+            quorum,
+        );
+        assert_eq!(q.len(), quorum, "each lane covered by a quorum of validators");
+    }
+
+    // Each validator processes ONLY its assigned slice.
+    let mut covered = std::collections::HashSet::new();
+    let mut max_slice = 0usize;
+    let mut total_processed = 0usize;
+    for v in 0..validator_count {
+        let dir = temp_dir(&format!("shard-v{v}"));
+        let mut node = open_node(&dir);
+        let out = node
+            .apply_lane_round_sharded(lanes.clone(), v, validator_count, quorum)
+            .unwrap();
+        max_slice = max_slice.max(out.lanes_applied);
+        total_processed += out.lanes_applied;
+        for id in &out.ordered_lanes {
+            covered.insert(*id);
+        }
+        let _ = std::fs::remove_file(dir.join("state.log"));
+    }
+
+    assert_eq!(covered.len(), m as usize, "every lane covered by the validator set");
+    assert_eq!(
+        total_processed,
+        m as usize * quorum,
+        "total work = M lanes x quorum (each lane verified by exactly `quorum` validators)"
+    );
+    assert!(
+        max_slice < m as usize,
+        "no validator processes every lane — bounded slice, not full verification"
+    );
+}
+
+#[test]
+fn corruption_detection_produces_slashing_evidence() {
+    // F-A3: the corruption -> slashing loop. A verifier that finds a lane's PoU
+    // attestation does not verify emits InvalidAttestation evidence naming the
+    // producer, which the graduated slashing policy turns into a stake penalty.
+    // "valid until proven corrupted", backed by an economic consequence.
+    use aevor_consensus::slashing::{
+        GraduatedSlashingPolicy, SlashingEvidenceType, SlashingMechanism,
+    };
+    use aevor_core::primitives::Amount;
+
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    fn ln(prog: &[u8], lane_id: u32, seed: u8, base: u8) -> LaneBlock {
+        let wallet = Ed25519KeyPair::from_seed([seed; 32]);
+        let dir = temp_dir(&format!("corrupt-src-{lane_id}"));
+        let mut eng = open_node(&dir);
+        let txs: Vec<_> = (0..4u8)
+            .map(|i| signed_tx(&wallet, i, &[], &[base + i], prog.to_vec()))
+            .collect();
+        let (_o, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
+        let _ = std::fs::remove_file(dir.join("state.log"));
+        LaneBlock {
+            lane_id,
+            producer: aevor_core::primitives::Hash256([lane_id as u8; 32]),
+            attestation,
+            delta,
+        }
+    }
+
+    let verifier = open_node(&temp_dir("corrupt-verifier"));
+
+    let honest_a = ln(&prog, 1, 11, 0);
+    let honest_b = ln(&prog, 2, 22, 50);
+    let mut corrupt = ln(&prog, 3, 33, 100);
+    corrupt.attestation.signature = vec![0u8; 64]; // forged -> attestation.verify() fails
+
+    // Detection over a mixed round: exactly one piece of evidence, against the
+    // corrupt producer.
+    let evidence =
+        verifier.detect_lane_corruption(&[honest_a.clone(), corrupt.clone(), honest_b.clone()]);
+    assert_eq!(evidence.len(), 1, "only the corrupt lane produces evidence");
+    assert_eq!(evidence[0].offender, corrupt.producer, "evidence names the offender");
+    assert_eq!(evidence[0].evidence_type, SlashingEvidenceType::InvalidAttestation);
+
+    // The graduated slashing policy converts it to a real stake penalty.
+    let policy = GraduatedSlashingPolicy::new(SlashingMechanism::new(500, 10));
+    let stake = Amount::from_nano(1_000_000);
+    let penalty = policy.compute(evidence[0].evidence_type, stake);
+    assert!(penalty.slash_amount.as_nano() > 0, "corruption is slashed");
+    assert_eq!(
+        penalty.slash_amount.as_nano(),
+        10_000,
+        "InvalidAttestation is Moderate = 1% of 1,000,000 nano"
+    );
+
+    // An all-honest round produces no evidence and no slash.
+    let clean = verifier.detect_lane_corruption(&[honest_a, honest_b]);
+    assert!(clean.is_empty(), "honest lanes produce no evidence");
+}
+
+/// Like `signed_tx` but sets an explicit sender address before signing (so the
+/// signature covers it) — used to exercise permissioned-subnet admission.
+fn signed_tx_from(
+    wallet: &impl Signer,
+    tx_id: u8,
+    reads: &[u8],
+    writes: &[u8],
+    bytecode: Vec<u8>,
+    sender: Address,
+) -> SignedTransaction {
+    let reads: Vec<ObjectId> = reads.iter().map(|&n| obj(n)).collect();
+    let writes: Vec<ObjectId> = writes.iter().map(|&n| obj(n)).collect();
+    let mut tx = aevor_core::transaction::Transaction::new_simple(
+        wallet.public_key_multi(),
+        aevor_core::primitives::Nonce(u64::from(tx_id)),
+        &reads,
+        &writes,
+        bytecode,
+    );
+    tx.sender = sender; // before signing: signing_bytes() commits to the sender
+    aevor_crypto::agility::sign_transaction(tx, wallet)
+}
+
+#[test]
+fn feeless_subnet_charges_no_fee_fee_subnet_charges_gas() {
+    // F-C1: the same batch pays zero on a feeless subnet and gas*price on a fee
+    // subnet — feeless economics enforced end-to-end through block production.
+    use node::subnet::SubnetPolicy;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let batch = |seed: u8| -> Vec<SignedTransaction> {
+        let wallet = Ed25519KeyPair::from_seed([seed; 32]);
+        (0..4u8).map(|i| signed_tx(&wallet, i, &[], &[i], prog.to_vec())).collect()
+    };
+
+    // Feeless subnet. (The permissioned flag is irrelevant here — process_block
+    // does not gate on admission; only submit() does — so a feeless permissioned
+    // policy exercises the zero-fee path cleanly.)
+    let feeless = SubnetPolicy::feeless_permissioned(vec![], PrivacyLevel::Public);
+    let mut fnode = NodeEngine::open_on_subnet(
+        temp_dir("feeless-subnet"),
+        Address::from_bytes([1u8; 32]),
+        feeless,
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    let fout = fnode.process_block(batch(7)).unwrap();
+    assert!(fout.gas_used > 0, "the batch really consumed gas");
+    assert_eq!(fout.fee_charged.as_nano(), 0, "feeless subnet charges nothing");
+
+    // Fee-charging subnet at 2 nano/gas over an identical batch.
+    let mut pnode = NodeEngine::open_on_subnet(
+        temp_dir("fee-subnet"),
+        Address::from_bytes([1u8; 32]),
+        SubnetPolicy::fee_public(2, PrivacyLevel::Public),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    genesis_fund(&mut pnode);
+    let pout = pnode.process_block(batch(7)).unwrap();
+    assert_eq!(pout.gas_used, fout.gas_used, "same batch, same gas");
+    assert_eq!(
+        pout.fee_charged.as_nano(),
+        u128::from(pout.gas_used) * 2,
+        "fee subnet charges gas * price"
+    );
+}
+
+#[test]
+fn subnet_privacy_baseline_rejects_below_and_stamps_at_level() {
+    // A subnet enforces a minimum privacy level, just as an object carries one.
+    use node::subnet::SubnetPolicy;
+    let owner = Address::from_bytes([1u8; 32]);
+
+    // A dApp deploying BELOW the baseline (Public on a Private subnet) is rejected.
+    let private_subnet = SubnetPolicy::feeless_permissioned(vec![], PrivacyLevel::Private);
+    let rejected = NodeEngine::open_on_subnet(
+        temp_dir("priv-below"),
+        owner,
+        private_subnet.clone(),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    );
+    assert!(rejected.is_err(), "below-baseline dApp deployment is rejected");
+
+    // Deploying AT the baseline succeeds; the node stamps objects at Private.
+    let at = NodeEngine::open_on_subnet(
+        temp_dir("priv-at"),
+        owner,
+        private_subnet,
+        PrivacyLevel::Private,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    assert_eq!(at.privacy(), PrivacyLevel::Private);
+    assert_eq!(at.subnet().min_privacy_level, PrivacyLevel::Private);
+
+    // Deploying ABOVE the baseline (Private dApp on a Protected subnet) is fine.
+    let protected_subnet = SubnetPolicy::feeless_permissioned(vec![], PrivacyLevel::Protected);
+    let above = NodeEngine::open_on_subnet(
+        temp_dir("prot-above"),
+        owner,
+        protected_subnet,
+        PrivacyLevel::Private,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    assert_eq!(above.privacy(), PrivacyLevel::Private, "above-baseline dApp allowed");
+}
+
+#[test]
+fn permissioned_subnet_admits_only_permitted_senders() {
+    // A permissioned subnet admits only its permitted participants.
+    use node::subnet::SubnetPolicy;
+    let permitted = Address::from_bytes([0xAB; 32]);
+    let subnet = SubnetPolicy::feeless_permissioned(vec![permitted], PrivacyLevel::Public);
+    let mut node = NodeEngine::open_on_subnet(
+        temp_dir("permissioned"),
+        Address::from_bytes([1u8; 32]),
+        subnet,
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let wallet = Ed25519KeyPair::from_seed([9u8; 32]);
+
+    let permitted_tx = signed_tx_from(&wallet, 0, &[], &[0], prog.clone(), permitted);
+    assert!(node.submit(permitted_tx), "permitted sender is admitted");
+
+    let other_tx = signed_tx_from(&wallet, 1, &[], &[1], prog, Address::from_bytes([0xCD; 32]));
+    assert!(!node.submit(other_tx), "non-permitted sender is rejected");
+}
+
+#[test]
+fn fee_market_simulation_congestion_pq_price_rewards() {
+    // Full economic simulation through the real engine: a congestion-based fee
+    // that rises under load and falls when idle, post-quantum bloat pricing,
+    // token-price independence, and validator rewards accruing from usage.
+    use aevor_crypto::post_quantum::ml_dsa::MlDsa65KeyPair;
+    use node::subnet::SubnetPolicy;
+
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let owner = Address::from_bytes([1u8; 32]);
+    let ed = Ed25519KeyPair::from_seed([7u8; 32]);
+
+    // --- Congestion: a small-budget subnet (2000 gas/block, target 1000). ---
+    let subnet = SubnetPolicy::public_with_congestion(1_000, 2_000, 5_000, 1_250, 100);
+    let mut node = NodeEngine::open_on_subnet(
+        temp_dir("sim-congestion"),
+        owner,
+        subnet,
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    genesis_fund(&mut node);
+    let base0 = node.current_base_fee();
+    assert_eq!(base0, 1_000, "starts at the configured base fee");
+
+    // A congested block (5 txs, well over the 1000-gas target) raises the fee.
+    let congested: Vec<_> =
+        (0..5u8).map(|i| signed_tx(&ed, i, &[], &[i], prog.to_vec())).collect();
+    let cong_out = node.process_block(congested).unwrap();
+    assert!(cong_out.gas_used > 1_000, "the block was over target");
+    let base_hot = node.current_base_fee();
+    assert!(base_hot > base0, "congestion raised the base fee ({base0} -> {base_hot})");
+
+    // Idle blocks (1 small tx each, under target) lower the fee back down.
+    for i in 0..6u8 {
+        node.process_block(vec![signed_tx(&ed, 100 + i, &[], &[50 + i], prog.to_vec())])
+            .unwrap();
+    }
+    let base_cool = node.current_base_fee();
+    assert!(base_cool < base_hot, "idle blocks lowered the base fee ({base_hot} -> {base_cool})");
+
+    // --- Rewards: the validator accrued the fees from those blocks. ---
+    assert!(node.validator_reward().as_nano() > 0, "validator earned fees as its reward");
+
+    // --- Post-quantum bloat: a PQ tx costs more than an Ed25519 tx. ---
+    // Identical uncongested subnets (huge budget) so both price at the base fee.
+    let big = || SubnetPolicy::public_with_congestion(1_000, 30_000_000, 5_000, 1_250, 100);
+    let mut n_ed = NodeEngine::open_on_subnet(
+        temp_dir("sim-ed"),
+        owner,
+        big(),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    let mut n_pq = NodeEngine::open_on_subnet(
+        temp_dir("sim-pq"),
+        owner,
+        big(),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    genesis_fund(&mut n_ed);
+    let ed_fee = n_ed
+        .process_block(vec![signed_tx(&ed, 0, &[], &[0], prog.to_vec())])
+        .unwrap()
+        .fee_charged;
+    genesis_fund(&mut n_pq);
+    let pq = MlDsa65KeyPair::generate().unwrap();
+    let pq_fee = n_pq
+        .process_block(vec![signed_tx(&pq, 0, &[], &[0], prog.to_vec())])
+        .unwrap()
+        .fee_charged;
+    assert!(
+        pq_fee.as_nano() > ed_fee.as_nano(),
+        "post-quantum tx pays more for its bloat (pq {} > ed {})",
+        pq_fee.as_nano(),
+        ed_fee.as_nano()
+    );
+
+    // --- Token-price independence: the protocol fee is congestion-based, not
+    // price-based. The native fee is identical at any token price; only the fiat
+    // conversion differs (the protocol never reads a token price). ---
+    #[allow(clippy::cast_precision_loss)]
+    let native_avr = ed_fee.as_nano() as f64 * 1e-9;
+    let fiat_at_1 = native_avr * 1.0;
+    let fiat_at_150 = native_avr * 150.0;
+    assert!(fiat_at_150 > fiat_at_1, "fiat cost scales with token price");
+    // Same batch on a second node yields the identical native fee regardless.
+    let mut n_ed2 = NodeEngine::open_on_subnet(
+        temp_dir("sim-ed2"),
+        owner,
+        big(),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    genesis_fund(&mut n_ed2);
+    let ed_fee2 = n_ed2
+        .process_block(vec![signed_tx(&ed, 0, &[], &[0], prog.to_vec())])
+        .unwrap()
+        .fee_charged;
+    assert_eq!(ed_fee2.as_nano(), ed_fee.as_nano(), "native fee is price-independent");
+}
+
+#[test]
+fn balance_settlement_debits_senders_credits_validator_and_guards_abuse() {
+    // Real settlement: funded senders are debited their fee, the validator is
+    // credited the same, conservation holds, and an unfunded sender is rejected
+    // by the abuse guard before execution.
+    use node::subnet::SubnetPolicy;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let owner = Address::from_bytes([1u8; 32]);
+    let ed = Ed25519KeyPair::from_seed([7u8; 32]);
+
+    // Fee subnet (uncongested, large budget so the base fee stays put).
+    let subnet = SubnetPolicy::public_with_congestion(1_000, 30_000_000, 5_000, 1_250, 100);
+    let mut node = NodeEngine::open_on_subnet(
+        temp_dir("settle"),
+        owner,
+        subnet,
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+
+    // Fund the shared zero sender with a known, modest amount.
+    let start = aevor_core::primitives::Amount::from_nano(1_000_000_000); // 1 AVR
+    node.fund(Address::ZERO, start);
+    assert_eq!(node.balance_of(Address::ZERO).as_nano(), start.as_nano());
+
+    // Process a block of 4 transactions.
+    let txs: Vec<_> = (0..4u8).map(|i| signed_tx(&ed, i, &[], &[i], prog.to_vec())).collect();
+    let out = node.process_block(txs).unwrap();
+    assert_eq!(out.accepted, 4);
+    assert_eq!(out.insufficient_funds, 0);
+    assert!(out.fee_charged.as_nano() > 0, "a fee was charged");
+
+    // CONSERVATION: the sender's balance dropped by exactly the fee charged, and
+    // the validator's reward rose by exactly the same amount.
+    let spent = start.as_nano() - node.balance_of(Address::ZERO).as_nano();
+    assert_eq!(spent, out.fee_charged.as_nano(), "sender debited exactly the block fee");
+    assert_eq!(
+        node.validator_reward().as_nano(),
+        out.fee_charged.as_nano(),
+        "validator credited exactly the block fee"
+    );
+
+    // ABUSE GUARD: a brand-new, unfunded sender cannot transact on a fee subnet.
+    // (All new_simple txs share the zero sender, so drain it to zero first.)
+    let drain = node.balance_of(Address::ZERO);
+    assert!(node.balance_of(Address::ZERO).as_nano() > 0);
+    // Spend the rest by funding a second node with nothing and trying to transact.
+    let mut broke = NodeEngine::open_on_subnet(
+        temp_dir("settle-broke"),
+        owner,
+        SubnetPolicy::public_with_congestion(1_000, 30_000_000, 5_000, 1_250, 100),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    // No funding at all.
+    let out2 = broke.process_block(vec![signed_tx(&ed, 0, &[], &[0], prog.to_vec())]).unwrap();
+    assert_eq!(out2.accepted, 0, "unfunded sender cannot execute");
+    assert_eq!(out2.insufficient_funds, 1, "dropped by the abuse guard");
+    assert_eq!(out2.fee_charged.as_nano(), 0, "nothing settled");
+    assert_eq!(broke.validator_reward().as_nano(), 0, "no reward from a rejected tx");
+    let _ = drain;
+
+    // FEELESS: a feeless subnet moves no balances even for an unfunded sender.
+    let mut free = NodeEngine::open_on_subnet(
+        temp_dir("settle-free"),
+        owner,
+        SubnetPolicy::feeless_permissioned(vec![], PrivacyLevel::Public),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    let out3 = free.process_block(vec![signed_tx(&ed, 0, &[], &[0], prog.to_vec())]).unwrap();
+    assert_eq!(out3.accepted, 1, "feeless subnet needs no funds");
+    assert_eq!(out3.fee_charged.as_nano(), 0);
+    assert_eq!(out3.insufficient_funds, 0);
+}
+
+#[test]
+fn independent_nodes_settle_identically_same_rules_same_result() {
+    // The finalized economics are deterministic RULES: two independent validators
+    // that process the identical block must reach byte-identical balances, fees,
+    // validator reward, and state root. This is what "every node follows the same
+    // finalized rules" means operationally — no node can settle differently and
+    // still agree. (Enforcement against a node that RUNS different rules is the
+    // PROTOCOL_RULES_VERSION folded into the attestation; enforcement against a
+    // node that claims a different post-state is the shared state root.)
+    use node::subnet::SubnetPolicy;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let owner = Address::from_bytes([1u8; 32]);
+    let ed = Ed25519KeyPair::from_seed([7u8; 32]);
+    let mk = || {
+        let mut n = NodeEngine::open_on_subnet(
+            temp_dir("determinism"),
+            owner,
+            SubnetPolicy::public_with_congestion(1_000, 30_000_000, 5_000, 1_250, 100),
+            PrivacyLevel::Public,
+            SecurityLevel::Minimal,
+        )
+        .unwrap();
+        assert!(n.fund(Address::ZERO, aevor_core::primitives::Amount::from_nano(1_000_000_000)));
+        n
+    };
+    let mut a = mk();
+    let mut b = mk();
+
+    let batch: Vec<_> = (0..6u8).map(|i| signed_tx(&ed, i, &[], &[i], prog.to_vec())).collect();
+    let oa = a.process_block(batch.clone()).unwrap();
+    let ob = b.process_block(batch).unwrap();
+
+    assert_eq!(oa.gas_used, ob.gas_used, "same gas");
+    assert_eq!(oa.fee_charged.as_nano(), ob.fee_charged.as_nano(), "same fee");
+    assert_eq!(oa.accepted, ob.accepted);
+    assert_eq!(a.validator_reward().as_nano(), b.validator_reward().as_nano(), "same reward");
+    assert_eq!(
+        a.balance_of(Address::ZERO).as_nano(),
+        b.balance_of(Address::ZERO).as_nano(),
+        "same sender balance after settlement"
+    );
+    assert_eq!(oa.state_root.0 .0, ob.state_root.0 .0, "same authenticated state root");
+    assert_eq!(a.current_base_fee(), b.current_base_fee(), "same next base fee");
+
+    // Post-genesis mint is impossible: fund() is rejected once a block exists.
+    assert!(!a.fund(Address::ZERO, aevor_core::primitives::Amount::from_nano(1)), "no minting after genesis");
 }

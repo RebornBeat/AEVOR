@@ -31,6 +31,32 @@ This is the analysis you asked for: not six isolated matrices, but the interacti
 
 ---
 
+## 1b. Sparse vs sorted Merkle — now MEASURED in the real engine (pluggable backend)
+
+The engine's state tree is now a **pluggable backend** (`MerkleBackend::{Sorted, Sparse}`, selected at `open_with_backend`) so this is measured in the real execute/verify/prove paths, not argued. Both backends are proven correct end-to-end (a sparse-backed verifier reproduces the producer's root via attestation and its inclusion proofs verify — e2e `sparse_merkle_backend_reproduces_state_and_proves_in_engine`).
+
+| backend | batch | re-execute tx/s | verify-attest tx/s | proof-gen |
+|---------|------:|----------------:|-------------------:|----------:|
+| sorted | 1,000 | 12,045 | 1,084,988 | 160.9 µs |
+| sorted | 5,000 | 9,384 | 1,105,145 | 811.9 µs |
+| sorted | 10,000 | 12,155 | 1,040,550 | 1,695.7 µs |
+| sorted | 25,000 | 11,142 | 929,533 | 4,430.3 µs |
+| sorted | 50,000 | 11,761 | 578,226 | 8,676.3 µs |
+| sparse | 1,000 | 2,561 | 3,389 | **47.5 µs** |
+| sparse | 5,000 | 2,968 | 3,425 | **59.5 µs** |
+| sparse | 10,000 | 3,761 | 3,021 | **144.3 µs** |
+| sparse | 25,000 | 3,600 | 4,325 | **291.5 µs** |
+| sparse | 50,000 | *(did not finish in the debug timeout — itself the point: ~12.8M hashes to apply)* | | |
+
+**What the real numbers settle:**
+
+- **Sorted crushes sparse on the batch-apply hot path** — verify-attest is **~100–300× faster** with sorted (1.08M vs 3.4k tx/s) and re-execute **~3–4× faster** (12k vs 3k). Applying a whole block's writes through a 256-deep tree (O(n·depth)) is exactly the wrong shape; the sorted tree's single O(n) rebuild wins decisively. So my earlier instinct to put sparse on the verify path was not just marginally wrong — it would have been a **~100–300× regression.** Measuring beats arguing.
+- **Sparse wins proof generation, and the gap widens with state size** — sorted proof-gen is **O(n)** (160 → 8,676 µs as the tree grows 1k → 50k), sparse is **O(depth)** (47 → 291 µs). At 25k keys sparse proofs are **~15× faster**; at 50k the sorted proof is 8.7 ms while sparse would be ~0.3 ms (~29×). This is the light-client / proof-serving win, and it is real.
+
+**Conclusion:** run the **sorted** backend on validators that execute and commit blocks (the throughput hot path); run the **sparse** backend on **proof-serving / light-client-facing** nodes where O(depth) proofs matter and batch-apply throughput does not. This is a per-role deployment choice, now backed by measured numbers rather than a hunch.
+
+---
+
 ## 2. The dual-DAG turns per-node numbers into network throughput
 
 This is the heart of "how it works as validators expand." AEVOR has **two** DAGs, and they compose:
@@ -101,5 +127,6 @@ So post-quantum security costs are **local to the lanes that opt in**, not borne
 ---
 
 ## 6. What is measured vs modelled (honesty)
-- **Measured:** per-lane execute rate, per-verifier attest rate, the sweet-spot curve, the PoU speedup curve, BLS finality O(1) — all on real code.
-- **Modelled (from measured components):** the aggregate N-lane throughput and the two regimes. The macro-DAG concurrency is a real data structure but the node does not yet *run* N producers in one process, so the aggregate is computed from measured per-lane and per-verifier rates, not observed from a live N-node network. A true multi-node run (with gossip) is the next measurement (still debug→release pending). The model is deliberately conservative: it assumes each lane pays full single-node execution and each verifier full attestation cost, with no cross-lane batching gains.
+- **Measured on real code:** per-lane execute rate, per-verifier attest rate, the sweet-spot curve, the PoU speedup curve, BLS finality O(1), **and the full sorted-vs-sparse backend matrix in the real engine paths** (§1b) — the last is new this round: the Merkle tradeoff is now run, not argued, and both backends are proven correct end-to-end.
+- **Modelled (from measured components):** the aggregate N-lane throughput and the two regimes. This is modelled for a hard reason: **the benchmark sandbox has a single core (`nproc` = 1)**, so N producer threads would time-slice, not run in parallel — a "live" N-thread run here would just reproduce N × per-lane *serialised*, which is the model with worse noise, not a measurement of parallelism. The dual-DAG's inter-lane parallelism is intrinsically a **multi-machine** property (each lane on its own validator's hardware); it can only be *measured* on a real multi-node deployment. So the aggregate is computed from the measured per-lane and per-verifier rates, deliberately conservatively (each lane pays full single-node execution, each verifier full attestation cost, no cross-lane batching gains). **A live multi-node run on real hardware is the one measurement still owed** to replace the model with an observation — and it is a genuinely multi-node measurement, not something any single box (this one included) can produce.
+- **Absolute vs relative:** all figures are debug builds. Release multiplies the absolutes ~10–30×; the *shapes, ratios, crossovers, and per-role conclusions* are what carry over and are the point of this study.
