@@ -110,6 +110,11 @@ pub mod process;
 /// Node metrics: system-level metrics across all subsystems.
 pub mod metrics;
 
+/// Transport seam: the message set + `Transport` abstraction connecting a
+/// validator to its peers, with an in-memory backend for in-process multi-node
+/// testing. The real gossip backend (`aevor-network`) plugs in behind the trait.
+pub mod transport;
+
 // ============================================================
 // PRELUDE
 // ============================================================

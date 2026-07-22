@@ -661,8 +661,13 @@ fn multi_lane_round_deterministic_ordering_consistent_state() {
         let wallet = Ed25519KeyPair::from_seed([seed; 32]);
         let dir = temp_dir(&format!("lane-src-{lane_id}"));
         let mut eng = open_node(&dir);
+        // Sender-sharded: each lane uses a distinct funded sender (no cross-lane
+        // account contention). Verifiers need no funding — absolute balance deltas
+        // overwrite.
+        let sender = Address::from_bytes([(lane_id as u8).wrapping_add(1); 32]);
+        assert!(eng.fund(sender, aevor_core::primitives::Amount::from_nano(1_000_000_000)));
         let txs: Vec<_> = (0..10u8)
-            .map(|i| signed_tx(&wallet, i, &[], &[obj_base + i], prog.to_vec()))
+            .map(|i| signed_tx_from(&wallet, i, &[], &[obj_base + i], prog.to_vec(), sender))
             .collect();
         let (_out, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
         let _ = std::fs::remove_file(dir.join("state.log"));
@@ -751,8 +756,10 @@ fn sharded_verification_bounded_slice_full_coverage() {
         let wallet = Ed25519KeyPair::from_seed([seed; 32]);
         let dir = temp_dir(&format!("shard-src-{lane_id}"));
         let mut eng = open_node(&dir);
+        let sender = Address::from_bytes([(lane_id as u8).wrapping_add(1); 32]);
+        assert!(eng.fund(sender, aevor_core::primitives::Amount::from_nano(1_000_000_000)));
         let txs: Vec<_> = (0..4u8)
-            .map(|i| signed_tx(&wallet, i, &[], &[base + i], prog.to_vec()))
+            .map(|i| signed_tx_from(&wallet, i, &[], &[base + i], prog.to_vec(), sender))
             .collect();
         let (_o, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
         let _ = std::fs::remove_file(dir.join("state.log"));
@@ -821,8 +828,10 @@ fn corruption_detection_produces_slashing_evidence() {
         let wallet = Ed25519KeyPair::from_seed([seed; 32]);
         let dir = temp_dir(&format!("corrupt-src-{lane_id}"));
         let mut eng = open_node(&dir);
+        let sender = Address::from_bytes([(lane_id as u8).wrapping_add(1); 32]);
+        assert!(eng.fund(sender, aevor_core::primitives::Amount::from_nano(1_000_000_000)));
         let txs: Vec<_> = (0..4u8)
-            .map(|i| signed_tx(&wallet, i, &[], &[base + i], prog.to_vec()))
+            .map(|i| signed_tx_from(&wallet, i, &[], &[base + i], prog.to_vec(), sender))
             .collect();
         let (_o, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
         let _ = std::fs::remove_file(dir.join("state.log"));
@@ -1267,4 +1276,286 @@ fn verifier_stays_balance_consistent_on_fast_path() {
     let out2 = verifier.process_block(more).unwrap();
     assert_eq!(out2.accepted, 2, "verifier produces from a correct balance view");
     assert_eq!(out2.insufficient_funds, 0);
+}
+
+#[test]
+fn multi_lane_settlement_correct_under_sender_sharding() {
+    // The finalized multi-lane balance model for the fee-only economy: concurrent
+    // lanes touch DISJOINT accounts (sender-sharded routing — each account's txs go
+    // to one lane, and each lane credits only its own validator). Under that, the
+    // per-lane ABSOLUTE balance deltas applied by apply_lane_round settle correctly
+    // with no cross-lane contention and no double-spend. This test proves it: two
+    // lanes with two distinct senders, both debits reflected after the round.
+    use node::engine::LaneBlock;
+    use node::subnet::SubnetPolicy;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let wallet = Ed25519KeyPair::from_seed([5u8; 32]);
+    let start = aevor_core::primitives::Amount::from_nano(1_000_000_000);
+    let sender_a = Address::from_bytes([0xAA; 32]);
+    let sender_b = Address::from_bytes([0xBB; 32]);
+
+    let open_fee = |tag: &str, funded: &[(Address, aevor_core::primitives::Amount)]| -> NodeEngine {
+        let mut e = NodeEngine::open_on_subnet(
+            temp_dir(tag),
+            Address::from_bytes([1u8; 32]),
+            SubnetPolicy::public_with_congestion(1_000, 30_000_000, 5_000, 1_250, 100),
+            PrivacyLevel::Public,
+            SecurityLevel::Minimal,
+        )
+        .unwrap();
+        for (a, amt) in funded {
+            assert!(e.fund(*a, *amt));
+        }
+        e
+    };
+
+    // Lane 0: sender_a on objects [0], from a fresh (empty round-base) producer.
+    let mut p0 = open_fee("shard-p0", &[(sender_a, start)]);
+    let (_o0, att0, delta0) =
+        p0.produce_attested_batch(vec![signed_tx_from(&wallet, 0, &[], &[0], prog.to_vec(), sender_a)]).unwrap();
+    let a_after = p0.balance_of(sender_a).as_nano();
+
+    // Lane 1: sender_b on DISJOINT objects [2], from another fresh producer.
+    let mut p1 = open_fee("shard-p1", &[(sender_b, start)]);
+    let (_o1, att1, delta1) =
+        p1.produce_attested_batch(vec![signed_tx_from(&wallet, 1, &[], &[2], prog.to_vec(), sender_b)]).unwrap();
+    let b_after = p1.balance_of(sender_b).as_nano();
+
+    assert!(a_after < start.as_nano() && b_after < start.as_nano(), "both senders paid fees");
+    assert!(!delta0.balances.is_empty() && !delta1.balances.is_empty(), "both lanes ship balance deltas");
+
+    // A verifier with the same genesis (both senders funded) applies the round.
+    let mut v = open_fee("shard-v", &[(sender_a, start), (sender_b, start)]);
+    let lanes = vec![
+        LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att0, delta: delta0 },
+        LaneBlock { lane_id: 1, producer: Hash256([1u8; 32]), attestation: att1, delta: delta1 },
+    ];
+    let out = v.apply_lane_round(lanes).unwrap();
+    assert_eq!(out.lanes_applied, 2);
+
+    // Both lanes' debits are reflected — disjoint accounts, no contention.
+    assert_eq!(v.balance_of(sender_a).as_nano(), a_after, "lane 0 (sender_a) debit applied");
+    assert_eq!(v.balance_of(sender_b).as_nano(), b_after, "lane 1 (sender_b) debit applied");
+}
+
+#[test]
+#[allow(clippy::cast_possible_truncation)]
+fn multi_node_round_over_transport_converges_with_settlement() {
+    // End-to-end multi-node macro-DAG round over the transport seam, in-process:
+    // several validators each produce a lane on disjoint accounts/objects, broadcast
+    // it, and every validator applies the collected round -> identical state root AND
+    // consistent settled balances. Validates the network LOGIC (lane exchange +
+    // apply_lane_round + balance-delta settlement) single-core; the real gossip wire
+    // (aevor-network) plugs in behind the same Transport trait.
+    use node::engine::LaneBlock;
+    use node::subnet::SubnetPolicy;
+    use node::transport::{InMemoryNet, NetworkMessage, Transport};
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let wallet = Ed25519KeyPair::from_seed([5u8; 32]);
+    let start = aevor_core::primitives::Amount::from_nano(1_000_000_000);
+    let senders = [
+        Address::from_bytes([0xA1; 32]),
+        Address::from_bytes([0xA2; 32]),
+        Address::from_bytes([0xA3; 32]),
+    ];
+    let open_fee = |tag: &str, funded: &[(Address, aevor_core::primitives::Amount)]| -> NodeEngine {
+        let mut e = NodeEngine::open_on_subnet(
+            temp_dir(tag),
+            Address::from_bytes([1u8; 32]),
+            SubnetPolicy::public_with_congestion(1_000, 30_000_000, 5_000, 1_250, 100),
+            PrivacyLevel::Public,
+            SecurityLevel::Minimal,
+        )
+        .unwrap();
+        for (a, amt) in funded {
+            assert!(e.fund(*a, *amt));
+        }
+        e
+    };
+
+    // Network of 5: nodes 0..3 produce lanes, nodes 3..5 verify.
+    let net = InMemoryNet::new(5);
+
+    // Each producer (sender-sharded, disjoint objects) produces and broadcasts.
+    let mut expected: Vec<(Address, u128)> = Vec::new();
+    for (i, &sender) in senders.iter().enumerate() {
+        let mut p = open_fee(&format!("mn-p{i}"), &[(sender, start)]);
+        let (_o, att, delta) = p
+            .produce_attested_batch(vec![signed_tx_from(
+                &wallet,
+                i as u8,
+                &[],
+                &[(i as u8) * 2],
+                prog.to_vec(),
+                sender,
+            )])
+            .unwrap();
+        expected.push((sender, p.balance_of(sender).as_nano()));
+        let lane = LaneBlock { lane_id: i as u32, producer: Hash256([i as u8; 32]), attestation: att, delta };
+        net.handle(i).broadcast(NetworkMessage::Lane(Box::new(lane)));
+    }
+
+    // Two verifiers (fresh, funded for ALL senders = shared genesis) collect and apply.
+    let mut roots: Vec<[u8; 32]> = Vec::new();
+    let all_funded: Vec<(Address, aevor_core::primitives::Amount)> =
+        senders.iter().map(|s| (*s, start)).collect();
+    for vi in 3..5usize {
+        let mut v = open_fee(&format!("mn-v{vi}"), &all_funded);
+        let msgs = net.handle(vi).drain();
+        assert_eq!(msgs.len(), 3, "verifier received all three lanes over transport");
+        let lanes: Vec<LaneBlock> =
+            msgs.into_iter().map(|m| match m { NetworkMessage::Lane(l) => *l }).collect();
+        let out = v.apply_lane_round(lanes).unwrap();
+        assert_eq!(out.lanes_applied, 3);
+        for (sender, bal) in &expected {
+            assert_eq!(v.balance_of(*sender).as_nano(), *bal, "settled balance matches producer");
+        }
+        roots.push(out.state_root.0 .0);
+    }
+    assert_eq!(roots[0], roots[1], "all validators converge to one state root over the transport");
+}
+
+// ---- Attack-surface tests for the multi-lane macro-DAG round ----
+
+fn attack_engine(tag: &str, funded: &[Address]) -> NodeEngine {
+    use node::subnet::SubnetPolicy;
+    let start = aevor_core::primitives::Amount::from_nano(1_000_000_000);
+    let mut e = NodeEngine::open_on_subnet(
+        temp_dir(tag),
+        Address::from_bytes([1u8; 32]),
+        SubnetPolicy::public_with_congestion(1_000, 30_000_000, 5_000, 1_250, 100),
+        PrivacyLevel::Public,
+        SecurityLevel::Minimal,
+    )
+    .unwrap();
+    for a in funded {
+        assert!(e.fund(*a, start));
+    }
+    e
+}
+
+#[test]
+fn cross_lane_object_double_spend_is_rejected() {
+    // Two lanes that both WRITE THE SAME OBJECT (distinct txs, distinct senders) are
+    // a double-spend: the round must be rejected, not silently last-write-wins.
+    use node::engine::LaneBlock;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let (sa, sb) = (Address::from_bytes([0xC1; 32]), Address::from_bytes([0xC2; 32]));
+
+    let mut p0 = attack_engine("ds-p0", &[sa]);
+    let (_o0, att0, d0) = p0
+        .produce_attested_batch(vec![signed_tx_from(&w, 0, &[], &[5], prog.to_vec(), sa)])
+        .unwrap();
+    let mut p1 = attack_engine("ds-p1", &[sb]);
+    let (_o1, att1, d1) = p1
+        .produce_attested_batch(vec![signed_tx_from(&w, 1, &[], &[5], prog.to_vec(), sb)])
+        .unwrap();
+    assert_ne!(att0.tx_commitment, att1.tx_commitment, "distinct tx sets (not the trivial dup case)");
+
+    let mut v = attack_engine("ds-v", &[sa, sb]);
+    let lanes = vec![
+        LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att0, delta: d0 },
+        LaneBlock { lane_id: 1, producer: Hash256([1u8; 32]), attestation: att1, delta: d1 },
+    ];
+    assert!(v.apply_lane_round(lanes).is_err(), "cross-lane object double-spend must be rejected");
+}
+
+#[test]
+fn duplicate_transaction_set_across_lanes_is_rejected() {
+    // Two lanes claiming the IDENTICAL tx set (same tx_commitment) are rejected.
+    use node::engine::LaneBlock;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let sa = Address::from_bytes([0xC3; 32]);
+
+    // The same transaction produced from two identical fresh engines → same commitment.
+    let mut p0 = attack_engine("dup-p0", &[sa]);
+    let (_o0, att0, d0) = p0
+        .produce_attested_batch(vec![signed_tx_from(&w, 0, &[], &[6], prog.to_vec(), sa)])
+        .unwrap();
+    let mut p1 = attack_engine("dup-p1", &[sa]);
+    let (_o1, att1, d1) = p1
+        .produce_attested_batch(vec![signed_tx_from(&w, 0, &[], &[6], prog.to_vec(), sa)])
+        .unwrap();
+    assert_eq!(att0.tx_commitment, att1.tx_commitment, "identical tx set");
+
+    let mut v = attack_engine("dup-v", &[sa]);
+    let lanes = vec![
+        LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att0, delta: d0 },
+        LaneBlock { lane_id: 1, producer: Hash256([1u8; 32]), attestation: att1, delta: d1 },
+    ];
+    assert!(v.apply_lane_round(lanes).is_err(), "duplicate tx set across lanes must be rejected");
+}
+
+#[test]
+fn lane_not_forking_from_round_base_is_rejected() {
+    // A lane whose attestation forked from a DIFFERENT prior state (stale/forged
+    // fork) is rejected — you cannot splice in a lane built on another history.
+    use node::engine::LaneBlock;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let sa = Address::from_bytes([0xC4; 32]);
+
+    // Advance a producer, then produce a lane from its NON-empty state.
+    let mut p = attack_engine("pr-p", &[sa]);
+    p.process_block(vec![signed_tx_from(&w, 0, &[], &[7], prog.to_vec(), sa)]).unwrap();
+    let (_o, att, d) = p
+        .produce_attested_batch(vec![signed_tx_from(&w, 1, &[], &[8], prog.to_vec(), sa)])
+        .unwrap();
+    assert_ne!(att.prior_root, [0u8; 32], "lane forked from a non-empty (advanced) state");
+
+    // A fresh verifier at the empty round base must reject it.
+    let mut v = attack_engine("pr-v", &[sa]);
+    let lanes = vec![LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att, delta: d }];
+    assert!(v.apply_lane_round(lanes).is_err(), "lane not forking from round base must be rejected");
+}
+
+#[test]
+fn tampered_lane_balance_delta_is_rejected() {
+    // Tampering a lane's balance delta (without matching commitment) is rejected by
+    // the per-lane balance-commitment check in apply_lane_round.
+    use node::engine::LaneBlock;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let sa = Address::from_bytes([0xC5; 32]);
+
+    let mut p = attack_engine("bt-p", &[sa]);
+    let (_o, att, mut d) = p
+        .produce_attested_batch(vec![signed_tx_from(&w, 0, &[], &[9], prog.to_vec(), sa)])
+        .unwrap();
+    assert!(!d.balances.is_empty());
+    d.balances[0].1 = d.balances[0].1.wrapping_add(1_000_000); // forge a bigger balance
+
+    let mut v = attack_engine("bt-v", &[sa]);
+    let lanes = vec![LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att, delta: d }];
+    assert!(v.apply_lane_round(lanes).is_err(), "tampered lane balance delta must be rejected");
+}
+
+#[test]
+fn cross_lane_same_account_settlement_is_rejected() {
+    // Two lanes settling the SAME account (same sender), even on disjoint objects,
+    // is a cross-lane balance conflict — rejected. Sender-sharding prevents it
+    // upstream; this is the defensive check that makes it a tested rejection.
+    use node::engine::LaneBlock;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let sa = Address::from_bytes([0xC6; 32]);
+
+    let mut p0 = attack_engine("acc-p0", &[sa]);
+    let (_o0, att0, d0) = p0
+        .produce_attested_batch(vec![signed_tx_from(&w, 0, &[], &[10], prog.to_vec(), sa)])
+        .unwrap();
+    let mut p1 = attack_engine("acc-p1", &[sa]);
+    let (_o1, att1, d1) = p1
+        .produce_attested_batch(vec![signed_tx_from(&w, 1, &[], &[11], prog.to_vec(), sa)])
+        .unwrap();
+    assert_ne!(att0.tx_commitment, att1.tx_commitment, "distinct tx sets, disjoint objects");
+
+    let mut v = attack_engine("acc-v", &[sa]);
+    let lanes = vec![
+        LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att0, delta: d0 },
+        LaneBlock { lane_id: 1, producer: Hash256([1u8; 32]), attestation: att1, delta: d1 },
+    ];
+    assert!(v.apply_lane_round(lanes).is_err(), "cross-lane same-account settlement must be rejected");
 }

@@ -1018,6 +1018,48 @@ impl NodeEngine {
             }
         }
 
+        // 2b. Reject cross-lane OBJECT conflicts (double-spend defense): no object
+        //     may be written by two lanes in the same round. If it were, both
+        //     lanes would "spend" the same state and last-write-wins would silently
+        //     drop one — a double-spend. Sender-sharded routing keeps lanes on
+        //     disjoint objects/accounts upstream; this is the defensive check that
+        //     rejects a round violating that invariant (maliciously or by bug).
+        let mut written: std::collections::HashSet<ObjectId> = std::collections::HashSet::new();
+        for lane in &lanes {
+            for (object_id, _) in &lane.delta.objects {
+                if !written.insert(*object_id) {
+                    return Err(NodeError::SubsystemCrash {
+                        subsystem: "macro_dag".to_string(),
+                        reason: format!(
+                            "object written by two lanes (cross-lane double-spend) at lane {}",
+                            lane.lane_id
+                        ),
+                    });
+                }
+            }
+        }
+
+        // 2c. Reject cross-lane ACCOUNT conflicts (balance double-spend defense):
+        //     no account's balance may be settled by two lanes in the same round.
+        //     Concurrent settlement of one account across lanes is a conflict
+        //     (each lane's affordability guard is independent, so it could
+        //     over-debit or lose a fee). Sender-sharded routing keeps each account
+        //     in one lane upstream; this rejects a round that violates it.
+        let mut touched: std::collections::HashSet<Address> = std::collections::HashSet::new();
+        for lane in &lanes {
+            for (account, _) in &lane.delta.balances {
+                if !touched.insert(*account) {
+                    return Err(NodeError::SubsystemCrash {
+                        subsystem: "macro_dag".to_string(),
+                        reason: format!(
+                            "account settled by two lanes (cross-lane balance conflict) at lane {}",
+                            lane.lane_id
+                        ),
+                    });
+                }
+            }
+        }
+
         // 3. Deterministic leaderless ordering by each lane's canonical hash
         //    (its tx_commitment), via the macro-DAG ordering primitive.
         let hashes: Vec<BlockHash> =
