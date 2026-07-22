@@ -202,9 +202,40 @@ pub struct NodeEngine {
     balances: std::collections::HashMap<Address, Amount>,
 }
 
+/// The complete state delta a verifier applies to reproduce a producer's block
+/// without re-executing: object writes (committed to the state root) plus the
+/// per-account balance changes from fee settlement. Balances are applied to the
+/// in-memory ledger (cheap `HashMap` writes) and committed via a single hash in
+/// the attestation body — NOT into the Merkle state root — so verifiers stay
+/// balance-consistent without the per-insert Merkle cost that root commitment
+/// would impose (measured at +112–136% on the verify path).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct StateDelta {
+    /// Written object id -> bytes (reproduces the object state root).
+    pub objects: Vec<(ObjectId, Vec<u8>)>,
+    /// Changed account -> new absolute balance (nano), canonically sorted by
+    /// address. Committed via `ExecutionAttestation::balance_commitment`.
+    pub balances: Vec<(Address, u128)>,
+}
+
+impl StateDelta {
+    /// BLAKE3 commitment over the balance changes (canonical address order). This
+    /// is what the attestation binds, and what a re-executing validator recomputes
+    /// to catch a producer that settled balances incorrectly.
+    #[must_use]
+    pub fn balance_commitment(balances: &[(Address, u128)]) -> [u8; 32] {
+        let mut h = Blake3Hasher::new();
+        for (addr, amt) in balances {
+            h.update(&addr.0);
+            h.update(&amt.to_le_bytes());
+        }
+        h.finalize().0 .0
+    }
+}
+
 /// A produced block together with its execution attestation and the state
 /// delta a verifier needs to reproduce it without re-executing.
-pub type AttestedBatch = (BlockOutcome, ExecutionAttestation, Vec<(ObjectId, Vec<u8>)>);
+pub type AttestedBatch = (BlockOutcome, ExecutionAttestation, StateDelta);
 
 /// One validator's contribution to a multi-lane round: the Proof-of-Uncorruption attestation over
 /// its concurrently-produced block plus the state delta to apply. Produced from
@@ -219,8 +250,8 @@ pub struct LaneBlock {
     pub producer: aevor_core::primitives::ValidatorId,
     /// Proof-of-Uncorruption attestation over this lane's state transition.
     pub attestation: ExecutionAttestation,
-    /// The lane's state delta (written object id -> bytes).
-    pub delta: Vec<(ObjectId, Vec<u8>)>,
+    /// The lane's state delta (object writes + per-account balance changes).
+    pub delta: StateDelta,
 }
 
 /// Outcome of applying a multi-lane round via [`NodeEngine::apply_lane_round`].
@@ -263,16 +294,24 @@ pub struct ExecutionAttestation {
     pub new_root: [u8; 32],
     /// BLAKE3 commitment over the accepted transaction hashes.
     pub tx_commitment: [u8; 32],
+    /// BLAKE3 commitment over the per-account balance changes (see
+    /// [`StateDelta::balance_commitment`]). Binds the settlement result into the
+    /// attested body without paying the Merkle cost of state-root commitment: a
+    /// verifier rejects balance deltas that do not hash to this, and a
+    /// re-executing validator that recomputes a different value has caught a
+    /// corrupt producer.
+    pub balance_commitment: [u8; 32],
     /// TEE seal over the canonical body (64 bytes).
     pub signature: Vec<u8>,
 }
 
 impl ExecutionAttestation {
-    fn body(prior: &[u8; 32], new: &[u8; 32], txc: &[u8; 32]) -> Vec<u8> {
-        let mut b = Vec::with_capacity(100);
+    fn body(prior: &[u8; 32], new: &[u8; 32], txc: &[u8; 32], balc: &[u8; 32]) -> Vec<u8> {
+        let mut b = Vec::with_capacity(132);
         b.extend_from_slice(prior);
         b.extend_from_slice(new);
         b.extend_from_slice(txc);
+        b.extend_from_slice(balc);
         // Pin the finalized protocol rules (fee formula, gas schedule, settlement,
         // abuse guard) into the attested body. A validator running a different
         // rule version signs a different body, so verifiers on another version
@@ -284,11 +323,20 @@ impl ExecutionAttestation {
 
     /// Seal an attestation over a transition (producing validator's TEE).
     #[must_use]
-    pub fn seal(prior_root: [u8; 32], new_root: [u8; 32], tx_commitment: [u8; 32]) -> Self {
-        let signature =
-            aevor_crypto::attestation::sim_sign(&Self::body(&prior_root, &new_root, &tx_commitment))
-                .to_vec();
-        Self { prior_root, new_root, tx_commitment, signature }
+    pub fn seal(
+        prior_root: [u8; 32],
+        new_root: [u8; 32],
+        tx_commitment: [u8; 32],
+        balance_commitment: [u8; 32],
+    ) -> Self {
+        let signature = aevor_crypto::attestation::sim_sign(&Self::body(
+            &prior_root,
+            &new_root,
+            &tx_commitment,
+            &balance_commitment,
+        ))
+        .to_vec();
+        Self { prior_root, new_root, tx_commitment, balance_commitment, signature }
     }
 
     /// Verify the attestation seal (verifying validator).
@@ -298,7 +346,12 @@ impl ExecutionAttestation {
             return false;
         };
         aevor_crypto::attestation::sim_verify(
-            &Self::body(&self.prior_root, &self.new_root, &self.tx_commitment),
+            &Self::body(
+                &self.prior_root,
+                &self.new_root,
+                &self.tx_commitment,
+                &self.balance_commitment,
+            ),
             &sig,
         )
     }
@@ -520,10 +573,11 @@ impl NodeEngine {
         &mut self,
         meta: &std::collections::HashMap<Hash256, (Address, u64)>,
         accepted_tx_gas: &[(Hash256, u64)],
-    ) -> (u64, Amount) {
+    ) -> (u64, Amount, Vec<(Address, u128)>) {
         let base_fee = self.current_base_fee();
         let mut block_gas: u64 = 0;
         let mut block_fee = Amount::ZERO;
+        let mut changed: std::collections::BTreeSet<Address> = std::collections::BTreeSet::new();
         for (h, exec_gas) in accepted_tx_gas {
             let Some((sender, intrinsic)) = meta.get(h) else { continue };
             let tx_gas = intrinsic.saturating_add(*exec_gas);
@@ -534,6 +588,7 @@ impl NodeEngine {
             let fee = Amount::from_nano(u128::from(tx_gas).saturating_mul(u128::from(base_fee)));
             if self.debit(*sender, fee) {
                 block_fee = block_fee.saturating_add(fee);
+                changed.insert(*sender);
             }
         }
         self.validator_reward = self.validator_reward.saturating_add(block_fee);
@@ -544,7 +599,11 @@ impl NodeEngine {
             self.subnet.fee.fee_adjustment_bps,
             self.subnet.fee.min_gas_price_nano,
         );
-        (block_gas, block_fee)
+        // Balance delta: each changed account with its new absolute balance, in
+        // canonical (BTreeSet) address order so the commitment is deterministic.
+        let balance_deltas: Vec<(Address, u128)> =
+            changed.into_iter().map(|a| (a, self.balance_of(a).as_nano())).collect();
+        (block_gas, block_fee, balance_deltas)
     }
 
     /// Open a node that participates in a specific **subnet**, deploying a dApp
@@ -660,8 +719,11 @@ impl NodeEngine {
         let rejected = applied.rejected;
         let accepted_tx_hashes = applied.tx_hashes;
 
-        // Settle per-sender fees, credit the validator, advance the market.
-        let (gas_used, block_fee) = self.settle_and_advance(&meta, &applied.accepted_tx_gas);
+        // Settle per-sender fees, credit the validator, advance the market. This
+        // path executes locally, so it does not ship a delta; the balance deltas
+        // are used only by the attested-batch path below.
+        let (gas_used, block_fee, _balance_deltas) =
+            self.settle_and_advance(&meta, &applied.accepted_tx_gas);
 
         self.height += 1;
         let state_root = self.state.root();
@@ -770,8 +832,8 @@ impl NodeEngine {
         let (affordable, meta, insufficient_funds) = self.affordability_filter(txs);
         let applied = self.verify_execute_commit(affordable)?;
 
-        // Materialize the state delta (written object -> data) for shipment.
-        let mut delta: Vec<(ObjectId, Vec<u8>)> =
+        // Materialize the object delta (written object -> data) for shipment.
+        let mut objects: Vec<(ObjectId, Vec<u8>)> =
             Vec::with_capacity(applied.written_object_ids.len());
         for object_id in &applied.written_object_ids {
             if let Some(record) = self.executor.object(object_id).map_err(|e| {
@@ -780,9 +842,17 @@ impl NodeEngine {
                     reason: e.to_string(),
                 }
             })? {
-                delta.push((*object_id, record.data));
+                objects.push((*object_id, record.data));
             }
         }
+
+        // Settle per-sender fees, credit the validator, advance the market —
+        // identical economics to the plain block path. This yields the per-account
+        // balance changes that ride in the delta and are committed in the
+        // attestation body (object writes are committed via the state root; this
+        // commits the settlement result without any Merkle cost).
+        let (gas_used, block_fee, balances) =
+            self.settle_and_advance(&meta, &applied.accepted_tx_gas);
 
         self.height += 1;
         let state_root = self.state.root();
@@ -792,9 +862,14 @@ impl NodeEngine {
             txh.update(&h.0);
         }
         let tx_commitment = txh.finalize().0;
+        let balance_commitment = StateDelta::balance_commitment(&balances);
 
-        let attestation =
-            ExecutionAttestation::seal(prior_root.0 .0, state_root.0 .0, tx_commitment.0);
+        let attestation = ExecutionAttestation::seal(
+            prior_root.0 .0,
+            state_root.0 .0,
+            tx_commitment.0,
+            balance_commitment,
+        );
 
         let mut hasher = Blake3Hasher::new();
         hasher.update(&self.height.to_le_bytes());
@@ -803,10 +878,6 @@ impl NodeEngine {
             hasher.update(&h.0);
         }
         let block_hash: BlockHash = hasher.finalize().0;
-
-        // Settle per-sender fees, credit the validator, advance the market —
-        // identical economics to the plain block path.
-        let (gas_used, block_fee) = self.settle_and_advance(&meta, &applied.accepted_tx_gas);
 
         let outcome = BlockOutcome {
             height: self.height,
@@ -819,7 +890,7 @@ impl NodeEngine {
             fee_charged: block_fee,
             insufficient_funds,
         };
-        Ok((outcome, attestation, delta))
+        Ok((outcome, attestation, StateDelta { objects, balances }))
     }
 
     /// Apply an attested batch as a *verifying* validator: check the producer's
@@ -836,7 +907,7 @@ impl NodeEngine {
     pub fn apply_attested_batch(
         &mut self,
         attestation: &ExecutionAttestation,
-        delta: &[(ObjectId, Vec<u8>)],
+        delta: &StateDelta,
     ) -> NodeResult<()> {
         if !attestation.verify() {
             return Err(NodeError::SubsystemCrash {
@@ -850,8 +921,20 @@ impl NodeEngine {
                 reason: "attested prior root does not match local state".to_string(),
             });
         }
-        // Apply the delta directly — NO VM execution, NO signature re-check.
-        for (object_id, data) in delta {
+        // The balance changes must hash to the attested commitment. This makes the
+        // shipped balances tamper-evident exactly as the object writes are made
+        // tamper-evident by reproducing the new root — without a Merkle insert per
+        // balance. (A producer that settled balances *incorrectly but
+        // self-consistently* is caught separately by a re-executing validator that
+        // recomputes this commitment; see `detect_lane_corruption`.)
+        if StateDelta::balance_commitment(&delta.balances) != attestation.balance_commitment {
+            return Err(NodeError::SubsystemCrash {
+                subsystem: "attestation".to_string(),
+                reason: "balance delta does not match attested balance commitment".to_string(),
+            });
+        }
+        // Apply the object delta directly — NO VM execution, NO signature re-check.
+        for (object_id, data) in &delta.objects {
             self.state
                 .insert(&Self::state_key(object_id), StorageValue::from_bytes(data.clone()));
         }
@@ -861,6 +944,12 @@ impl NodeEngine {
                 subsystem: "attestation".to_string(),
                 reason: "applied delta does not reproduce attested new root".to_string(),
             });
+        }
+        // Apply the balance changes to the in-memory ledger (cheap HashMap writes,
+        // no Merkle) so a verifier that never executed this block still has a
+        // correct balance view — essential for it to produce correctly later.
+        for (account, new_balance) in &delta.balances {
+            self.balances.insert(*account, Amount::from_nano(*new_balance));
         }
         Ok(())
     }
@@ -937,17 +1026,34 @@ impl NodeEngine {
         let lane_by_hash: std::collections::HashMap<[u8; 32], &LaneBlock> =
             lanes.iter().map(|l| (l.attestation.tx_commitment, l)).collect();
 
-        // 4. Apply each lane's delta in the deterministic order.
+        // 4. Apply each lane's delta in the deterministic order. Object writes
+        //    reproduce the state root; balance changes are checked against the
+        //    lane's attested balance commitment (tamper-evidence, no Merkle cost)
+        //    and applied to the in-memory ledger.
         let mut ordered_lanes = Vec::with_capacity(lanes.len());
         let mut objects_applied = 0usize;
         for h in &ordering.ordered_blocks {
             let lane = lane_by_hash
                 .get(&h.0)
                 .expect("every ordered hash maps to a submitted lane");
-            for (object_id, data) in &lane.delta {
+            if StateDelta::balance_commitment(&lane.delta.balances)
+                != lane.attestation.balance_commitment
+            {
+                return Err(NodeError::SubsystemCrash {
+                    subsystem: "macro_dag".to_string(),
+                    reason: format!(
+                        "lane {} balance delta does not match its balance commitment",
+                        lane.lane_id
+                    ),
+                });
+            }
+            for (object_id, data) in &lane.delta.objects {
                 self.state
                     .insert(&Self::state_key(object_id), StorageValue::from_bytes(data.clone()));
                 objects_applied += 1;
+            }
+            for (account, new_balance) in &lane.delta.balances {
+                self.balances.insert(*account, Amount::from_nano(*new_balance));
             }
             ordered_lanes.push(lane.lane_id);
         }

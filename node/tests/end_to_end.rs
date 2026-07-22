@@ -615,12 +615,26 @@ fn pou_verify_by_attestation_reproduces_state_without_reexecuting() {
         "verifier reproduced the producer's state via attestation, without re-executing"
     );
 
-    // A corrupted delta does not reproduce the attested new root → rejected.
+    // A corrupted object delta does not reproduce the attested new root → rejected.
     let dir_v2 = temp_dir("pou-v2");
     let mut v2 = open_node(&dir_v2);
     let mut bad = delta.clone();
-    bad[0].1 = vec![0xFFu8; 8];
+    bad.objects[0].1 = vec![0xFFu8; 8];
     assert!(v2.apply_attested_batch(&attestation, &bad).is_err(), "corrupted delta rejected");
+
+    // A tampered BALANCE delta does not match the attested balance commitment → rejected.
+    let dir_vb = temp_dir("pou-vb");
+    let mut vb = open_node(&dir_vb);
+    let mut bad_bal = delta.clone();
+    if bad_bal.balances.is_empty() {
+        bad_bal.balances.push((Address::ZERO, 12_345));
+    } else {
+        bad_bal.balances[0].1 = bad_bal.balances[0].1.wrapping_add(1);
+    }
+    assert!(
+        vb.apply_attested_batch(&attestation, &bad_bal).is_err(),
+        "tampered balance delta rejected by balance commitment"
+    );
 
     // A forged attestation is rejected.
     let dir_v3 = temp_dir("pou-v3");
@@ -1218,4 +1232,39 @@ fn independent_nodes_settle_identically_same_rules_same_result() {
 
     // Post-genesis mint is impossible: fund() is rejected once a block exists.
     assert!(!a.fund(Address::ZERO, aevor_core::primitives::Amount::from_nano(1)), "no minting after genesis");
+}
+
+#[test]
+fn verifier_stays_balance_consistent_on_fast_path() {
+    // A verifier that applies an attested batch WITHOUT re-executing must end with
+    // the same balances as the producer, so it can later produce correctly. The
+    // balance deltas ride in the StateDelta and are bound by the attestation's
+    // balance commitment — cheap HashMap writes, no Merkle cost.
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let ed = Ed25519KeyPair::from_seed([7u8; 32]);
+    let mut producer = open_node(&temp_dir("fastpath-p")); // fee subnet, funds ZERO at genesis
+    let mut verifier = open_node(&temp_dir("fastpath-v")); // same genesis funding
+
+    let txs: Vec<_> = (0..5u8).map(|i| signed_tx(&ed, i, &[], &[i], prog.to_vec())).collect();
+    let before = producer.balance_of(Address::ZERO).as_nano();
+    let (out, att, delta) = producer.produce_attested_batch(txs).unwrap();
+    assert!(out.fee_charged.as_nano() > 0, "fees settled");
+    let after = producer.balance_of(Address::ZERO).as_nano();
+    assert!(after < before, "producer debited the sender");
+    assert!(!delta.balances.is_empty(), "balance delta actually shipped");
+
+    // Verifier applies the delta with NO re-execution.
+    verifier.apply_attested_batch(&att, &delta).unwrap();
+    assert_eq!(
+        verifier.balance_of(Address::ZERO).as_nano(),
+        after,
+        "verifier's balance view matches the producer's after fast-path apply"
+    );
+
+    // The verifier can now produce correctly: its abuse guard sees the debited
+    // balance, not a stale one. (Sanity: it still has funds and can settle again.)
+    let more: Vec<_> = (10..12u8).map(|i| signed_tx(&ed, i, &[], &[i], prog.to_vec())).collect();
+    let out2 = verifier.process_block(more).unwrap();
+    assert_eq!(out2.accepted, 2, "verifier produces from a correct balance view");
+    assert_eq!(out2.insufficient_funds, 0);
 }

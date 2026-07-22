@@ -100,16 +100,56 @@ validator moving to the same new version; until they do, cross-version blocks do
 not verify. **This is what forces every node onto the same finalized code —
 divergence is cryptographically rejected, not merely discouraged.**
 
-### 2.4 Why balances need not (yet) live in the state root
-AEVOR attests, per block, to `prior_root`, `new_root` (object state), **and**
-`tx_commitment` (exactly which transactions ran) — plus, now, the rule version.
-Because balances are a deterministic function of *(genesis allocation + the
-attested transaction sequence + the pinned rules)*, a node cannot diverge on
-balances without diverging on the attested transaction set or the rule version —
-both of which are already caught. Committing balances **directly** into the state
-root (Ethereum-style, enabling light-client balance proofs and defense-in-depth
-against an implementation bug) is a clean, well-scoped enhancement — see §5 —
-but is not required for the rules to be binding today.
+### 2.4 Balances are committed and synced everywhere — cheaply, not in the Merkle root
+AEVOR attests, per block, to `prior_root`, `new_root` (object state),
+`tx_commitment` (exactly which transactions ran), the rule version, **and — now —
+a `balance_commitment`**: a single BLAKE3 hash over the block's per-account
+balance changes, folded into the attestation body. The balance changes ride in
+the block's `StateDelta` alongside the object writes.
+
+This gives full balance consistency and enforcement at **near-zero throughput
+cost**, and is the deliberate alternative to committing balances into the Merkle
+state root:
+
+- **Verifiers stay balance-consistent on the fast path.** `apply_attested_batch`
+  (and `apply_lane_round`) now check that the shipped balance deltas hash to the
+  attested `balance_commitment` (tamper-evidence, exactly as reproducing
+  `new_root` makes the object writes tamper-evident), then apply them to the
+  in-memory ledger — **HashMap writes, no Merkle inserts**. A validator that only
+  *verified* a block (never executed it) ends with the same balances as the
+  producer, so it can later *produce* correctly against a true balance view.
+  Proven by `verifier_stays_balance_consistent_on_fast_path`.
+- **Wrong settlement is caught.** A producer that ships tampered balances is
+  rejected at apply (hash mismatch: `balance_settlement...`/`corruption...` cover
+  the tamper case). A producer that settled *incorrectly but self-consistently*
+  is caught by a re-executing validator that recomputes the `balance_commitment`
+  and finds it differs — the same corruption→slashing path as object state.
+- **No equivocation.** The commitment is in the signed body, so a producer cannot
+  show different balances to different verifiers.
+
+**Why not the Merkle state root?** Because that path is measurably expensive. The
+verify-by-attestation fast path applies the delta into the Merkle tree and checks
+the root; committing balances there means an **extra Merkle insert per changed
+balance** on every verify. Measured directly (`bench_balance_in_root_overhead`,
+worst case of all-distinct senders ≈ doubling the delta):
+
+| batch | apply tx/s (objects only) | apply tx/s (objects + balances **in root**) | cost |
+|---:|---:|---:|---:|
+| 2 000 | 1 278 029 | 602 685 | **+112% slower** |
+| 5 000 | 1 284 197 | 543 110 | **+136% slower** |
+| 10 000 | 1 189 177 | 506 992 | **+135% slower** |
+
+Root commitment roughly **halves** verify-attest throughput and, across the
+scaling paths, halves full-verification headroom (one-verifier crossover ~98 → ~45
+lanes; each sharded slice ~2× the Merkle work). The `balance_commitment` +
+`StateDelta` approach achieves the same consistency and enforcement without that
+cost: the verify sweep is **unchanged** at ~1.0–1.15M tx/s with balance deltas
+shipped and applied (§3.2), because a per-block hash over the balance changes plus
+`HashMap` writes is orders of magnitude cheaper than per-insert Merkle hashing.
+
+The one thing root commitment would additionally buy — **light-client balance
+proofs** (a Merkle inclusion proof for a specific account) — remains an **opt-in**
+capability with the measured cost above, kept out of the max-throughput path.
 
 ---
 
@@ -249,14 +289,16 @@ next_base_fee = base_fee * (1 + adj_bps/10000 * (gas_used - target)/target), flo
    transactions carry distinct senders and would settle against distinct balances;
    the settlement/abuse logic is per-sender and unaffected, but the determinism and
    conservation tests exercise a single account by construction.
-3. **Balances are authoritative engine state, deterministic and rule-versioned,
-   but not yet committed *directly* into the state root.** As argued in §2.4 this
-   is sufficient for the rules to be binding (balances are a deterministic function
-   of attested inputs under a pinned rule version). Committing them into the root —
-   balance-namespaced tree keys, balance deltas shipped in the attested delta, the
-   verifier applying them — is a clean next step that adds light-client balance
-   proofs and defense-in-depth against an implementation bug. It is explicitly
-   **not** done in this milestone to avoid shipping half-finished consensus state.
+3. **Balances are committed and synced everywhere, cheaply — not in the Merkle
+   state root.** Per-account balance changes ride in the block `StateDelta` and
+   are bound by a `balance_commitment` in the attestation body (one hash per
+   block), so verifiers stay balance-consistent on the fast path via HashMap
+   writes at ~zero throughput cost (§2.4, §3.2), and a producer that ships or
+   settles wrong balances is caught (hash mismatch at apply, or a re-executing
+   validator recomputing the commitment → slashing). Committing balances into the
+   **Merkle** root is measured at +112–136% on the verify path and is deliberately
+   avoided; it would additionally buy light-client balance proofs, which remain an
+   **opt-in** capability at that cost.
 
 ---
 
@@ -269,11 +311,24 @@ next_base_fee = base_fee * (1 + adj_bps/10000 * (gas_used - target)/target), flo
   `independent_nodes_settle_identically_same_rules_same_result`.
 - Clippy: **clean** on `-p node --lib --tests` (lib + all integration/benchmark
   targets).
+- `node` e2e: **25 tests pass** — the prior 22 plus
+  `balance_settlement_debits_senders_credits_validator_and_guards_abuse`,
+  `independent_nodes_settle_identically_same_rules_same_result`, and
+  `verifier_stays_balance_consistent_on_fast_path` (fast-path balance sync). The
+  attestation-corruption test also now covers a tampered balance delta.
+- Clippy: **clean** on `-p node --lib --tests` (lib + all integration/benchmark
+  targets).
 - Benchmarks run with economics settled inline (headline pipeline, batch sweep,
-  congestion dynamics) — numbers in §3.
+  congestion dynamics) — numbers in §3. `bench_balance_in_root_overhead` measures
+  the verify-path cost of committing balances to the Merkle root (§2.4); the
+  batch sweep confirms verify-attest is **unchanged** (~1.0–1.15M tx/s) with
+  balance deltas shipped, applied, and committed.
 
 **Status:** balance settlement, the account abuse guard, deterministic
-rule-versioned enforcement, and economics-in-the-throughput-pipeline are
-finalized. Next on the finalization ledger: network transport (gossip) for live
-multi-node, then real TEE attestation (F-E1), then folding balances into the state
-root (§5.3) as defense-in-depth.
+rule-versioned enforcement, economics-in-the-throughput-pipeline, **and
+attestation-committed balance deltas that keep every verifier consistent at
+~zero throughput cost** are finalized. The balances-in-Merkle-root question is
+settled by measurement: avoided (+112–136%); the same consistency and enforcement
+are achieved via the `balance_commitment` + `StateDelta` path. Next on the
+finalization ledger: network transport (gossip) for live multi-node, then real
+TEE attestation (F-E1).

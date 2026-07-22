@@ -970,3 +970,70 @@ fn bench_fee_market_dynamics() {
     }
     println!("congestion sets the native fee; token price only scales the fiat display.");
 }
+
+/// Like `disjoint_batch` but each transaction writes TWO objects, doubling the
+/// state delta the verifier must apply. Used to measure the marginal Merkle-insert
+/// cost — the exact cost that committing balances into the state root would add
+/// (worst case: one extra balance insert per unique sender ≈ doubling the delta).
+fn disjoint_batch_2writes(wallet: &Ed25519KeyPair, count: u32) -> Vec<SignedTransaction> {
+    let program = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    (0..count)
+        .map(|i| {
+            let tx = Transaction::new_simple(
+                wallet.public_key_multi(),
+                Nonce(u64::from(i)),
+                &[],
+                &[obj_n(2 * i), obj_n(2 * i + 1)],
+                program.clone(),
+            );
+            sign_transaction(tx, wallet)
+        })
+        .collect()
+}
+
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture"]
+#[allow(clippy::cast_precision_loss)]
+fn bench_balance_in_root_overhead() {
+    // QUESTION: would committing balances into the state root increase throughput,
+    // or add verification overhead? Committing balances means the verify-by-
+    // attestation fast path must apply extra Merkle inserts (one per changed
+    // balance) to reproduce the root. This measures that marginal cost directly by
+    // comparing the apply (verify) path on an N-insert delta vs a 2N-insert delta
+    // — the worst case for balances-in-root (every transaction a distinct sender).
+    let wallet = Ed25519KeyPair::from_seed([9u8; 32]);
+    println!("\n=== Balances-in-root: marginal apply (verify) cost ===");
+    println!("  Committing balances adds ~1 Merkle insert per unique sender to the verify path.");
+    println!("  Worst case (all-distinct senders) doubles the delta. Measured below:\n");
+    println!("  batch | apply N-insert tx/s (objects only) | apply 2N-insert tx/s (objects+balances) | verify cost");
+    for &b in &[2_000u32, 5_000, 10_000] {
+        // Baseline: objects only (what the fast path applies today).
+        let dp = bench_dir("bir-p1");
+        let mut prod = open_engine(&dp);
+        let (_, att, delta) = prod.produce_attested_batch(disjoint_batch(&wallet, b)).unwrap();
+        let dv = bench_dir("bir-v1");
+        let mut vf = open_engine(&dv);
+        let t = Instant::now();
+        vf.apply_attested_batch(&att, &delta).unwrap();
+        let base_tps = f64::from(b) / t.elapsed().as_secs_f64();
+
+        // With balances-in-root modelled: 2x the delta (objects + per-sender balances).
+        let dp2 = bench_dir("bir-p2");
+        let mut prod2 = open_engine(&dp2);
+        let (_, att2, delta2) = prod2.produce_attested_batch(disjoint_batch_2writes(&wallet, b)).unwrap();
+        let dv2 = bench_dir("bir-v2");
+        let mut vf2 = open_engine(&dv2);
+        let t = Instant::now();
+        vf2.apply_attested_batch(&att2, &delta2).unwrap();
+        let heavy_tps = f64::from(b) / t.elapsed().as_secs_f64();
+
+        let cost = (base_tps / heavy_tps - 1.0) * 100.0;
+        println!("  {b:>6} | {base_tps:>34.0} | {heavy_tps:>40.0} | +{cost:>5.0}% slower");
+        for d in [dp, dv, dp2, dv2] { let _ = std::fs::remove_file(d.join("state.log")); }
+    }
+    println!("\n  Interpretation: committing balances to the root can only ADD apply cost, never");
+    println!("  reduce it. It does not increase throughput. Because balances are already a");
+    println!("  deterministic function of the attested tx set under a pinned rule version, the");
+    println!("  root commitment is NOT needed for enforcement — it would only buy light-client");
+    println!("  balance proofs, at the measured verify-path cost above. Kept OUT of the root.");
+}
