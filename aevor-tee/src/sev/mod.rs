@@ -7,6 +7,8 @@
 use aevor_core::tee::{PlatformCapabilities, TeeVersion, TeePlatform};
 use crate::{AttestationReport, TeeError, TeeResult};
 
+pub mod verify;
+
 /// Returns `true` if AMD SEV-SNP is available on this platform.
 ///
 /// Checks for the SNP guest device (`/sys/kernel/security/sev-guest`).

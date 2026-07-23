@@ -92,6 +92,11 @@ pub struct BlockOutcome {
     /// Transactions dropped before execution because the sender could not cover
     /// the maximum fee — the account-level abuse/spam guard.
     pub insufficient_funds: usize,
+    /// Transactions this validator did not execute because another shard
+    /// coordinates them (always 0 in monolithic mode). They are not lost — they
+    /// belong to a peer shard's producer, and this count lets the caller route
+    /// them there.
+    pub routed_to_other_shard: usize,
 }
 
 /// Outcome of finalizing a block over a committee.
@@ -200,6 +205,10 @@ pub struct NodeEngine {
     /// the settlement ledger — the abuse guard is that a sender who cannot cover
     /// its transaction's maximum fee is rejected before execution.
     balances: std::collections::HashMap<Address, Amount>,
+    /// How this validator's state is partitioned. `Monolithic` by default (full
+    /// state, the proven mode); `Sharded` for extreme scale, where this validator
+    /// stores and applies only the objects/accounts it owns.
+    sharding: crate::sharding::ShardingMode,
 }
 
 /// The complete state delta a verifier applies to reproduce a producer's block
@@ -209,7 +218,7 @@ pub struct NodeEngine {
 /// the attestation body — NOT into the Merkle state root — so verifiers stay
 /// balance-consistent without the per-insert Merkle cost that root commitment
 /// would impose (measured at +112–136% on the verify path).
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StateDelta {
     /// Written object id -> bytes (reproduces the object state root).
     pub objects: Vec<(ObjectId, Vec<u8>)>,
@@ -241,7 +250,7 @@ pub type AttestedBatch = (BlockOutcome, ExecutionAttestation, StateDelta);
 /// its concurrently-produced block plus the state delta to apply. Produced from
 /// [`NodeEngine::produce_attested_batch`] output; consumed by
 /// [`NodeEngine::apply_lane_round`].
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct LaneBlock {
     /// Identifier of the producing lane / validator.
     pub lane_id: u32,
@@ -301,8 +310,16 @@ pub struct ExecutionAttestation {
     /// re-executing validator that recomputes a different value has caught a
     /// corrupt producer.
     pub balance_commitment: [u8; 32],
-    /// TEE seal over the canonical body (64 bytes).
+    /// TEE seal over the canonical body (64 bytes) — the simulation signature,
+    /// used off-hardware (tests, non-enclave nodes).
     pub signature: Vec<u8>,
+    /// **Real** hardware attestation evidence, in whichever TEE format this
+    /// validator's platform produces (Nitro document, SGX quote, SEV-SNP report,
+    /// PSA token, or Keystone report). It binds the canonical body, so verifying
+    /// it proves the correct code ran in a genuine enclave and produced exactly
+    /// this transition. `None` off-hardware (the `signature` field is used).
+    #[serde(default)]
+    pub tee_evidence: Option<aevor_tee::evidence::AttestationEvidence>,
 }
 
 impl ExecutionAttestation {
@@ -322,6 +339,12 @@ impl ExecutionAttestation {
     }
 
     /// Seal an attestation over a transition (producing validator's TEE).
+    ///
+    /// **Production-first:** when running inside a Nitro Enclave this binds the
+    /// canonical body into a *real* hardware attestation document (via the NSM
+    /// device). Off-hardware (tests, non-enclave nodes) there is no device, so it
+    /// falls back to the simulation signature — the same call, correct in both
+    /// environments.
     #[must_use]
     pub fn seal(
         prior_root: [u8; 32],
@@ -329,31 +352,76 @@ impl ExecutionAttestation {
         tx_commitment: [u8; 32],
         balance_commitment: [u8; 32],
     ) -> Self {
-        let signature = aevor_crypto::attestation::sim_sign(&Self::body(
-            &prior_root,
-            &new_root,
-            &tx_commitment,
-            &balance_commitment,
-        ))
-        .to_vec();
-        Self { prior_root, new_root, tx_commitment, balance_commitment, signature }
+        let body = Self::body(&prior_root, &new_root, &tx_commitment, &balance_commitment);
+        let signature = aevor_crypto::attestation::sim_sign(&body).to_vec();
+        // Bind the body into real hardware evidence on whichever TEE this machine
+        // provides; `None` off-hardware (simulation), which is a few path checks.
+        let tee_evidence = aevor_tee::evidence::produce(&body).ok().flatten();
+        Self { prior_root, new_root, tx_commitment, balance_commitment, signature, tee_evidence }
     }
 
-    /// Verify the attestation seal (verifying validator).
+    /// Verify the attestation (verifying validator).
+    ///
+    /// When a real hardware attestation document is present it is verified
+    /// cryptographically — certificate chain to the pinned AWS Nitro root and the
+    /// `COSE_Sign1` ES384 signature — and checked to bind exactly this transition's
+    /// body. Otherwise the simulation signature is checked. This is the
+    /// per-attestation self-check; a production deployment additionally calls
+    /// [`Self::check_measurement`] to enforce *which* enclave image is allowed.
     #[must_use]
     pub fn verify(&self) -> bool {
+        let body = Self::body(
+            &self.prior_root,
+            &self.new_root,
+            &self.tx_commitment,
+            &self.balance_commitment,
+        );
+        if let Some(evidence) = &self.tee_evidence {
+            // Real hardware evidence: verify it cryptographically and confirm it
+            // binds exactly this transition. Platforms whose trust root is network
+            // configuration (TrustZone, Keystone) fail closed here — a validator
+            // must supply roots via `check_measurement`.
+            let roots = aevor_tee::evidence::TeeTrustRoots::default();
+            return evidence
+                .verify(&roots)
+                .is_ok_and(|verified| verified.user_data == body);
+        }
         let Ok(sig): Result<[u8; 64], _> = self.signature.as_slice().try_into() else {
             return false;
         };
-        aevor_crypto::attestation::sim_verify(
-            &Self::body(
-                &self.prior_root,
-                &self.new_root,
-                &self.tx_commitment,
-                &self.balance_commitment,
-            ),
-            &sig,
-        )
+        aevor_crypto::attestation::sim_verify(&body, &sig)
+    }
+
+    /// Enforce that the producing enclave runs a network-accepted image (the
+    /// code-identity / corruption-detection step): verifies the hardware
+    /// attestation, that it binds this body, that it is fresh, and that its PCR
+    /// measurements are in `registry`. Returns `true` for a simulated attestation
+    /// (no document) so non-TEE environments are unaffected; on hardware it is the
+    /// check that makes a validator running unapproved code produce an attestation
+    /// every verifier rejects — instant, O(1), no re-execution.
+    #[must_use]
+    pub fn check_measurement(
+        &self,
+        registry: &aevor_tee::registry::CodeRegistry,
+        roots: &aevor_tee::evidence::TeeTrustRoots,
+        now_ms: u64,
+        max_age_ms: u64,
+    ) -> bool {
+        let Some(evidence) = &self.tee_evidence else {
+            return true; // simulation: no hardware code-identity to enforce
+        };
+        let body = Self::body(
+            &self.prior_root,
+            &self.new_root,
+            &self.tx_commitment,
+            &self.balance_commitment,
+        );
+        evidence
+            .verify(roots)
+            .and_then(|v| {
+                aevor_tee::registry::check_policy(&v, registry, &body, now_ms, max_age_ms)
+            })
+            .is_ok()
     }
 }
 
@@ -433,7 +501,81 @@ impl NodeEngine {
             fee_market: Self::fee_market_from(&crate::subnet::SubnetPolicy::public_mainnet().fee),
             validator_reward: Amount::ZERO,
             balances: std::collections::HashMap::new(),
+            sharding: crate::sharding::ShardingMode::Monolithic,
         })
+    }
+
+    /// Select this validator's state-partitioning mode. `Monolithic` (the default)
+    /// holds the full state; `Sharded` stores and applies only the owned shard.
+    /// The double-spend defenses still run over the whole round in either mode —
+    /// only storage is partitioned.
+    pub fn set_sharding(&mut self, mode: crate::sharding::ShardingMode) {
+        self.sharding = mode;
+    }
+
+    /// This validator's current sharding mode.
+    #[must_use]
+    pub fn sharding_mode(&self) -> &crate::sharding::ShardingMode {
+        &self.sharding
+    }
+
+    /// Partition incoming transactions into the ones **this** validator executes
+    /// and a count of those routed to another shard.
+    ///
+    /// Monolithic validators execute everything (the count is always 0), so the
+    /// default path is unchanged. A sharded validator executes only the
+    /// transactions it coordinates — the shard owning each transaction's
+    /// lowest-ordered written object — so across the network exactly one shard
+    /// executes each transaction. The rest are not dropped from the system; they
+    /// belong to a peer shard's producer and are counted here so the caller can
+    /// route them.
+    fn shard_admission_filter(
+        &self,
+        txs: Vec<SignedTransaction>,
+    ) -> (Vec<SignedTransaction>, usize) {
+        if !self.sharding.is_sharded() {
+            return (txs, 0);
+        }
+        let mut mine = Vec::with_capacity(txs.len());
+        let mut foreign = 0usize;
+        for tx in txs {
+            let rw = read_write_set_of(&tx.transaction);
+            if self.sharding.is_responsible_for(&rw.writes) {
+                mine.push(tx);
+            } else {
+                foreign += 1;
+            }
+        }
+        (mine, foreign)
+    }
+
+    /// Apply a lane's object writes and balance changes, storing only the state
+    /// this validator owns — all of it when [`Monolithic`], the owned shard when
+    /// [`Sharded`]. Returns the number of objects stored. Conflict/double-spend
+    /// checks run over the whole round elsewhere; this is only the (partitioned)
+    /// storage step.
+    ///
+    /// [`Monolithic`]: crate::sharding::ShardingMode::Monolithic
+    /// [`Sharded`]: crate::sharding::ShardingMode::Sharded
+    fn apply_owned_delta(
+        &mut self,
+        objects: &[(ObjectId, Vec<u8>)],
+        balances: &[(Address, u128)],
+    ) -> usize {
+        let mut stored = 0usize;
+        for (object_id, data) in objects {
+            if self.sharding.owns_object(object_id) {
+                self.state
+                    .insert(&Self::state_key(object_id), StorageValue::from_bytes(data.clone()));
+                stored += 1;
+            }
+        }
+        for (account, new_balance) in balances {
+            if self.sharding.owns_account(account) {
+                self.balances.insert(*account, Amount::from_nano(*new_balance));
+            }
+        }
+        stored
     }
 
     /// Derive the initial dynamic fee market from a subnet's fee config: a
@@ -711,6 +853,9 @@ impl NodeEngine {
     /// [`finalize_block`]: NodeEngine::finalize_block
     pub fn process_block(&mut self, txs: Vec<SignedTransaction>) -> NodeResult<BlockOutcome> {
         // Abuse guard: drop transactions whose senders cannot cover their fee.
+        // Shard-aware execution: a sharded validator executes only the
+        // transactions it coordinates (monolithic executes all).
+        let (txs, routed_to_other_shard) = self.shard_admission_filter(txs);
         let (affordable, meta, insufficient_funds) = self.affordability_filter(txs);
 
         let applied = self.verify_execute_commit(affordable)?;
@@ -747,6 +892,7 @@ impl NodeEngine {
             gas_used,
             fee_charged: block_fee,
             insufficient_funds,
+            routed_to_other_shard,
         })
     }
 
@@ -790,6 +936,12 @@ impl NodeEngine {
             })?;
 
         for object_id in &outcome.written_object_ids {
+            // Sharded validators store only the objects they own; the shipped
+            // delta still carries every write, so peers in other shards receive
+            // theirs. Monolithic validators own everything (unchanged).
+            if !self.sharding.owns_object(object_id) {
+                continue;
+            }
             let record = self
                 .executor
                 .object(object_id)
@@ -829,6 +981,9 @@ impl NodeEngine {
     ) -> NodeResult<AttestedBatch> {
         let prior_root = self.state.root();
         // Same abuse guard + per-sender fee metadata as the plain block path.
+        // Shard-aware execution: a sharded validator executes only the
+        // transactions it coordinates (monolithic executes all).
+        let (txs, routed_to_other_shard) = self.shard_admission_filter(txs);
         let (affordable, meta, insufficient_funds) = self.affordability_filter(txs);
         let applied = self.verify_execute_commit(affordable)?;
 
@@ -889,6 +1044,7 @@ impl NodeEngine {
             gas_used,
             fee_charged: block_fee,
             insufficient_funds,
+            routed_to_other_shard,
         };
         Ok((outcome, attestation, StateDelta { objects, balances }))
     }
@@ -1089,14 +1245,7 @@ impl NodeEngine {
                     ),
                 });
             }
-            for (object_id, data) in &lane.delta.objects {
-                self.state
-                    .insert(&Self::state_key(object_id), StorageValue::from_bytes(data.clone()));
-                objects_applied += 1;
-            }
-            for (account, new_balance) in &lane.delta.balances {
-                self.balances.insert(*account, Amount::from_nano(*new_balance));
-            }
+            objects_applied += self.apply_owned_delta(&lane.delta.objects, &lane.delta.balances);
             ordered_lanes.push(lane.lane_id);
         }
         self.height += 1;
@@ -1125,6 +1274,109 @@ impl NodeEngine {
     /// Propagates the same lane-validation errors as [`apply_lane_round`] for
     /// the assigned slice.
     #[allow(clippy::needless_pass_by_value)] // a round semantically consumes its lanes
+    /// Apply the OTHER validators' lanes of a macro-DAG round to this validator's
+    /// state, which already has its OWN lane applied (from
+    /// [`Self::produce_attested_batch`]). `round_base` is the state root *before*
+    /// this validator produced its own lane — the common base every lane forked
+    /// from. Each foreign lane is verified, checked for cross-lane conflicts
+    /// against this validator's own lane and each other (the double-spend
+    /// defenses), and applied. Because all lanes touch disjoint objects/accounts,
+    /// the resulting state root is identical on every validator regardless of which
+    /// lane was its own — the round converges. Does not advance block height (the
+    /// producer's own `produce_attested_batch` already advanced it for this round).
+    ///
+    /// # Errors
+    /// Rejects a foreign lane with an invalid attestation, a wrong fork point, a
+    /// balance delta not matching its commitment, or a cross-lane conflict.
+    pub fn apply_foreign_lanes(
+        &mut self,
+        round_base: [u8; 32],
+        own: &LaneBlock,
+        foreign: &[LaneBlock],
+    ) -> NodeResult<LaneRoundOutcome> {
+        let mut objects: std::collections::HashSet<ObjectId> =
+            own.delta.objects.iter().map(|(o, _)| *o).collect();
+        let mut accounts: std::collections::HashSet<Address> =
+            own.delta.balances.iter().map(|(a, _)| *a).collect();
+        let mut tx_sets: std::collections::HashSet<[u8; 32]> =
+            std::iter::once(own.attestation.tx_commitment).collect();
+
+        let mut ordered: Vec<&LaneBlock> = foreign.iter().collect();
+        ordered.sort_by_key(|l| l.attestation.tx_commitment);
+
+        let mut objects_applied = own.delta.objects.len();
+        for lane in ordered {
+            if !lane.attestation.verify() {
+                return Err(NodeError::SubsystemCrash {
+                    subsystem: "attestation".to_string(),
+                    reason: format!("foreign lane {} attestation failed verification", lane.lane_id),
+                });
+            }
+            if lane.attestation.prior_root != round_base {
+                return Err(NodeError::SubsystemCrash {
+                    subsystem: "macro_dag".to_string(),
+                    reason: format!("foreign lane {} did not fork from the round base", lane.lane_id),
+                });
+            }
+            if !tx_sets.insert(lane.attestation.tx_commitment) {
+                return Err(NodeError::SubsystemCrash {
+                    subsystem: "macro_dag".to_string(),
+                    reason: "two lanes claim the same transaction set".to_string(),
+                });
+            }
+            if StateDelta::balance_commitment(&lane.delta.balances)
+                != lane.attestation.balance_commitment
+            {
+                return Err(NodeError::SubsystemCrash {
+                    subsystem: "macro_dag".to_string(),
+                    reason: format!("foreign lane {} balance delta does not match commitment", lane.lane_id),
+                });
+            }
+            for (object_id, _) in &lane.delta.objects {
+                if !objects.insert(*object_id) {
+                    return Err(NodeError::SubsystemCrash {
+                        subsystem: "macro_dag".to_string(),
+                        reason: format!("object written by two lanes (cross-lane double-spend) at lane {}", lane.lane_id),
+                    });
+                }
+            }
+            for (account, _) in &lane.delta.balances {
+                if !accounts.insert(*account) {
+                    return Err(NodeError::SubsystemCrash {
+                        subsystem: "macro_dag".to_string(),
+                        reason: format!("account settled by two lanes (cross-lane balance conflict) at lane {}", lane.lane_id),
+                    });
+                }
+            }
+            objects_applied += self.apply_owned_delta(&lane.delta.objects, &lane.delta.balances);
+        }
+
+        let mut all: Vec<([u8; 32], u32)> = foreign
+            .iter()
+            .map(|l| (l.attestation.tx_commitment, l.lane_id))
+            .chain(std::iter::once((own.attestation.tx_commitment, own.lane_id)))
+            .collect();
+        all.sort_by_key(|&(commitment, _)| commitment);
+        let ordered_lanes = all.into_iter().map(|(_, id)| id).collect();
+
+        Ok(LaneRoundOutcome {
+            ordered_lanes,
+            state_root: self.state.root(),
+            lanes_applied: foreign.len() + 1,
+            objects_applied,
+        })
+    }
+
+    /// Sharded verification: apply only this validator's assigned slice of the
+    /// round's lanes (its quorum assignment), so per-validator verify load stays
+    /// bounded as the lane count grows — the scaling path past the
+    /// full-verification crossover. `validator_index` / `validator_count` identify
+    /// this validator among the set; `quorum_size` is how many validators verify
+    /// each lane.
+    ///
+    /// # Errors
+    /// Propagates the same verification, fork-point, and cross-lane conflict errors
+    /// as [`Self::apply_lane_round`], applied to the assigned slice.
     pub fn apply_lane_round_sharded(
         &mut self,
         lanes: Vec<LaneBlock>,

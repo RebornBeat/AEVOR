@@ -7,6 +7,8 @@
 use aevor_core::tee::{PlatformCapabilities, TeeVersion, TeePlatform};
 use crate::{AttestationReport, TeeError, TeeResult};
 
+pub mod verify;
+
 /// Returns `true` if ARM `TrustZone` is available on this platform.
 ///
 /// Checks for the OP-TEE device (`/dev/tee0`) on Linux, which is present

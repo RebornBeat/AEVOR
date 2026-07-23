@@ -7,6 +7,8 @@
 use aevor_core::tee::{PlatformCapabilities, TeeVersion, TeePlatform};
 use crate::{AttestationReport, TeeError, TeeResult};
 
+pub mod verify;
+
 /// Returns `true` if running inside an AWS Nitro Enclave.
 ///
 /// The NSM device (`/dev/nsm`) is present only inside Nitro Enclaves;
@@ -46,11 +48,10 @@ pub fn detect_capabilities() -> TeeResult<PlatformCapabilities> {
     })
 }
 
-/// Generate an AWS Nitro attestation document.
+/// Generate an AWS Nitro attestation document (simulation abstraction).
 ///
-/// In production issues the `NSM_GET_ATTESTATION_DOC` ioctl to `/dev/nsm`,
-/// which returns a COSE_Sign1-encoded document with PCR[0..15] measurements
-/// signed by the AWS Nitro Attestation PKI.
+/// The real device path is [`attest`]; this retains the simulated
+/// [`AttestationReport`] shape used by the platform abstraction and tests.
 ///
 /// # Errors
 /// Returns an error if OS entropy generation fails during nonce creation.
@@ -78,6 +79,118 @@ pub fn generate_report(user_data: &[u8]) -> TeeResult<AttestationReport> {
         svn: 0,
         user_data: user_data.to_vec(),
     }))
+}
+
+/// Request a **real** AWS Nitro attestation document from the NSM device,
+/// binding `user_data` (AEVOR: the `ExecutionAttestation` body) and a fresh
+/// nonce. The returned bytes are a `COSE_Sign1` document that
+/// [`verify::verify_document`] checks. Only functions inside a Nitro Enclave
+/// (needs `/dev/nsm`); returns [`TeeError::PlatformUnavailable`] elsewhere. This
+/// is the producer half of real attestation — it compiles everywhere but only
+/// executes on Nitro hardware.
+///
+/// # Errors
+/// Returns an error if entropy generation fails, the NSM device is unavailable,
+/// or the NSM returns an unexpected response.
+pub fn attest(user_data: &[u8]) -> TeeResult<Vec<u8>> {
+    use aws_nitro_enclaves_nsm_api::api::{Request, Response};
+    use aws_nitro_enclaves_nsm_api::driver::{nsm_exit, nsm_init, nsm_process_request};
+
+    let mut nonce = [0u8; 32];
+    getrandom::getrandom(&mut nonce)
+        .map_err(|e| TeeError::AttestationFailed { reason: e.to_string() })?;
+
+    let fd = nsm_init();
+    if fd < 0 {
+        return Err(TeeError::PlatformUnavailable { platform: "nitro".to_string() });
+    }
+    let request = Request::Attestation {
+        user_data: Some(user_data.to_vec().into()),
+        nonce: Some(nonce.to_vec().into()),
+        public_key: None,
+    };
+    let response = nsm_process_request(fd, request);
+    nsm_exit(fd);
+
+    match response {
+        Response::Attestation { document } => Ok(document),
+        other => Err(TeeError::AttestationFailed {
+            reason: format!("unexpected NSM response: {other:?}"),
+        }),
+    }
+}
+
+/// One accepted enclave image: the PCR measurements permitted to produce blocks.
+/// PCR0/1/2 are the image measurements (from `nitro-cli build-enclave`); PCR8,
+/// when `Some`, additionally pins the enclave-image signing certificate.
+#[derive(Clone, Debug)]
+pub struct AcceptedMeasurement {
+    /// PCR0 — enclave image file measurement.
+    pub pcr0: Vec<u8>,
+    /// PCR1 — Linux kernel + bootstrap measurement.
+    pub pcr1: Vec<u8>,
+    /// PCR2 — application measurement.
+    pub pcr2: Vec<u8>,
+    /// PCR8 — signing certificate measurement (enforced when `Some`).
+    pub pcr8: Option<Vec<u8>>,
+}
+
+/// The network-agreed set of enclave measurements permitted to produce blocks.
+///
+/// The TEE proves *"this measured code ran in a genuine enclave"*; this registry
+/// proves *"that measured code is the one the network agreed to run"*. Together
+/// they are corruption detection: a validator's attestation is accepted only if
+/// its PCRs match an entry here, so a validator running different code produces
+/// an attestation that every verifier rejects — instant, O(1), no re-execution
+/// (doc 22). Updating the registry is a governance action (a protocol upgrade).
+#[derive(Clone, Debug, Default)]
+pub struct MeasurementRegistry {
+    accepted: Vec<AcceptedMeasurement>,
+}
+
+impl MeasurementRegistry {
+    /// An empty registry (accepts nothing until measurements are added).
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register an accepted enclave image.
+    pub fn allow(&mut self, measurement: AcceptedMeasurement) {
+        self.accepted.push(measurement);
+    }
+
+    /// Number of accepted images.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.accepted.len()
+    }
+
+    /// Whether the registry is empty.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.accepted.is_empty()
+    }
+
+    /// Accept the document's PCRs if they match any registered measurement.
+    ///
+    /// # Errors
+    /// Returns [`TeeError::AttestationFailed`] if no registered image matches.
+    pub fn check(&self, pcrs: &std::collections::BTreeMap<u32, Vec<u8>>) -> TeeResult<()> {
+        let get = |i: u32| pcrs.get(&i).map_or(&[][..], std::vec::Vec::as_slice);
+        for m in &self.accepted {
+            let base = get(0) == m.pcr0.as_slice()
+                && get(1) == m.pcr1.as_slice()
+                && get(2) == m.pcr2.as_slice();
+            let signer = m.pcr8.as_ref().is_none_or(|p8| get(8) == p8.as_slice());
+            if base && signer {
+                return Ok(());
+            }
+        }
+        Err(TeeError::AttestationFailed {
+            reason: "enclave PCR measurements are not in the accepted registry".to_string(),
+        })
+    }
 }
 
 #[cfg(test)]

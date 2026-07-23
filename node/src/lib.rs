@@ -115,6 +115,19 @@ pub mod metrics;
 /// testing. The real gossip backend (`aevor-network`) plugs in behind the trait.
 pub mod transport;
 
+/// Live macro-DAG round over a real network transport (`aevor-network`): produce
+/// a lane, gossip it, collect the round's lanes, apply and converge.
+pub mod network;
+
+/// State sharding: partitioned state ownership as an opt-in engine mode
+/// (`Monolithic` by default; `Sharded` for extreme scale).
+pub mod sharding;
+
+/// Cross-round pipelining: applied state advances at production rate while
+/// finality certificates trail by the pipeline depth. Applies to both engine
+/// modes (a round-lifecycle optimization, independent of state partitioning).
+pub mod pipeline;
+
 // ============================================================
 // PRELUDE
 // ============================================================

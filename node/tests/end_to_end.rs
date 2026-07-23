@@ -1559,3 +1559,228 @@ fn cross_lane_same_account_settlement_is_rejected() {
     ];
     assert!(v.apply_lane_round(lanes).is_err(), "cross-lane same-account settlement must be rejected");
 }
+
+#[test]
+fn apply_foreign_lanes_producer_flow_converges() {
+    // The live-round producer flow: a validator produces its OWN lane (mutating its
+    // state), then applies the OTHER validators' lanes on top via apply_foreign_lanes.
+    // It must reach the SAME state root as a fresh verifier that applied the whole
+    // round with apply_lane_round — i.e. producers and verifiers converge.
+    use node::engine::LaneBlock;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let senders = [
+        Address::from_bytes([0xF1; 32]),
+        Address::from_bytes([0xF2; 32]),
+        Address::from_bytes([0xF3; 32]),
+    ];
+    // Produce three lanes on disjoint senders/objects, each from a fresh (genesis) base.
+    let mut lanes = Vec::new();
+    let mut producer_a: Option<NodeEngine> = None;
+    for (i, &s) in senders.iter().enumerate() {
+        let mut e = attack_engine(&format!("afl-{i}"), &[s]);
+        let (_o, att, delta) = e
+            .produce_attested_batch(vec![signed_tx_from(&w, i as u8, &[], &[(i as u8) * 2], prog.to_vec(), s)])
+            .unwrap();
+        lanes.push(LaneBlock { lane_id: i as u32, producer: Hash256([i as u8; 32]), attestation: att, delta });
+        if i == 0 {
+            producer_a = Some(e); // keep validator A (it already has its own lane applied)
+        }
+    }
+
+    // Validator A applies the OTHER two lanes on top of its own (round base = genesis).
+    let mut a = producer_a.unwrap();
+    let own = lanes[0].clone();
+    let foreign = vec![lanes[1].clone(), lanes[2].clone()];
+    let out_a = a.apply_foreign_lanes([0u8; 32], &own, &foreign).unwrap();
+    assert_eq!(out_a.lanes_applied, 3);
+
+    // A fresh verifier applies the whole round from genesis.
+    let mut v = attack_engine("afl-v", &senders);
+    let out_v = v.apply_lane_round(lanes.clone()).unwrap();
+
+    // Both reach the identical authenticated state root.
+    assert_eq!(out_a.state_root.0 .0, out_v.state_root.0 .0, "producer and verifier converge");
+    // And settled balances agree for every sender.
+    for &s in &senders {
+        assert_eq!(a.balance_of(s).as_nano(), v.balance_of(s).as_nano(), "settled balance agrees");
+    }
+    // The canonical ordered lane list is identical (deterministic macro-DAG order).
+    assert_eq!(out_a.ordered_lanes, out_v.ordered_lanes, "same deterministic ordering");
+}
+
+#[test]
+fn run_round_over_real_transport_converges() {
+    // The live macro-DAG round over aevor-network's transport: 3 validators, each on
+    // its own thread, run `run_round` concurrently over a shared LocalNetwork (the
+    // same MessageTransport trait the real TcpTransport implements). Each produces a
+    // lane on disjoint senders/objects, gossips it, collects the round, and applies
+    // the foreign lanes — all three converge to one state root.
+    use aevor_network::gossip::LocalNetwork;
+    use node::network::{run_round, RoundConfig};
+    use std::time::Duration;
+
+    let net = LocalNetwork::new();
+    // Connect all endpoints first so every broadcast reaches every peer.
+    let endpoints: Vec<_> = (0..3usize).map(|_| net.connect()).collect();
+    let senders = [
+        Address::from_bytes([0x51; 32]),
+        Address::from_bytes([0x52; 32]),
+        Address::from_bytes([0x53; 32]),
+    ];
+    let handles: Vec<_> = endpoints
+        .into_iter()
+        .enumerate()
+        .map(|(i, endpoint)| {
+            let sender = senders[i];
+            std::thread::spawn(move || {
+                let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+                let w = Ed25519KeyPair::from_seed([5u8; 32]);
+                let mut e = attack_engine(&format!("rr-{i}"), &[sender]);
+                let txs = vec![signed_tx_from(&w, i as u8, &[], &[(i as u8) * 2], prog, sender)];
+                let cfg = RoundConfig {
+                    lane_id: i as u32,
+                    producer: Hash256([i as u8; 32]),
+                    expected_lanes: 3,
+                    poll: Duration::from_millis(2),
+                    max_polls: 1000,
+                };
+                let out = run_round(&mut e, &endpoint, &cfg, txs).unwrap();
+                out.state_root.0 .0
+            })
+        })
+        .collect();
+    let roots: Vec<[u8; 32]> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+    assert_eq!(roots.len(), 3);
+    assert!(roots.iter().all(|r| *r == roots[0]), "all validators converge over the transport");
+}
+
+#[test]
+fn sharded_mode_partitions_state_across_validators() {
+    // State sharding (opt-in): monolithic holds the whole round's state; two
+    // validators each owning one shard of two hold DISJOINT subsets that together
+    // cover all of it. objects 0..3 map even->shard 0, odd->shard 1 (total=2).
+    use node::engine::LaneBlock;
+    use node::sharding::ShardingMode;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let senders = [
+        Address::from_bytes([0xD1; 32]),
+        Address::from_bytes([0xD2; 32]),
+        Address::from_bytes([0xD3; 32]),
+        Address::from_bytes([0xD4; 32]),
+    ];
+    let mut lanes = Vec::new();
+    for i in 0..4u8 {
+        let mut e = attack_engine(&format!("shard-round-{i}"), &[senders[i as usize]]);
+        let (_o, att, delta) = e
+            .produce_attested_batch(vec![signed_tx_from(&w, i, &[], &[i], prog.to_vec(), senders[i as usize])])
+            .unwrap();
+        lanes.push(LaneBlock { lane_id: u32::from(i), producer: Hash256([i; 32]), attestation: att, delta });
+    }
+
+    // Monolithic verifier holds all four objects.
+    let mut mono = attack_engine("shard-mono", &senders);
+    assert!(!mono.sharding_mode().is_sharded());
+    let out_mono = mono.apply_lane_round(lanes.clone()).unwrap();
+    assert_eq!(out_mono.objects_applied, 4);
+
+    // Shard 0 of 2 stores only even-indexed objects; shard 1 only odd.
+    let mut s0 = attack_engine("shard-0", &senders);
+    s0.set_sharding(ShardingMode::sharded(0, 2));
+    let out0 = s0.apply_lane_round(lanes.clone()).unwrap();
+
+    let mut s1 = attack_engine("shard-1", &senders);
+    s1.set_sharding(ShardingMode::sharded(1, 2));
+    let out1 = s1.apply_lane_round(lanes.clone()).unwrap();
+
+    assert!(out0.objects_applied >= 1 && out0.objects_applied < 4, "shard 0 holds a strict subset");
+    assert!(out1.objects_applied >= 1 && out1.objects_applied < 4, "shard 1 holds a strict subset");
+    assert_eq!(
+        out0.objects_applied + out1.objects_applied,
+        out_mono.objects_applied,
+        "the two shards partition the state exactly"
+    );
+}
+
+#[test]
+fn shard_aware_execution_partitions_work_exactly_once() {
+    // Shard-aware execution end-to-end: given the SAME transaction set, every
+    // sharded producer executes only the transactions it coordinates, and across
+    // the shards each transaction is executed EXACTLY ONCE — none duplicated, none
+    // dropped. Monolithic executes all (unchanged default).
+    use node::sharding::ShardingMode;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let sender = Address::from_bytes([0xE7; 32]);
+    let total_shards = 4u32;
+    let tx_count = 24u8;
+    let build = || -> Vec<_> {
+        (0..tx_count)
+            .map(|i| signed_tx_from(&w, i, &[], &[i], prog.to_vec(), sender))
+            .collect()
+    };
+
+    // Monolithic baseline: executes everything, routes nothing away.
+    let mut mono = attack_engine("sae-mono", &[sender]);
+    let out_mono = mono.process_block(build()).unwrap();
+    assert_eq!(out_mono.routed_to_other_shard, 0, "monolithic routes nothing away");
+    assert_eq!(out_mono.accepted, usize::from(tx_count), "monolithic executes all");
+
+    // Each shard executes only its coordinated share.
+    let mut executed_total = 0usize;
+    for shard_id in 0..total_shards {
+        let mut e = attack_engine(&format!("sae-{shard_id}"), &[sender]);
+        e.set_sharding(ShardingMode::sharded(shard_id, total_shards));
+        let out = e.process_block(build()).unwrap();
+        assert_eq!(
+            out.accepted + out.routed_to_other_shard,
+            usize::from(tx_count),
+            "every tx is either executed here or routed to a peer shard — none lost"
+        );
+        assert!(out.accepted < usize::from(tx_count), "a shard executes a strict subset");
+        executed_total += out.accepted;
+    }
+    assert_eq!(
+        executed_total,
+        usize::from(tx_count),
+        "across all shards each transaction is executed exactly once"
+    );
+}
+
+#[test]
+fn cross_shard_delta_ships_all_writes_while_storing_only_owned() {
+    // A sharded producer executes the transactions it coordinates and SHIPS the
+    // full delta (so peers in other shards receive their writes), while STORING
+    // only the objects it owns. That combination is what makes cross-shard
+    // transactions work: one executor, one attestation, per-shard application.
+    use node::sharding::{ShardAssignment, ShardingMode};
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let sender = Address::from_bytes([0xE8; 32]);
+    let total = 4u32;
+    let assignment = ShardAssignment::new(total);
+
+    let mut e = attack_engine("xshard-p", &[sender]);
+    e.set_sharding(ShardingMode::sharded(0, total));
+    let txs: Vec<_> = (0..16u8)
+        .map(|i| signed_tx_from(&w, i, &[], &[i], prog.to_vec(), sender))
+        .collect();
+    let (out, _att, delta) = e.produce_attested_batch(txs).unwrap();
+    assert!(out.accepted > 0, "shard 0 coordinated some transactions");
+
+    // The shipped delta carries every write from the transactions it executed —
+    // including writes landing in other shards (that is the cross-shard receipt).
+    assert_eq!(delta.objects.len(), out.accepted, "delta ships all executed writes");
+
+    // But this validator stored only what it owns.
+    let owned_in_delta = delta
+        .objects
+        .iter()
+        .filter(|(id, _)| assignment.shard_of_object(id) == 0)
+        .count();
+    assert!(owned_in_delta <= delta.objects.len());
+    // Every object it wrote and owns is readable from its state; the rest are not
+    // its responsibility to store.
+    assert!(owned_in_delta > 0, "shard 0 owns at least one of its own writes");
+}

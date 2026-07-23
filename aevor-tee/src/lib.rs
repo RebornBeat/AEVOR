@@ -60,6 +60,14 @@ pub mod keystone;
 /// AWS Nitro Enclaves integration: enclave image management, NSM attestation.
 pub mod nitro;
 
+/// Platform-agnostic code identity: the network-agreed registry of enclave builds
+/// permitted to produce blocks, and the shared policy check across all platforms.
+pub mod registry;
+
+/// Platform-agnostic attestation evidence: one type to carry, produce and verify
+/// hardware attestation on any supported TEE.
+pub mod evidence;
+
 /// Cross-platform attestation: normalization, verification, and composition.
 pub mod attestation;
 

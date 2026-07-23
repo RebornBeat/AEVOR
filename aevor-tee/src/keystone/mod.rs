@@ -8,6 +8,8 @@
 use aevor_core::tee::{PlatformCapabilities, TeeVersion, TeePlatform};
 use crate::{AttestationReport, TeeError, TeeResult};
 
+pub mod verify;
+
 /// Returns `true` if RISC-V Keystone is available on this platform.
 ///
 /// Checks for the Keystone kernel driver (`/dev/keystone_enclave`).

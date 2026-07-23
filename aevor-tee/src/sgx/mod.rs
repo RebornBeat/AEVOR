@@ -8,6 +8,8 @@
 use aevor_core::tee::{PlatformCapabilities, TeeVersion, TeePlatform};
 use crate::{AttestationReport, TeeError, TeeResult};
 
+pub mod verify;
+
 /// Returns `true` if Intel SGX is available on this CPU and OS.
 ///
 /// Performs a runtime CPUID check for SGX support and verifies that

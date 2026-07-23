@@ -16,6 +16,13 @@ zeroize         = { workspace = true }
 blake3          = { workspace = true }
 sha2            = { workspace = true }
 sha3            = { workspace = true }
+# TEE attestation (AWS Nitro)
+ciborium        = { workspace = true }
+p384            = { workspace = true }
+ecdsa           = { workspace = true }
+x509-parser     = { workspace = true }
+aws-nitro-enclaves-nsm-api = { workspace = true }
+serde_bytes     = { workspace = true }
 # Signatures
 ed25519-dalek   = { workspace = true }
 curve25519-dalek = { workspace = true }

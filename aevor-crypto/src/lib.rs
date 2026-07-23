@@ -43,6 +43,9 @@
 /// Hash functions: BLAKE3 (primary), SHA-256, SHA-512, Keccak-256 (bridge compatibility).
 pub mod hash;
 
+/// TEE attestation (AWS Nitro): real verification + producer device interface.
+pub mod tee;
+
 /// Shared attestation signing primitive (TEE + consensus layers).
 pub mod attestation;
 
