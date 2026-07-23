@@ -14,6 +14,25 @@ AEVOR represents a fundamental breakthrough in blockchain technology that transc
 
 ---
 
+## About the figures in this document
+
+Performance numbers in **Performance Specifications** are current: they state what has
+been measured on a single-core reference environment and clearly label projections as
+projections.
+
+Figures elsewhere in this README carrying the phrase *"measured on reference
+hardware"* predate the current verification work and have **not** been re-validated
+against the finalized implementation. Treat them as design targets pending audit, not
+as verified results. The authoritative record of what the implementation establishes —
+including decisions since revised by measurement — is
+`docs/review/29_CANONICAL_DESIGN_RECORD.md`.
+
+To reproduce the current baseline yourself:
+
+```bash
+bash test_aevor.sh --bench
+```
+
 ## Table of Contents
 
 1. [Revolutionary Architecture Overview](#revolutionary-architecture-overview)
@@ -132,7 +151,7 @@ Execution Order:
 - Throughput scales with independent transaction sets — no architectural ceiling
 ```
 
-**Performance Characteristics (measured on reference hardware):**
+**Performance Characteristics (design targets — not yet re-validated):**
 - **Dependency Detection**: O(log n) complexity for conflict identification
 - **Parallel Execution**: Up to ~100x improvement over sequential processing observed on reference hardware
 - **Memory Efficiency**: Minimal overhead for dependency tracking
@@ -146,7 +165,7 @@ Execution Order:
 - **Ordering Resolution**: Mathematical ordering of concurrent blocks through attestation
 - **Performance Scaling**: Block production rate scales with validator participation — no ceiling
 
-**Frontier Advancement Metrics (measured on reference hardware — scale with resources):**
+**Frontier Advancement Metrics (design targets — not yet re-validated against the implementation):**
 
 | Network Size | Concurrent Producers | Block Rate | Measured TPS (Reference) |
 |--------------|---------------------|------------|--------------------------|
@@ -197,7 +216,7 @@ let result = executor.execute_contract(
 // result is either a verified execution or a rejection — never a partial commit
 ```
 
-**Hardware Acceleration Features (measured on reference hardware):**
+**Hardware Acceleration Features (design targets — not yet re-validated):**
 - **Cryptographic Acceleration**: Platform-specific cryptographic optimization
 - **Memory Protection**: Hardware-enforced memory isolation and protection
 - **Execution Verification**: Real-time execution correctness verification
@@ -211,7 +230,7 @@ let result = executor.execute_contract(
 - **Cross-Platform Deployment**: Identical contract behavior across all supported TEE platforms
 - **Parallel Execution**: Automatic parallelization based on pre-execution object dependency analysis
 
-**Performance Specifications (measured on reference hardware — scale with resources):**
+**Performance Specifications (design targets — not yet re-validated against the implementation):**
 
 | Execution Type | Measured Throughput | Measured Latency | Memory Usage | Security Level |
 |----------------|---------------------|-----------------|--------------|----------------|
@@ -248,7 +267,7 @@ AEVOR's Proof of Uncorruption consensus mechanism provides mathematical certaint
 ### Progressive Security Levels
 
 **Adaptive Security Architecture:**
-AEVOR provides four progressive security levels. All timing figures are **approximate, hardware-dependent estimates** measured on reference hardware — actual confirmation times improve as hardware advances.
+AEVOR provides four progressive security levels. All timing figures are **approximate, hardware-dependent estimates** design targets pending re-validation — actual confirmation times are deployment-dependent.
 
 **Minimal Security (~2-3% Validators, ~20-50ms on reference hardware):**
 - **Use Cases**: Micropayments, gaming transactions, social interactions
@@ -285,7 +304,7 @@ AEVOR provides four progressive security levels. All timing figures are **approx
 - **RISC-V Keystone**: Configurable security policies with flexible attestation
 - **AWS Nitro Enclaves**: Cloud-based secure execution with remote attestation
 
-**Platform Performance Characteristics (measured on reference hardware):**
+**Platform Performance Characteristics (design targets — not yet re-validated):**
 
 | TEE Platform | Throughput Multiplier | Memory Protection | Attestation Type | Deployment Context |
 |--------------|----------------------|-------------------|------------------|--------------------|
@@ -500,7 +519,7 @@ AEVOR enables sophisticated interaction patterns between objects with different 
 ### Privacy Performance Optimization
 
 **Efficiency-First Privacy Design:**
-AEVOR's privacy architecture prioritizes performance — TEE-based privacy adds approximately 1.1x-1.3x overhead compared to unprotected computation (measured on reference hardware), versus 1000x-1,000,000x for homomorphic encryption approaches.
+AEVOR's privacy architecture prioritizes performance — TEE-based privacy adds approximately 1.1x-1.3x overhead compared to unprotected computation (design targets — not yet re-validated), versus 1000x-1,000,000x for homomorphic encryption approaches.
 
 **Measured Performance Characteristics (reference hardware):**
 
@@ -587,7 +606,7 @@ economic_model:
 
 ### Cross-Network Coordination
 
-**Bridge Performance Characteristics (measured on reference hardware):**
+**Bridge Performance Characteristics (design targets — not yet re-validated):**
 
 | Bridge Type | Measured Throughput | Measured Latency | Security Model | Privacy Preservation |
 |-------------|---------------------|------------------|----------------|----------------------|
@@ -602,26 +621,65 @@ economic_model:
 
 ## Performance Specifications
 
-AEVOR achieves genuine blockchain trilemma transcendence through measured performance characteristics that exceed traditional blockchain systems while maintaining stronger security guarantees and broader decentralization.
+AEVOR's throughput comes from parallel production across validators, with verification
+and finality deliberately over-provisioned relative to it. The figures below separate
+what has been **measured** from what is **projected** from those measurements. Nothing
+here is a guaranteed minimum; measured values are single-node baselines that improve
+with hardware.
 
-> **Important:** All performance figures below are **measured baselines on specific reference hardware configurations**. They represent floors that improve as hardware advances, not architectural ceilings or guaranteed minimums. AEVOR imposes no throughput ceiling — performance scales unboundedly with available computational resources.
+### The governing equation
 
-### Throughput and Latency Characteristics
+```
+network throughput  ≈  N_lanes × per-lane production rate
+```
 
-**Measured Reference Performance:**
-- **Sustained Throughput**: Exceeding 200,000 transactions per second (measured on reference hardware)
-- **Burst Capacity**: Exceeding 1,000,000 transactions per second (measured on reference hardware)
-- **Confirmation Times**: ~20ms to ~1 second based on security level selection (approximate, hardware-dependent)
-- **Network Efficiency**: ~90-95% computational resource utilization (measured on reference configurations)
+Production is the bottleneck. Verification and finality are not:
 
-**Measured Performance Scaling by Network Size (reference hardware):**
+| stage | measured (single core) | note |
+|---|---:|---|
+| **Production** (execute + settle + attest) | ~11,400–11,900 tx/s | the per-lane bottleneck |
+| **Verification** (attested apply, no re-execution) | ~1.0–1.1M tx/s | ~90× production headroom |
+| **Finality** (BLS aggregation) | O(1) in validator count | independent of lane count |
 
-| Validator Count | Measured Sustained TPS | Measured Burst TPS | Approximate Latency | Geographic Distribution |
-|-----------------|------------------------|--------------------|---------------------|-------------------------|
-| **~100 validators** | ~50,000 TPS | ~200,000 TPS | ~35ms | Regional deployment |
-| **~500 validators** | ~125,000 TPS | ~500,000 TPS | ~45ms | Continental distribution |
-| **~1,000 validators** | ~200,000 TPS | ~800,000 TPS | ~55ms | Global distribution |
-| **~2,000+ validators** | ~350,000+ TPS | ~1,000,000+ TPS | ~65ms | Comprehensive global coverage |
+Per-lane production cost is **flat with lane count** (measured across 32 isolated
+lanes: first-half vs second-half ratio 1.01 / 1.00 / 0.99 over three runs), which is
+what makes aggregate throughput scale linearly with parallel producers. Sharded
+verification keeps each validator's slice bounded (measured 2–5 lanes as the network
+grows 8 → 128 lanes).
+
+### Projected aggregate throughput
+
+These are **projections** from the measured per-lane independence and slice-bounding
+above — not measured aggregates, because parallel production is inherently
+multi-machine:
+
+| lanes (parallel producers) | projected aggregate | basis |
+|---|---:|---|
+| ~90 | ~1M tx/s | N × measured per-lane production |
+| ~9,000 | ~100M tx/s | same, with sharded verification and state sharding |
+
+### State sharding (measured)
+
+Sharding does **not** multiply production — it removes the *state ceiling* that would
+otherwise cap sustained throughput at what one node can hold. Same round (8 lanes /
+16,000 objects) applied at increasing shard counts:
+
+| shards | objects stored per validator | apply | apply tx/s |
+|---:|---:|---:|---:|
+| 1 (monolithic) | 100% | 23.00 ms | ~696,000 |
+| 4 | 25% | 7.17 ms | ~2,232,000 |
+| 16 | 6.2% | 4.58 ms | ~3,490,000 |
+
+Cross-lane conflict checking shards near-linearly with it (1.660 ms → 0.106 ms at 16
+shards, **15.7×**), because a conflict is defined on a single object and so partitions
+perfectly by object ownership.
+
+### Confirmation
+
+Confirmation time is selected per transaction via the security level (minimal through
+full), trading latency against the breadth of validator confirmation. Actual latency
+is dominated by network topology and is therefore deployment-specific; it is not
+claimed here from single-node measurement.
 
 ### Comparative Performance Analysis
 
@@ -652,7 +710,7 @@ While Mysticeti v2 achieves impressive raw performance numbers, it does so by co
 
 ### Security-Performance Integration
 
-**Progressive Security Performance Impact (measured on reference hardware):**
+**Progressive Security Performance Impact (design targets — not yet re-validated):**
 
 | Security Level | Validator Participation | Measured Confirmation | Throughput Impact | Security Guarantee |
 |----------------|------------------------|----------------------|-------------------|--------------------|
@@ -762,7 +820,7 @@ Vesting Schedule:
 
 ### Cross-Chain Economic Integration
 
-**Bridge Economic Performance (measured on reference hardware):**
+**Bridge Economic Performance (design targets — not yet re-validated):**
 
 | Economic Function | Efficiency Rating | User Cost | Security Level | Interoperability |
 |-------------------|-------------------|-----------|----------------|------------------|
@@ -777,223 +835,126 @@ Vesting Schedule:
 
 ## Getting Started
 
-AEVOR provides comprehensive tools and infrastructure for developers, validators, and organizations to participate in the revolutionary blockchain ecosystem.
+> **Implementation status — read this first.** `aevor keys` is **fully implemented
+> and works today** (Subject 1 complete — see
+> `docs/review/32_SUBJECT_1_WALLET.md`). The remaining command groups parse their
+> arguments correctly but **their implementations are still stubs**: each prints a
+> placeholder and returns. Neither the CLI nor the API is connected to the node
+> engine yet.
+>
+> The engine itself is real and tested — consensus, execution, settlement, TEE
+> attestation, sharding and the network round all work and are covered by 940
+> library tests, 42 end-to-end tests and 144 TEE tests. What is missing is the
+> interface layer that lets anything outside the process reach it.
+>
+> So today you can build and verify the system, but you cannot yet generate a key,
+> start a node, submit a transaction, or deploy a program through the CLI or API.
+> Connecting these is Subjects 1–2 of the plan in
+> `docs/review/31_REVIEW_METHOD_AND_INTERFACE_GAP.md`. The table below is therefore
+> the *intended* surface and a roadmap, not a description of working commands.
 
-### Quick Start Installation
+### Build
 
-**1. Install AEVOR Node Software:**
 ```bash
-# Download latest release
-curl -sSL https://get.aevor.org | bash
-
-# Or build from source
-git clone https://github.com/aevor/aevor.git
-cd aevor
-cargo build --release
+git clone <repository-url> && cd AEVOR
+cargo +stable build --release -p aevor-cli     # the `aevor` binary
+cargo +stable build --release -p node          # the node itself
 ```
 
-**2. Configure TEE Environment:**
+Additional binaries: `aevor-api` (RPC/API server) and `aevor-faucet` (testnet
+faucet).
+
+### Verify the build before running anything
+
 ```bash
-# Initialize TEE configuration with automatic platform detection
-aevor init --tee-platform auto
-
-# Verify TEE capabilities across supported platforms
-aevor verify-tee --platforms sgx,sev,trustzone,keystone,nitro
-
-# Generate attestation keys for secure execution
-aevor generate-keys --attestation --cross-platform
+bash test_aevor.sh              # full gate: build, tests, security invariants, TEE, clippy
+bash test_aevor.sh --bench      # add throughput and sharding benchmarks
 ```
 
-**3. Join Network:**
+The suite exits non-zero if any gate fails and prints whether the build is eligible
+for devnet/testnet promotion. Treat a red gate as blocking.
+
+### Command surface
+
+| group | subcommands |
+|---|---|
+| `aevor node` | `start`, `stop`, `restart`, `status`, `upgrade` |
+| `aevor validator` | `register`, `stake`, `unstake`, `status`, `list`, `slash-report` |
+| `aevor network` | `subnet-create`, `bridge`, `peers`, `status` |
+| `aevor governance` (alias `gov`) | `propose`, `vote`, `delegate`, `list`, `status` |
+| `aevor tee` | `detect`, `attest`, `configure`, `status` |
+| `aevor keys` | `generate`, `import`, `export`, `list` |
+| `aevor config` | `show`, `validate`, `set`, `export` |
+| `aevor status` | `node`, `network`, `validators`, `consensus` |
+
+### If you are looking for a command from older documentation
+
+| older name | today |
+|---|---|
+| `aevor init --tee-platform` | `aevor tee detect`, then `aevor tee configure` |
+| `aevor generate-keys` | `aevor keys generate` |
+| `aevor create-subnet` | `aevor network subnet-create` |
+| `aevor connect --network` | `aevor node start` (network selected via configuration) |
+| `aevor test --unit` | `bash test_aevor.sh` — the project's test suite, not a node command |
+| `aevor benchmark` | `bash test_aevor.sh --bench` |
+| `aevor deploy` | **not yet available** — see *Deploying programs* below |
+
+### What actually works today
+
 ```bash
-# Connect to mainnet with automatic configuration
-aevor connect --network mainnet --auto-configure
+bash test_aevor.sh          # full verification gate — this is real and green
+bash test_aevor.sh --bench  # throughput and sharding benchmarks
 
-# Or join testnet for development and experimentation
-aevor connect --network testnet --development-mode
-
-# Or create permissioned subnet for enterprise deployment
-aevor create-subnet --config enterprise.toml --compliance-enabled
+# Key management is real (Subject 1):
+export AEVOR_KEYSTORE_PASSPHRASE='your passphrase'
+aevor keys generate --keystore-out wallet.json    # Argon2id-encrypted keystore
+aevor keys export   --keystore wallet.json        # recover the public identity
+aevor keys list     --directory .
 ```
 
-**4. Validator Setup (Optional):**
+The passphrase is taken from the environment rather than an argument, because
+command-line arguments are visible in the process table.
+
+The engine can be exercised directly through its Rust API (`NodeEngine::submit`,
+`process_block`, `produce_attested_batch`, `apply_lane_round`), which is how the
+end-to-end suite drives it. External access through the CLI and API is the work
+tracked in `docs/review/31_REVIEW_METHOD_AND_INTERFACE_GAP.md` §4.
+
+### Deploying programs
+
+Program deployment does not exist yet — not as a CLI command, an API endpoint, or
+an engine capability. The transaction format carries bytecode and the executor runs
+programs, but nothing packages a program, submits it, and returns its address.
+Scoped in `docs/review/30_NODE_OPERATIONS_GUIDE.md` §7.
+
+### Typical first run
+
 ```bash
-# Register as validator with TEE service provision capability
-aevor validator register --stake 100000 --tee-services enabled
-
-# Start validator services with comprehensive capabilities
-aevor validator start --consensus --tee-services --cross-platform
-
-# Monitor validator performance and service quality
-aevor validator status --detailed --performance-metrics
+aevor keys --help          # generate the node's identity material
+aevor tee --help           # detect the local TEE platform and verify attestation
+aevor config --help        # inspect and validate configuration before starting
+aevor node --help          # start the node
+aevor status --help        # confirm it is participating
 ```
 
-### Network Configuration Options
+Each group's `--help` lists its subcommands and flags. Because the CLI is under
+active development, this README intentionally documents the command *groups* and
+defers per-flag detail to `--help`, which cannot drift out of date.
 
-**Mainnet Deployment:**
-- **Public Participation**: Global validator and user participation without restrictions
-- **Economic Incentives**: Market-driven validator compensation and fee collection mechanisms
-- **Mixed Privacy**: User-controlled privacy level selection enabling granular confidentiality control
-- **Global Coverage**: Worldwide validator and service distribution for optimal performance and censorship resistance
+### Engine modes
 
-**Testnet Development:**
-- **Experimental Features**: Testing of new capabilities and optimizations before mainnet deployment
-- **Development Tools**: Enhanced debugging and monitoring capabilities for application development
-- **Free Resources**: No economic barriers for development and testing activities
-- **Reset Capabilities**: Regular testnet resets for clean development environments and feature testing
+Defaults are production-first — the proven path is the default and the alternative
+is explicit:
 
-**Permissioned Subnet:**
-- **Controlled Access**: Organizationally managed validator sets and user access controls
-- **Custom Configuration**: Tailored network parameters and privacy policies for specific organizational requirements
-- **Enterprise Integration**: Seamless connection with existing organizational infrastructure and compliance systems
-- **Compliance Support**: Built-in support for regulatory and audit requirements through automated reporting
+| axis | default | alternative |
+|---|---|---|
+| state | monolithic (validator holds full state) | sharded (holds one partition) |
+| transport | real TCP (`ValidatorNetwork::bind`) | in-process (tests only) |
+| attestation | real hardware evidence when a TEE is present | simulation off-hardware |
 
-### Development Environment Setup
-
-**Comprehensive Development Tools:**
-
-**Multi-Language SDK Support:**
-```javascript
-// JavaScript/TypeScript SDK for web and Node.js applications
-import { AevorClient, TEEService, PrivacyLevel } from '@aevor/sdk';
-
-const client = new AevorClient({
-  network: 'mainnet',
-  teeProvider: 'auto', // Automatic platform detection
-  privacyDefault: PrivacyLevel.Mixed
-});
-
-// Deploy smart contract with TEE execution and mixed privacy
-const contract = await client.deployContract({
-  code: contractCode,
-  privacyLevel: PrivacyLevel.Confidential,
-  teeRequired: true,
-  crossPlatformVerification: true
-});
-
-// Execute contract method with performance optimization
-const result = await contract.execute('processData', {
-  data: inputData,
-  securityLevel: 'strong',
-  privacyPreservation: true
-});
-```
-
-```rust
-// Rust SDK for high-performance applications and system integration
-use aevor_sdk::{AevorClient, ContractBuilder, PrivacyLevel, SecurityLevel};
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = AevorClient::new("mainnet").await?;
-
-    let contract = ContractBuilder::new()
-        .code(contract_code)
-        .privacy_level(PrivacyLevel::Mixed)
-        .security_level(SecurityLevel::Strong)
-        .tee_required(true)
-        .cross_platform_consistency(true)
-        .deploy(&client)
-        .await?;
-
-    let result = contract
-        .execute("confidentialProcessing")
-        .with_tee_verification()
-        .with_performance_optimization()
-        .call()
-        .await?;
-
-    Ok(())
-}
-```
-
-```python
-# Python SDK for data science and analytics applications
-from aevor_sdk import AevorClient, PrivacyLevel, TEECapabilities
-
-# Initialize client with automatic configuration
-client = AevorClient(
-    network="mainnet",
-    tee_platform="auto_detect",
-    privacy_default=PrivacyLevel.PROTECTED
-)
-
-# Deploy privacy-preserving analytics contract
-contract = client.deploy_contract(
-    code=analytics_contract,
-    privacy_level=PrivacyLevel.CONFIDENTIAL,
-    tee_capabilities=TEECapabilities.CONFIDENTIAL_ANALYTICS,
-    performance_optimization=True
-)
-
-# Execute confidential data analysis
-result = contract.analyze_data(
-    data_source=encrypted_dataset,
-    analysis_parameters=parameters,
-    privacy_preservation=True,
-    mathematical_verification=True
-)
-```
-
-**Advanced Development Features:**
-```bash
-# Create comprehensive development workspace
-aevor workspace create --name enterprise-project --template advanced
-
-# Install all development dependencies and tools
-aevor workspace install --tools all --platforms all
-
-# Start local development network with multiple validators
-aevor dev-network start --validators 8 --tee-enabled --mixed-privacy
-
-# Deploy contracts with automatic testing and verification
-aevor deploy --network dev --test-suite comprehensive --verify-tee
-
-# Performance testing with realistic load simulation
-aevor load-test --contracts all --concurrent-users 10000 --duration 300s
-```
-
-### Testing and Validation Framework
-
-**Comprehensive Testing Tools:**
-```bash
-# Unit testing with TEE simulation across platforms
-aevor test --unit --tee-simulation --platforms sgx,sev,trustzone
-
-# Integration testing with mixed privacy scenarios
-aevor test --integration --mixed-privacy --cross-contracts
-
-# Performance testing with throughput validation
-aevor test --performance --target-tps 200000 --duration 600s
-
-# Security testing with comprehensive attack simulation
-aevor test --security --attack-vectors all --penetration-testing
-
-# Cross-platform consistency validation
-aevor test --cross-platform --behavioral-consistency --optimization-verification
-```
-
-**Development Workflow Integration:**
-```yaml
-# .github/workflows/aevor-ci.yml
-name: AEVOR Comprehensive Testing
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: aevor/setup-action@v1
-        with:
-          tee-simulation: true
-          cross-platform-testing: true
-      - run: aevor test --comprehensive --ci-mode
-      - run: aevor deploy --testnet --auto-verify
-      - run: aevor performance-test --baseline-validation
-```
-
----
+Running under a real TEE additionally requires the network's accepted enclave
+measurements (the code registry) and its trust roots; see
+`docs/review/27_ALL_TEE_PLATFORMS.md`.
 
 ## Development Environment
 
@@ -1144,19 +1105,19 @@ mod tests {
 ```
 
 **Development Workflow Tools:**
-```bash
-# Comprehensive contract validation
-aevor validate --contract MyContract.rs --comprehensive
-
-# Security audit with automated vulnerability detection
-aevor audit --security --privacy --performance
-
-# Cross-platform deployment testing
-aevor test-deploy --platforms sgx,sev,trustzone,keystone,nitro
-
-# Performance benchmarking with baseline comparison
-aevor benchmark --baseline --target-tps 200000 --compare-previous
-```
+> **Status:** the developer tooling below is planned, not shipped. The `aevor`
+> binary today exposes `node`, `validator`, `network`, `governance`, `tee`, `keys`,
+> `config`, and `status` (see **Getting Started**). Contract validation, automated
+> security auditing, cross-platform deploy testing, and benchmarking are **not yet
+> CLI commands**. Throughput benchmarking is available today through the test
+> suite:
+>
+> ```bash
+> bash test_aevor.sh --bench
+> ```
+>
+> This section is retained as a roadmap for the developer experience, and will be
+> replaced with real commands as they land.
 
 ### Enterprise Integration Tools
 

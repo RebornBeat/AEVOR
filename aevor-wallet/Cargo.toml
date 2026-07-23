@@ -1,0 +1,15 @@
+[package]
+name = "aevor-wallet"
+version = "0.1.0"
+edition = "2021"
+description = "AEVOR wallet: key custody, address derivation, transaction construction and signing."
+
+[dependencies]
+aevor-core   = { workspace = true }
+aevor-crypto = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+thiserror    = { workspace = true }
+getrandom    = { workspace = true }
+hex          = { workspace = true }
+argon2       = { workspace = true }

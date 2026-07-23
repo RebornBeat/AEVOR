@@ -209,6 +209,9 @@ pub struct NodeEngine {
     /// state, the proven mode); `Sharded` for extreme scale, where this validator
     /// stores and applies only the objects/accounts it owns.
     sharding: crate::sharding::ShardingMode,
+    /// This validator's consensus identity, bound into every attestation it seals
+    /// so its lanes cannot be re-attributed by an attacker.
+    validator_id: aevor_core::primitives::ValidatorId,
 }
 
 /// The complete state delta a verifier applies to reproduce a producer's block
@@ -297,6 +300,11 @@ pub const PROTOCOL_RULES_VERSION: u32 = 1;
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ExecutionAttestation {
+    /// The validator that produced this transition. Bound into the signed body,
+    /// so it cannot be altered without invalidating the attestation — this is what
+    /// prevents an attacker from attributing a bad lane to a victim validator and
+    /// having the victim slashed.
+    pub producer: aevor_core::primitives::ValidatorId,
     /// State root before the batch.
     pub prior_root: [u8; 32],
     /// State root after the batch.
@@ -323,8 +331,18 @@ pub struct ExecutionAttestation {
 }
 
 impl ExecutionAttestation {
-    fn body(prior: &[u8; 32], new: &[u8; 32], txc: &[u8; 32], balc: &[u8; 32]) -> Vec<u8> {
-        let mut b = Vec::with_capacity(132);
+    fn body(
+        producer: &aevor_core::primitives::ValidatorId,
+        prior: &[u8; 32],
+        new: &[u8; 32],
+        txc: &[u8; 32],
+        balc: &[u8; 32],
+    ) -> Vec<u8> {
+        let mut b = Vec::with_capacity(164);
+        // Bind WHO produced this transition. Without it, lane attribution is
+        // attacker-mutable metadata: a forged lane could name a victim as its
+        // producer and the victim would be slashed for it.
+        b.extend_from_slice(&producer.0);
         b.extend_from_slice(prior);
         b.extend_from_slice(new);
         b.extend_from_slice(txc);
@@ -347,17 +365,26 @@ impl ExecutionAttestation {
     /// environments.
     #[must_use]
     pub fn seal(
+        producer: aevor_core::primitives::ValidatorId,
         prior_root: [u8; 32],
         new_root: [u8; 32],
         tx_commitment: [u8; 32],
         balance_commitment: [u8; 32],
     ) -> Self {
-        let body = Self::body(&prior_root, &new_root, &tx_commitment, &balance_commitment);
+        let body = Self::body(&producer, &prior_root, &new_root, &tx_commitment, &balance_commitment);
         let signature = aevor_crypto::attestation::sim_sign(&body).to_vec();
         // Bind the body into real hardware evidence on whichever TEE this machine
         // provides; `None` off-hardware (simulation), which is a few path checks.
         let tee_evidence = aevor_tee::evidence::produce(&body).ok().flatten();
-        Self { prior_root, new_root, tx_commitment, balance_commitment, signature, tee_evidence }
+        Self {
+            producer,
+            prior_root,
+            new_root,
+            tx_commitment,
+            balance_commitment,
+            signature,
+            tee_evidence,
+        }
     }
 
     /// Verify the attestation (verifying validator).
@@ -371,6 +398,7 @@ impl ExecutionAttestation {
     #[must_use]
     pub fn verify(&self) -> bool {
         let body = Self::body(
+            &self.producer,
             &self.prior_root,
             &self.new_root,
             &self.tx_commitment,
@@ -411,6 +439,7 @@ impl ExecutionAttestation {
             return true; // simulation: no hardware code-identity to enforce
         };
         let body = Self::body(
+            &self.producer,
             &self.prior_root,
             &self.new_root,
             &self.tx_commitment,
@@ -502,6 +531,7 @@ impl NodeEngine {
             validator_reward: Amount::ZERO,
             balances: std::collections::HashMap::new(),
             sharding: crate::sharding::ShardingMode::Monolithic,
+            validator_id: aevor_core::primitives::Hash256(owner.0),
         })
     }
 
@@ -511,6 +541,18 @@ impl NodeEngine {
     /// only storage is partitioned.
     pub fn set_sharding(&mut self, mode: crate::sharding::ShardingMode) {
         self.sharding = mode;
+    }
+
+    /// Set this validator's consensus identity (defaults to its owner address).
+    /// It is bound into every attestation this node seals.
+    pub fn set_validator_id(&mut self, id: aevor_core::primitives::ValidatorId) {
+        self.validator_id = id;
+    }
+
+    /// This validator's consensus identity.
+    #[must_use]
+    pub fn validator_id(&self) -> aevor_core::primitives::ValidatorId {
+        self.validator_id
     }
 
     /// This validator's current sharding mode.
@@ -1020,6 +1062,7 @@ impl NodeEngine {
         let balance_commitment = StateDelta::balance_commitment(&balances);
 
         let attestation = ExecutionAttestation::seal(
+            self.validator_id,
             prior_root.0 .0,
             state_root.0 .0,
             tx_commitment.0,
@@ -1134,6 +1177,7 @@ impl NodeEngine {
     /// Does not panic in practice: the deterministic ordering is a permutation
     /// of the submitted lanes, so every ordered hash resolves to a lane.
     #[allow(clippy::needless_pass_by_value)] // a round semantically consumes its lanes
+    #[allow(clippy::too_many_lines)] // one linear sequence of round admission checks
     pub fn apply_lane_round(&mut self, lanes: Vec<LaneBlock>) -> NodeResult<LaneRoundOutcome> {
         if lanes.is_empty() {
             return Ok(LaneRoundOutcome {
@@ -1152,6 +1196,19 @@ impl NodeEngine {
                 return Err(NodeError::SubsystemCrash {
                     subsystem: "attestation".to_string(),
                     reason: format!("lane {} attestation failed verification", lane.lane_id),
+                });
+            }
+            // The lane's claimed producer must be the one bound into the signed
+            // attestation. Otherwise producer is attacker-mutable metadata and a
+            // forged lane could be attributed to a victim validator (who would
+            // then be slashed for it).
+            if lane.producer != lane.attestation.producer {
+                return Err(NodeError::SubsystemCrash {
+                    subsystem: "macro_dag".to_string(),
+                    reason: format!(
+                        "lane {} claims a producer that is not the attested one",
+                        lane.lane_id
+                    ),
                 });
             }
             if lane.attestation.prior_root != round_base {
@@ -1312,6 +1369,15 @@ impl NodeEngine {
                     reason: format!("foreign lane {} attestation failed verification", lane.lane_id),
                 });
             }
+            if lane.producer != lane.attestation.producer {
+                return Err(NodeError::SubsystemCrash {
+                    subsystem: "macro_dag".to_string(),
+                    reason: format!(
+                        "foreign lane {} claims a producer that is not the attested one",
+                        lane.lane_id
+                    ),
+                });
+            }
             if lane.attestation.prior_root != round_base {
                 return Err(NodeError::SubsystemCrash {
                     subsystem: "macro_dag".to_string(),
@@ -1367,6 +1433,194 @@ impl NodeEngine {
         })
     }
 
+    /// Commitment to a round's exact lane set, so a conflict certificate cannot be
+    /// replayed against a different round.
+    #[must_use]
+    pub fn lane_set_commitment(lanes: &[LaneBlock]) -> [u8; 32] {
+        let mut commitments: Vec<[u8; 32]> =
+            lanes.iter().map(|l| l.attestation.tx_commitment).collect();
+        commitments.sort_unstable();
+        let mut h = Blake3Hasher::new();
+        for c in &commitments {
+            h.update(c);
+        }
+        h.finalize().0 .0
+    }
+
+    /// Rounds smaller than this are checked sequentially: below it, thread
+    /// hand-off costs more than the work saved.
+    const PARALLEL_CONFLICT_THRESHOLD: usize = 4096;
+
+    /// Detect two lanes writing the same owned object, across all cores.
+    ///
+    /// Bucketing by object hash is what makes this safe to parallelise: two writes
+    /// to the same object always land in the same bucket, so a per-bucket duplicate
+    /// check is exactly as complete as one global pass — the same partition
+    /// argument that lets conflicts shard across validators, applied across cores
+    /// within one validator. Small rounds fall back to the sequential path.
+    fn detect_object_conflicts(
+        lanes: &[LaneBlock],
+        sharding: &crate::sharding::ShardingMode,
+    ) -> NodeResult<()> {
+        use rayon::prelude::*;
+
+        let owned: Vec<(ObjectId, u32)> = lanes
+            .iter()
+            .flat_map(|lane| {
+                lane.delta
+                    .objects
+                    .iter()
+                    .map(move |(object_id, _)| (*object_id, lane.lane_id))
+            })
+            .filter(|(object_id, _)| sharding.owns_object(object_id))
+            .collect();
+
+        let conflict = |lane_id: u32| NodeError::SubsystemCrash {
+            subsystem: "macro_dag".to_string(),
+            reason: format!(
+                "object written by two lanes (cross-lane double-spend) at lane {lane_id}"
+            ),
+        };
+
+        // Fall back to the sequential pass when there is no parallelism to exploit
+        // or the round is small: measured on a single core, bucketing costs ~57%
+        // MORE than a straight pass (extra allocation and partitioning with nothing
+        // to recover it). Parallelism has to be available for the trade to pay.
+        let threads = rayon::current_num_threads();
+        if threads < 2 || owned.len() < Self::PARALLEL_CONFLICT_THRESHOLD {
+            let mut seen: std::collections::HashSet<ObjectId> =
+                std::collections::HashSet::with_capacity(owned.len());
+            for (object_id, lane_id) in owned {
+                if !seen.insert(object_id) {
+                    return Err(conflict(lane_id));
+                }
+            }
+            return Ok(());
+        }
+
+        let buckets = threads;
+        let bucket_of = |o: &ObjectId| (o.0 .0[0] as usize) % buckets;
+        let mut partitioned: Vec<Vec<(ObjectId, u32)>> =
+            vec![Vec::with_capacity(owned.len() / buckets + 1); buckets];
+        for entry in owned {
+            partitioned[bucket_of(&entry.0)].push(entry);
+        }
+
+        partitioned
+            .into_par_iter()
+            .try_for_each(|bucket| -> NodeResult<()> {
+                let mut seen: std::collections::HashSet<ObjectId> =
+                    std::collections::HashSet::with_capacity(bucket.len());
+                for (object_id, lane_id) in bucket {
+                    if !seen.insert(object_id) {
+                        return Err(conflict(lane_id));
+                    }
+                }
+                Ok(())
+            })
+    }
+
+    /// Check cross-lane conflicts **only among the objects and accounts this shard
+    /// owns**, and certify the result.
+    ///
+    /// This is the shardable part of the per-round cost: a conflict is defined on a
+    /// single object, so the object space partitions conflicts perfectly — if every
+    /// shard runs this over its own slice, every possible conflict is caught
+    /// exactly once, at 1/N the cost. Monolithic validators own everything, so this
+    /// degenerates to the full check.
+    ///
+    /// # Errors
+    /// Returns an error if two lanes write the same owned object, settle the same
+    /// owned account, or claim the same transaction set.
+    pub fn certify_shard_conflicts(
+        &self,
+        lanes: &[LaneBlock],
+    ) -> NodeResult<crate::sharding::ShardConflictCertificate> {
+        let mut accounts: std::collections::HashSet<Address> = std::collections::HashSet::new();
+        let mut tx_sets: std::collections::HashSet<[u8; 32]> = std::collections::HashSet::new();
+        for lane in lanes {
+            // Cheap and global (one entry per lane), so every shard runs it —
+            // duplicate lanes are caught everywhere.
+            if !tx_sets.insert(lane.attestation.tx_commitment) {
+                return Err(NodeError::SubsystemCrash {
+                    subsystem: "macro_dag".to_string(),
+                    reason: "two lanes claim the same transaction set".to_string(),
+                });
+            }
+            for (account, _) in &lane.delta.balances {
+                if self.sharding.owns_account(account) && !accounts.insert(*account) {
+                    return Err(NodeError::SubsystemCrash {
+                        subsystem: "macro_dag".to_string(),
+                        reason: format!(
+                            "account settled by two lanes (cross-lane balance conflict) at lane {}",
+                            lane.lane_id
+                        ),
+                    });
+                }
+            }
+        }
+        // Object conflicts are the part that scales with round size, and they
+        // parallelise for the same reason they shard: a conflict is defined on a
+        // single object, so bucketing by object hash keeps every potential
+        // duplicate in one bucket. Each core checks its own bucket and detection is
+        // exactly as complete as the sequential pass. Every validator runs this on
+        // every round it applies, so the win is a live production one, not a
+        // benchmark artefact.
+        Self::detect_object_conflicts(lanes, &self.sharding)?;
+
+        let (shard_id, total_shards) = match &self.sharding {
+            crate::sharding::ShardingMode::Monolithic => (0, 1),
+            crate::sharding::ShardingMode::Sharded { shard_id, assignment } => {
+                (*shard_id, assignment.total())
+            }
+        };
+        Ok(crate::sharding::ShardConflictCertificate {
+            shard_id,
+            total_shards,
+            lane_set_commitment: Self::lane_set_commitment(lanes),
+        })
+    }
+
+    /// Apply a round using **shard-local** conflict checking plus certificates from
+    /// the other shards.
+    ///
+    /// This is the scaling path for the one per-round cost that grows with object
+    /// count. It is as strong as the monolithic check **only when every shard is
+    /// represented**, so coverage is enforced structurally: a round missing any
+    /// shard's certificate is rejected rather than applied on a partial check.
+    ///
+    /// # Errors
+    /// Returns an error if this shard finds a conflict in its own slice, or if
+    /// `certificates` do not cover every shard for exactly this lane set.
+    #[allow(clippy::needless_pass_by_value)] // a round semantically consumes its lanes
+    pub fn apply_lane_round_certified(
+        &mut self,
+        lanes: Vec<LaneBlock>,
+        certificates: &[crate::sharding::ShardConflictCertificate],
+    ) -> NodeResult<LaneRoundOutcome> {
+        let commitment = Self::lane_set_commitment(&lanes);
+        // Our own slice must be clean...
+        let mine = self.certify_shard_conflicts(&lanes)?;
+        // ...and every other shard must have certified theirs for THIS lane set.
+        let mut all: Vec<crate::sharding::ShardConflictCertificate> = certificates.to_vec();
+        all.push(mine.clone());
+        if !crate::sharding::ShardConflictCertificate::covers_all_shards(
+            &all,
+            mine.total_shards,
+            commitment,
+        ) {
+            return Err(NodeError::SubsystemCrash {
+                subsystem: "macro_dag".to_string(),
+                reason: format!(
+                    "shard conflict certificates do not cover all {} shards for this round",
+                    mine.total_shards
+                ),
+            });
+        }
+        // Coverage is complete, so the round is globally conflict-free.
+        self.apply_lane_round(lanes)
+    }
+
     /// Sharded verification: apply only this validator's assigned slice of the
     /// round's lanes (its quorum assignment), so per-validator verify load stays
     /// bounded as the lane count grows — the scaling path past the
@@ -1415,7 +1669,9 @@ impl NodeEngine {
             .iter()
             .filter(|l| !l.attestation.verify())
             .map(|l| SlashingEvidence {
-                offender: l.producer,
+                // Attribute to the ATTESTED producer, never the claimed field:
+                // slashing must never be redirectable by an attacker.
+                offender: l.attestation.producer,
                 evidence_type: SlashingEvidenceType::InvalidAttestation,
                 // The offending attestation, so any validator can re-check it fails.
                 evidence_a: l.attestation.signature.clone(),

@@ -1106,3 +1106,259 @@ fn bench_controlled_lane_independence() {
         9000.0 * mean
     );
 }
+
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture"]
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+fn bench_state_sharding_scaling() {
+    // Does state sharding actually BUY throughput, or just move work around?
+    //
+    // Measured here: the per-validator cost of applying the SAME round as the shard
+    // count grows. A monolithic validator stores every object in the round; a
+    // validator owning 1 of N shards stores ~1/N of them. If sharding works, the
+    // per-validator apply cost falls with N while the network still applies the
+    // whole round (each shard covering its slice) — that is the extreme-scale
+    // lever: total state and per-node apply work both divide by N.
+    use node::engine::LaneBlock;
+    use node::sharding::ShardingMode;
+    let per_lane = 2000u32;
+    let lanes_n = 8u32;
+
+    // Build one round of 8 lanes on disjoint senders/objects (produced once, applied
+    // by validators in different sharding modes).
+    let mut lanes = Vec::new();
+    for lane_id in 0..lanes_n {
+        let wallet = Ed25519KeyPair::from_seed([(lane_id + 1) as u8; 32]);
+        let dir = bench_dir("shard-scale-src");
+        let mut eng = open_engine(&dir);
+        let sender = Address::from_bytes([(lane_id as u8).wrapping_add(1); 32]);
+        eng.fund(sender, Amount::from_nano(u128::MAX / 2));
+        let txs = disjoint_batch_offset_from(&wallet, per_lane, lane_id * per_lane, sender);
+        let (_o, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
+        lanes.push(LaneBlock {
+            lane_id,
+            producer: aevor_core::primitives::Hash256([lane_id as u8; 32]),
+            attestation,
+            delta,
+        });
+    }
+    let total_objects = lanes.iter().map(|l| l.delta.objects.len()).sum::<usize>();
+
+    println!("\n=== State sharding: per-validator apply cost vs shard count ===");
+    println!("  round: {lanes_n} lanes x {per_lane} tx = {total_objects} objects");
+    println!("  shards | objects stored | apply ms | stored/validator | apply tx/s");
+    let mut monolithic_ms = 0.0f64;
+    for shards in [1u32, 2, 4, 8, 16] {
+        let dv = bench_dir("shard-scale-v");
+        let mut ver = open_engine(&dv);
+        if shards > 1 {
+            ver.set_sharding(ShardingMode::sharded(0, shards));
+        }
+        let t = Instant::now();
+        let out = ver.apply_lane_round(lanes.clone()).unwrap();
+        let ms = t.elapsed().as_secs_f64() * 1000.0;
+        if shards == 1 {
+            monolithic_ms = ms;
+        }
+        let total_tx = f64::from(per_lane) * f64::from(lanes_n);
+        println!(
+            "  {shards:>6} | {:>14} | {ms:>8.2} | {:>15.1}% | {:>10.0}",
+            out.objects_applied,
+            100.0 * out.objects_applied as f64 / total_objects as f64,
+            total_tx / (ms / 1000.0)
+        );
+        let _ = std::fs::remove_file(dv.join("state.log"));
+    }
+    println!("  monolithic baseline {monolithic_ms:.2} ms — sharded validators store a 1/N slice");
+    println!("  => per-validator state AND apply work divide by shard count; the network");
+    println!("     still covers the whole round (each shard applying its slice).");
+}
+
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture"]
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+fn bench_round_constant_breakdown() {
+    // WHICH per-round costs refuse to shard, and how big is each?
+    //
+    // Sharding divides STORAGE by shard count, but three costs are paid per round
+    // regardless: attestation verification (per lane), cross-lane conflict checks
+    // (per object/account), and deterministic ordering (per lane). This isolates
+    // them so we know which is worth sharding and which is noise.
+    use aevor_core::primitives::Hash256;
+    use node::engine::LaneBlock;
+    let per_lane = 2000u32;
+    let lanes_n = 8u32;
+
+    let mut lanes = Vec::new();
+    for lane_id in 0..lanes_n {
+        let wallet = Ed25519KeyPair::from_seed([(lane_id + 1) as u8; 32]);
+        let dir = bench_dir("brk-src");
+        let mut eng = open_engine(&dir);
+        eng.set_validator_id(Hash256([lane_id as u8; 32]));
+        let sender = Address::from_bytes([(lane_id as u8).wrapping_add(1); 32]);
+        eng.fund(sender, Amount::from_nano(u128::MAX / 2));
+        let txs = disjoint_batch_offset_from(&wallet, per_lane, lane_id * per_lane, sender);
+        let (_o, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
+        lanes.push(LaneBlock { lane_id, producer: attestation.producer, attestation, delta });
+    }
+    let total_objects: usize = lanes.iter().map(|l| l.delta.objects.len()).sum();
+    let total_accounts: usize = lanes.iter().map(|l| l.delta.balances.len()).sum();
+
+    // (a) Attestation verification — per lane, cryptographic.
+    let t = Instant::now();
+    for l in &lanes {
+        assert!(l.attestation.verify());
+    }
+    let verify_ms = t.elapsed().as_secs_f64() * 1000.0;
+
+    // (b) Cross-lane conflict checks — per object + per account HashSet inserts.
+    let t = Instant::now();
+    let mut objects: std::collections::HashSet<aevor_core::primitives::ObjectId> =
+        std::collections::HashSet::new();
+    let mut accounts: std::collections::HashSet<Address> = std::collections::HashSet::new();
+    for l in &lanes {
+        for (o, _) in &l.delta.objects {
+            objects.insert(*o);
+        }
+        for (a, _) in &l.delta.balances {
+            accounts.insert(*a);
+        }
+    }
+    let conflict_ms = t.elapsed().as_secs_f64() * 1000.0;
+
+    // (c) Deterministic ordering — per lane sort.
+    let t = Instant::now();
+    let mut order: Vec<[u8; 32]> = lanes.iter().map(|l| l.attestation.tx_commitment).collect();
+    order.sort_unstable();
+    let order_ms = t.elapsed().as_secs_f64() * 1000.0;
+
+    // (d) Full apply at 16 shards — storage already divided; the rest is the floor.
+    use node::sharding::ShardingMode;
+    let dv = bench_dir("brk-v");
+    let mut ver = open_engine(&dv);
+    ver.set_sharding(ShardingMode::sharded(0, 16));
+    let t = Instant::now();
+    ver.apply_lane_round(lanes.clone()).unwrap();
+    let sharded_apply_ms = t.elapsed().as_secs_f64() * 1000.0;
+
+    println!("\n=== Per-round constant breakdown ({lanes_n} lanes, {total_objects} objects, {total_accounts} accounts) ===");
+    println!("  (a) attestation verify  {verify_ms:>8.3} ms   scales with LANES  ({:.4} ms/lane)", verify_ms / f64::from(lanes_n));
+    println!("  (b) conflict checks     {conflict_ms:>8.3} ms   scales with OBJECTS ({:.6} ms/object)", conflict_ms / total_objects as f64);
+    println!("  (c) ordering            {order_ms:>8.3} ms   scales with LANES (N log N)");
+    println!("  ---");
+    println!("  constants subtotal      {:>8.3} ms", verify_ms + conflict_ms + order_ms);
+    println!("  full sharded apply (16) {sharded_apply_ms:>8.3} ms");
+    println!(
+        "  => constants are {:.0}% of a 16-shard apply; the remainder is owned-slice storage + Merkle.",
+        100.0 * (verify_ms + conflict_ms + order_ms) / sharded_apply_ms
+    );
+    let _ = std::fs::remove_file(dv.join("state.log"));
+}
+
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture"]
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+fn bench_sharded_conflict_checking() {
+    // The payoff for sharding the one per-round cost that scales with objects.
+    use aevor_core::primitives::Hash256;
+    use node::engine::LaneBlock;
+    use node::sharding::ShardingMode;
+    let per_lane = 2000u32;
+    let lanes_n = 8u32;
+
+    let mut lanes = Vec::new();
+    for lane_id in 0..lanes_n {
+        let wallet = Ed25519KeyPair::from_seed([(lane_id + 1) as u8; 32]);
+        let dir = bench_dir("scc-src");
+        let mut eng = open_engine(&dir);
+        eng.set_validator_id(Hash256([lane_id as u8; 32]));
+        let sender = Address::from_bytes([(lane_id as u8).wrapping_add(1); 32]);
+        eng.fund(sender, Amount::from_nano(u128::MAX / 2));
+        let txs = disjoint_batch_offset_from(&wallet, per_lane, lane_id * per_lane, sender);
+        let (_o, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
+        lanes.push(LaneBlock { lane_id, producer: attestation.producer, attestation, delta });
+    }
+    let total_objects: usize = lanes.iter().map(|l| l.delta.objects.len()).sum();
+
+    println!("\n=== Cross-lane conflict checking: shard-local cost ({total_objects} objects) ===");
+    println!("  shards | conflict check ms | vs monolithic");
+    let mut base = 0.0f64;
+    for shards in [1u32, 2, 4, 8, 16, 32] {
+        let dv = bench_dir("scc-v");
+        let mut e = open_engine(&dv);
+        if shards > 1 {
+            e.set_sharding(ShardingMode::sharded(0, shards));
+        }
+        let t = Instant::now();
+        for _ in 0..5 {
+            e.certify_shard_conflicts(&lanes).unwrap();
+        }
+        let ms = t.elapsed().as_secs_f64() * 1000.0 / 5.0;
+        if shards == 1 {
+            base = ms;
+        }
+        println!("  {shards:>6} | {ms:>17.3} | {:>12.1}x", base / ms);
+        let _ = std::fs::remove_file(dv.join("state.log"));
+    }
+    println!("  => conflicts partition perfectly by object: each shard checks its own slice,");
+    println!("     every conflict caught exactly once, coverage enforced by certificate.");
+}
+
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture"]
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+fn bench_monolithic_apply_breakdown() {
+    // What dominates apply for a MONOLITHIC validator (the production default)?
+    // Sharding divides storage; but if a deployment stays monolithic, which cost
+    // should be attacked, and does the object-space partition help there too?
+    use aevor_core::primitives::Hash256;
+    use node::engine::LaneBlock;
+    let per_lane = 2000u32;
+    let lanes_n = 8u32;
+
+    let mut lanes = Vec::new();
+    for lane_id in 0..lanes_n {
+        let wallet = Ed25519KeyPair::from_seed([(lane_id + 1) as u8; 32]);
+        let dir = bench_dir("mono-brk-src");
+        let mut eng = open_engine(&dir);
+        eng.set_validator_id(Hash256([lane_id as u8; 32]));
+        let sender = Address::from_bytes([(lane_id as u8).wrapping_add(1); 32]);
+        eng.fund(sender, Amount::from_nano(u128::MAX / 2));
+        let txs = disjoint_batch_offset_from(&wallet, per_lane, lane_id * per_lane, sender);
+        let (_o, attestation, delta) = eng.produce_attested_batch(txs).unwrap();
+        lanes.push(LaneBlock { lane_id, producer: attestation.producer, attestation, delta });
+    }
+    let total_objects: usize = lanes.iter().map(|l| l.delta.objects.len()).sum();
+
+    // Constants, measured on a monolithic validator (owns everything).
+    let dv = bench_dir("mono-brk-v");
+    let mut e = open_engine(&dv);
+    let t = Instant::now();
+    for _ in 0..5 {
+        e.certify_shard_conflicts(&lanes).unwrap();
+    }
+    let conflict_ms = t.elapsed().as_secs_f64() * 1000.0 / 5.0;
+
+    let t = Instant::now();
+    for l in &lanes {
+        assert!(l.attestation.verify());
+    }
+    let verify_ms = t.elapsed().as_secs_f64() * 1000.0;
+
+    // Full monolithic apply.
+    let t = Instant::now();
+    e.apply_lane_round(lanes.clone()).unwrap();
+    let apply_ms = t.elapsed().as_secs_f64() * 1000.0;
+    let storage_ms = apply_ms - conflict_ms - verify_ms;
+
+    println!("\n=== Monolithic apply breakdown ({lanes_n} lanes, {total_objects} objects) ===");
+    println!("  attestation verify   {verify_ms:>8.3} ms  {:>5.1}%", 100.0 * verify_ms / apply_ms);
+    println!("  conflict checks      {conflict_ms:>8.3} ms  {:>5.1}%  (parallelizable by object space)", 100.0 * conflict_ms / apply_ms);
+    println!("  storage + Merkle     {storage_ms:>8.3} ms  {:>5.1}%  <- DOMINANT", 100.0 * storage_ms / apply_ms);
+    println!("  ---");
+    println!("  total apply          {apply_ms:>8.3} ms");
+    println!("  => monolithic is dominated by state insertion + Merkle root, which is a");
+    println!("     TREE and does not partition the way conflicts do. Sharding is the answer");
+    println!("     to that cost; conflict-partitioning helps monolithic only marginally.");
+    let _ = std::fs::remove_file(dv.join("state.log"));
+}

@@ -111,6 +111,7 @@ mod tests {
             lane_id: u32::from(id),
             producer: Hash256([id; 32]),
             attestation: crate::engine::ExecutionAttestation::seal(
+                Hash256([id; 32]),
                 [0u8; 32],
                 [1u8; 32],
                 [2u8; 32],

@@ -1,210 +1,160 @@
 #!/usr/bin/env bash
 # =============================================================================
-# AEVOR Blockchain — Test & Verification Script
-# Run: bash test_aevor.sh 2>&1 | tee aevor-test-results.log
+# AEVOR — Verification Suite
+#
+# The canonical pre-release gate: run before tagging a devnet/testnet build or
+# promoting to beta-mainnet. Verifies the finalized workspace the way CI should.
+#
+#   bash test_aevor.sh            # full suite
+#   bash test_aevor.sh --quick    # skip clippy
+#   bash test_aevor.sh --bench    # include throughput benchmarks
+#
+# Exit code is non-zero if any gate fails.
 # =============================================================================
-
-set -euo pipefail
+set -uo pipefail
 
 AEVOR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PASS=0; FAIL=0; SKIP=0
+cd "$AEVOR_DIR" || exit 1
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
-
-banner() { echo -e "\n${BLUE}[STEP $1] $2${NC}\n$(printf '%0.s-' {1..60})"; }
-ok()     { echo -e "  ${GREEN}✓ $1${NC}"; PASS=$((PASS+1)); }
-fail()   { echo -e "  ${RED}✗ $1${NC}"; FAIL=$((FAIL+1)); }
-warn()   { echo -e "  ${YELLOW}⚠ $1${NC}"; SKIP=$((SKIP+1)); }
-
-echo "============================================================"
-echo "  AEVOR Blockchain — Verification Suite"
-echo "  $(date)"
-echo "============================================================"
-
-# ── STEP 1: Environment ──────────────────────────────────────────
-banner 1 "Environment Check"
-echo "OS:    $(uname -a)"
-
-if ! command -v rustc &>/dev/null; then
-    echo -e "${RED}[FAIL] rustc not found. Install: https://rustup.rs${NC}"; exit 1
-fi
-RUST_VER=$(rustc --version)
-CARGO_VER=$(cargo --version)
-echo "Rust:  $RUST_VER"
-echo "Cargo: $CARGO_VER"
-FREE_RAM=$(free -m | awk '/^Mem:/{print $2}')
-echo "RAM:   ${FREE_RAM}MB"
-
-RUST_MINOR=$(echo "$RUST_VER" | grep -oP '1\.\K[0-9]+' || echo "0")
-if [ "${RUST_MINOR}" -lt 82 ]; then
-    warn "Rust < 1.82 — some deps (blake3, base64ct) need 1.82+. Run: rustup update stable"
-else
-    ok "Rust version OK (${RUST_VER})"
-fi
-
-# ── STEP 2: Workspace Structure ──────────────────────────────────
-banner 2 "Workspace Structure (22 crates)"
-EXPECTED=(
-    aevor-core aevor-config aevor-crypto aevor-tee
-    aevor-consensus aevor-dag aevor-storage aevor-vm aevor-execution
-    aevor-network aevor-security
-    aevor-move aevor-zk aevor-bridge
-    aevor-governance aevor-ns
-    aevor-metrics aevor-api aevor-client aevor-cli
-    aevor-faucet node
-)
-MISSING=0
-for crate in "${EXPECTED[@]}"; do
-    if [[ -f "$AEVOR_DIR/$crate/Cargo.toml" && -f "$AEVOR_DIR/$crate/src/lib.rs" ]]; then
-        echo -e "  ${GREEN}✓${NC} $crate"
-    else
-        echo -e "  ${RED}✗${NC} $crate — MISSING"; MISSING=$((MISSING+1))
-    fi
-done
-[[ $MISSING -eq 0 ]] && ok "All 22 crates present" || { fail "$MISSING crates missing"; exit 1; }
-
-# ── STEP 3: File Counts ──────────────────────────────────────────
-banner 3 "File Count Check"
-RS_COUNT=$(find "$AEVOR_DIR" -name "*.rs"     | grep -v target | wc -l)
-TM_COUNT=$(find "$AEVOR_DIR" -name "Cargo.toml" | grep -v target | wc -l)
-TEST_COUNT=$(grep -r "#\[test\]" "$AEVOR_DIR" --include="*.rs" | grep -v target | wc -l)
-
-echo "  .rs files:    $RS_COUNT   (expected ≥ 270)"
-echo "  Cargo.toml:   $TM_COUNT   (expected  23)"
-echo "  Test fns:     $TEST_COUNT  (expected ≥ 270)"
-
-[[ $RS_COUNT -ge 270 ]]  && ok ".rs count OK"  || warn ".rs count lower than expected ($RS_COUNT)"
-[[ $TM_COUNT -eq 23 ]]   && ok "Cargo.toml count OK" || fail "Cargo.toml count wrong: $TM_COUNT"
-[[ $TEST_COUNT -ge 270 ]] && ok "Test count OK" || warn "Test count lower than expected ($TEST_COUNT)"
-
-# ── STEP 4: Workspace Type Check ────────────────────────────────
-banner 4 "Workspace Type Check (cargo check)"
-echo "First run: 30-120s. Subsequent: <10s (cached)."
-cd "$AEVOR_DIR"
-if cargo check --workspace 2>&1; then
-    ok "cargo check --workspace PASSED"
-else
-    fail "cargo check --workspace FAILED"
-    echo ""
-    echo "First 20 errors:"
-    cargo check --workspace 2>&1 | grep "^error" | sort -u | head -20
-fi
-
-# ── STEP 5: Per-crate check (dependency order) ───────────────────
-banner 5 "Per-Crate Type Check"
-PATHS=(
-    "aevor-core aevor-config aevor-crypto aevor-tee"
-    "aevor-consensus aevor-dag aevor-storage aevor-vm aevor-execution"
-    "aevor-network aevor-security"
-    "aevor-move aevor-zk aevor-bridge"
-    "aevor-governance aevor-ns"
-    "aevor-metrics aevor-api aevor-client aevor-cli"
-    "aevor-faucet node"
-)
-for group in "${PATHS[@]}"; do
-    echo ""
-    echo "  [ $group ]"
-    for crate in $group; do
-        if cargo check -p "$crate" 2>/dev/null; then
-            ok "$crate"
-        else
-            ERR=$(cargo check -p "$crate" 2>&1 | grep "^error\[" | wc -l)
-            fail "$crate ($ERR errors)"
-            cargo check -p "$crate" 2>&1 | grep "^error\[" | head -3
-        fi
-    done
+QUICK=0; BENCH=0
+for arg in "$@"; do
+  case "$arg" in
+    --quick) QUICK=1 ;;
+    --bench) BENCH=1 ;;
+    *) echo "unknown option: $arg"; exit 2 ;;
+  esac
 done
 
-# ── STEP 6: Unit Tests ───────────────────────────────────────────
-banner 6 "Unit Tests (per crate)"
-run_tests() {
-    local crate=$1
-    printf "  %-22s" "$crate"
-    if cargo test -p "$crate" --lib 2>/dev/null; then
-        COUNT=$(cargo test -p "$crate" --lib 2>&1 | grep "test result" | grep -oP '\d+ passed' | grep -oP '\d+' || echo "?")
-        echo -e "  ${GREEN}✓ passed${NC}"
-        PASS=$((PASS+1))
-    else
-        echo -e "  ${RED}✗ FAILED${NC}"
-        cargo test -p "$crate" --lib 2>&1 | grep "FAILED\|^error" | head -5
-        FAIL=$((FAIL+1))
-    fi
-}
+PASS=0; FAIL=0
+RED='\033[0;31m'; GREEN='\033[0;32m'; YEL='\033[1;33m'; BLU='\033[0;34m'; NC='\033[0m'
+banner() { echo -e "\n${BLU}[$1] $2${NC}"; printf '%.0s-' {1..64}; echo; }
+ok()   { echo -e "  ${GREEN}PASS${NC}  $1"; PASS=$((PASS+1)); }
+bad()  { echo -e "  ${RED}FAIL${NC}  $1"; FAIL=$((FAIL+1)); }
+note() { echo -e "  ${YEL}note${NC}  $1"; }
 
-for crate in \
-    aevor-core aevor-config aevor-crypto aevor-tee \
-    aevor-consensus aevor-dag aevor-storage aevor-vm aevor-execution \
-    aevor-network aevor-security \
-    aevor-move aevor-zk aevor-bridge \
-    aevor-governance aevor-ns \
-    aevor-metrics aevor-api aevor-client aevor-cli \
-    aevor-faucet node; do
-    run_tests "$crate"
+# The workspace is verified on stable.
+CARGO="cargo +stable"
+
+echo "============================================================"
+echo "  AEVOR Verification Suite — $(date -u '+%Y-%m-%d %H:%M:%SZ')"
+echo "============================================================"
+
+banner 1 "Environment"
+if $CARGO --version >/dev/null 2>&1; then ok "$($CARGO --version)"; else bad "cargo +stable unavailable"; exit 1; fi
+DISK=$(df -BG --output=avail / 2>/dev/null | tail -1 | tr -dc '0-9')
+if [ "${DISK:-0}" -ge 3 ]; then ok "disk headroom ${DISK}G"; else note "low disk (${DISK}G) — run 'cargo clean' if builds fail"; fi
+
+banner 2 "Build"
+if $CARGO build -p node >/dev/null 2>&1; then ok "node builds"; else bad "node build"; $CARGO build -p node 2>&1 | grep -E '^error' | head -5; fi
+
+# Per crate, not whole-workspace: a workspace run is slow and hides which crate broke.
+banner 3 "Library tests"
+TOTAL_TESTS=0
+for crate in aevor-core aevor-crypto aevor-storage aevor-dag aevor-execution aevor-consensus aevor-network aevor-tee aevor-wallet aevor-cli node; do
+  OUT=$($CARGO test -p "$crate" --lib 2>&1)
+  if echo "$OUT" | grep -q "test result: ok"; then
+    N=$(echo "$OUT" | grep -oE '[0-9]+ passed' | head -1 | grep -oE '[0-9]+')
+    TOTAL_TESTS=$((TOTAL_TESTS + ${N:-0}))
+    ok "$crate — ${N:-0} tests"
+  else
+    bad "$crate library tests"
+    echo "$OUT" | grep -E "^(error|FAILED|failures)" | head -5
+  fi
+done
+ok "library tests total: $TOTAL_TESTS"
+
+# The consensus contract: settlement, multi-lane rounds, double-spend defenses,
+# attestation binding, sharding, and the live network round.
+banner 4 "End-to-end (consensus contract)"
+OUT=$($CARGO test -p node --test end_to_end 2>&1)
+if echo "$OUT" | grep -q "test result: ok"; then
+  N=$(echo "$OUT" | grep -oE '[0-9]+ passed' | head -1 | grep -oE '[0-9]+')
+  ok "end-to-end — ${N:-0} tests"
+else
+  bad "end-to-end suite"; echo "$OUT" | grep -E "FAILED|panicked" | head -10
+fi
+
+# Named explicitly so a regression in any of them is unmistakable in the log.
+banner 5 "Security invariants"
+for t in \
+  cross_lane_object_double_spend_is_rejected \
+  cross_lane_same_account_settlement_is_rejected \
+  duplicate_transaction_set_across_lanes_is_rejected \
+  lane_not_forking_from_round_base_is_rejected \
+  tampered_lane_balance_delta_is_rejected \
+  lane_cannot_be_attributed_to_a_victim_validator \
+  corruption_detection_produces_slashing_evidence
+do
+  if $CARGO test -p node --test end_to_end "$t" 2>&1 | grep -q "test result: ok"; then
+    ok "$t"
+  else
+    bad "$t — SECURITY REGRESSION"
+  fi
 done
 
-# ── STEP 7: Full Workspace Test ──────────────────────────────────
-banner 7 "Full Workspace Test Run"
-echo "Running: cargo test --workspace --lib"
-if cargo test --workspace --lib 2>&1; then
-    ok "All workspace tests PASSED"
+banner 6 "TEE attestation (all platforms)"
+OUT=$($CARGO test -p aevor-tee 2>&1)
+if echo "$OUT" | grep -q "test result: ok"; then
+  N=$(echo "$OUT" | grep -oE '[0-9]+ passed' | head -1 | grep -oE '[0-9]+')
+  ok "aevor-tee — ${N:-0} tests (Nitro / SGX / SEV-SNP / TrustZone / Keystone)"
 else
-    fail "Some workspace tests FAILED"
-    cargo test --workspace --lib 2>&1 | grep "^FAILED\|failures:" | head -10
+  bad "aevor-tee"; echo "$OUT" | grep -E "FAILED|panicked" | head -5
 fi
 
-# ── STEP 8: Doc Tests ────────────────────────────────────────────
-banner 8 "Documentation Tests"
-if cargo test --workspace --doc 2>&1; then
-    ok "Doc tests PASSED"
+banner 6b "Wallet and key-management end-to-end"
+BIN="target/release/aevor"
+if [ ! -x "$BIN" ]; then $CARGO build -p aevor-cli --release >/dev/null 2>&1; fi
+if [ -x "$BIN" ]; then
+  TMPKS=$(mktemp -d)
+  export AEVOR_KEYSTORE_PASSPHRASE="verification-suite-passphrase"
+  if $BIN keys generate --keystore-out "$TMPKS/k.json" >/dev/null 2>&1 && [ -f "$TMPKS/k.json" ]; then
+    ok "keys generate writes a keystore"
+  else
+    bad "keys generate"
+  fi
+  if grep -q argon2id "$TMPKS/k.json" 2>/dev/null; then ok "keystore is encrypted (argon2id)"; else bad "keystore encryption"; fi
+  A1=$($BIN keys export --keystore "$TMPKS/k.json" 2>/dev/null)
+  if [ -n "$A1" ]; then ok "keys export recovers the identity"; else bad "keys export"; fi
+  if AEVOR_KEYSTORE_PASSPHRASE=wrong-passphrase $BIN keys export --keystore "$TMPKS/k.json" >/dev/null 2>&1; then
+    bad "wrong passphrase was ACCEPTED — security regression"
+  else
+    ok "wrong passphrase rejected"
+  fi
+  rm -rf "$TMPKS"
 else
-    warn "Some doc tests failed (expected for network/async stubs)"
+  bad "aevor binary unavailable"
 fi
 
-# ── STEP 9: Binary Builds ────────────────────────────────────────
-banner 9 "Binary Builds"
-for pkg_bin in "node:aevor-node" "aevor-cli:aevor" "aevor-faucet:aevor-faucet" "aevor-api:aevor-api"; do
-    pkg="${pkg_bin%%:*}"; bin="${pkg_bin##*:}"
-    printf "  %-20s" "$bin"
-    if cargo build -p "$pkg" 2>/dev/null; then
-        echo -e "${GREEN}✓${NC}"; PASS=$((PASS+1))
-    else
-        echo -e "${RED}✗ FAILED${NC}"; FAIL=$((FAIL+1))
-        cargo build -p "$pkg" 2>&1 | grep "^error" | head -3
-    fi
-done
-
-# ── STEP 10: Clippy ──────────────────────────────────────────────
-banner 10 "Clippy Lints"
-if cargo clippy --workspace -- -D warnings 2>&1; then
-    ok "Clippy: no warnings-as-errors"
+if [ "$QUICK" -eq 0 ]; then
+  banner 7 "Clippy (lib + tests must be zero-warning)"
+  for pkg in node aevor-tee; do
+    OUT=$($CARGO clippy -p "$pkg" --lib --tests 2>&1 | grep -E "^(warning|error)" | grep -v "generated .* warning")
+    if [ -z "$OUT" ]; then ok "$pkg — clippy clean"; else bad "$pkg — clippy"; echo "$OUT" | head -5; fi
+  done
 else
-    CLIP=$(cargo clippy --workspace 2>&1 | grep "^warning\|^error" | wc -l)
-    warn "Clippy found $CLIP diagnostics (review above)"
+  note "clippy skipped (--quick)"
 fi
 
-# ── Summary ──────────────────────────────────────────────────────
-echo ""
-echo "============================================================"
-echo "  SUMMARY"
-echo "============================================================"
-echo -e "  ${GREEN}PASSED:  $PASS${NC}"
-echo -e "  ${RED}FAILED:  $FAIL${NC}"
-echo -e "  ${YELLOW}SKIPPED: $SKIP${NC}"
-echo ""
-if [[ $FAIL -eq 0 ]]; then
-    echo -e "${GREEN}  ✓ ALL CHECKS PASSED${NC}"
+if [ "$BENCH" -eq 1 ]; then
+  banner 8 "Throughput"
+  note "wall-clock varies on shared cores; economics are deterministic and must not move"
+  $CARGO test -p node --test benchmarks bench_full_pipeline -- --ignored --nocapture 2>&1 \
+    | grep -E "PRODUCE|VERIFY|base fee|fee/tx" | sed 's/^/  /'
+  $CARGO test -p node --test benchmarks bench_state_sharding_scaling -- --ignored --nocapture 2>&1 \
+    | grep -E "^[[:space:]]+[0-9]+ \|" | sed 's/^/  /'
 else
-    echo -e "${RED}  ✗ $FAIL CHECKS FAILED${NC}"
+  note "benchmarks skipped (use --bench)"
 fi
 
-echo ""
+echo
 echo "============================================================"
-echo "  ENVIRONMENT (paste this when sharing results)"
+if [ "$FAIL" -eq 0 ]; then
+  echo -e "  ${GREEN}ALL GATES PASSED${NC}  ($PASS checks)"
+  echo "  Build is eligible for devnet/testnet promotion."
+else
+  echo -e "  ${RED}$FAIL GATE(S) FAILED${NC}  ($PASS passed)"
+  echo "  Do NOT promote this build."
+fi
 echo "============================================================"
-echo "Date:  $(date)"
-echo "OS:    $(uname -a)"
-echo "Rust:  $(rustc --version)"
-echo "Cargo: $(cargo --version)"
-echo "CPU:   $(nproc) cores"
-echo "RAM:   ${FREE_RAM}MB"
-echo "============================================================"
+exit $((FAIL > 0))

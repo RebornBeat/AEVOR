@@ -179,6 +179,60 @@ impl CrossShard {
     }
 }
 
+/// A shard's attestation that **its slice** of a round's object/account space is
+/// conflict-free.
+///
+/// Cross-lane conflict checking is the one per-round cost that scales with object
+/// count (measured: ~77% of the non-storage floor). It partitions *perfectly*,
+/// because a conflict is defined on a single object: object X's conflicts can only
+/// be detected by whoever owns X, so if every shard checks its own slice, every
+/// possible conflict is checked exactly once — complete coverage at 1/N the cost.
+///
+/// The catch, and why this type exists: a validator that checks only its own slice
+/// knows only that *its* slice is clean. Committing a round requires knowing it is
+/// **globally** clean. So shard-local checking is sound only when the round carries
+/// a certificate from every shard. Applying without full coverage would silently
+/// downgrade the double-spend guarantee, so the engine requires the complete set
+/// and rejects the round otherwise.
+///
+/// Security model: identical in kind to sharded *verification* — each shard needs
+/// an honest quorum. A fully byzantine shard could falsely certify its slice, so
+/// per-shard quorum size is the security floor. It is a tradeoff, not a new class
+/// of risk.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ShardConflictCertificate {
+    /// The shard whose slice was checked.
+    pub shard_id: u32,
+    /// The partition this certificate was produced under.
+    pub total_shards: u32,
+    /// Commitment to the exact lane set checked, so a certificate cannot be
+    /// replayed against a different round.
+    pub lane_set_commitment: [u8; 32],
+}
+
+impl ShardConflictCertificate {
+    /// Whether `certificates` cover every shard of `total_shards` for this exact
+    /// lane set — the completeness requirement that keeps shard-local conflict
+    /// checking as strong as the monolithic check.
+    #[must_use]
+    pub fn covers_all_shards(
+        certificates: &[Self],
+        total_shards: u32,
+        lane_set_commitment: [u8; 32],
+    ) -> bool {
+        if total_shards == 0 {
+            return false;
+        }
+        let mut seen: std::collections::HashSet<u32> = std::collections::HashSet::new();
+        for c in certificates {
+            if c.total_shards == total_shards && c.lane_set_commitment == lane_set_commitment {
+                seen.insert(c.shard_id);
+            }
+        }
+        (0..total_shards).all(|s| seen.contains(&s))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

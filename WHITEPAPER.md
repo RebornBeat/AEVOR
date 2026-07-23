@@ -36,7 +36,7 @@ The macro-DAG component extends this parallelism to block production mechanisms,
 
 The uncorrupted frontier represents the mathematical boundary between verified network state and potential corruption. This frontier advances through logical ordering based on transaction dependencies with blockchain consensus time authority rather than external dependencies.
 
-Measured throughput on reference hardware has exceeded 200,000 transactions per second sustained with burst measurements exceeding 1,000,000 transactions per second. These figures represent measured baselines on specific reference hardware — they scale with available computational resources and are not architectural ceilings.
+Throughput scales as `N_lanes x per-lane production`, with production the bottleneck and verification carrying ~90x headroom over it. Verified single-node measurements and the projections derived from them are given in *Canonical Implementation Notes* above; figures quoted in later sections are design targets pending re-validation, not verified results.
 
 ### TEE-as-a-Service Infrastructure: Complete Serverless Web3 Platform
 
@@ -89,8 +89,9 @@ All economic figures in this document represent measured reference points on cur
 Aevor's performance characteristics demonstrate genuine transcendence of traditional blockchain limitations through **measured performance on reference hardware** that exceeds traditional blockchain capabilities while maintaining mathematical security guarantees and full decentralization. All figures below represent measured baselines that scale with available computational resources — they are floors, not ceilings.
 
 **Measured reference performance on reference hardware:**
-- Sustained throughput: exceeding 200,000 transactions per second
-- Burst capacity: exceeding 1,000,000 transactions per second
+- Per-lane production: ~11,400-11,900 tx/s measured single-core (the bottleneck)
+- Attested verification: ~1.0-1.1M tx/s measured (~90x production headroom)
+- Aggregate: projected as N_lanes x per-lane from measured per-lane independence
 - Minimum security confirmation: approximately 20–50 milliseconds (2–3% validators, hardware-dependent)
 - Standard security confirmation: approximately 100–200 milliseconds (10–20% validators, hardware-dependent)
 - Strong security confirmation: approximately 500–800 milliseconds (>33% validators, hardware-dependent)
@@ -111,6 +112,62 @@ Aevor's comprehensive architecture demonstrates that systematic engineering inno
 The architectural achievement represents genuine advancement beyond traditional blockchain capabilities through principled design that addresses limitation sources rather than managing limitation symptoms, creating digital infrastructure that serves human flourishing through unlimited innovation capability while preserving autonomy, security, and democratic participation characteristics that make decentralized systems uniquely valuable.
 
 ---
+
+## Canonical Implementation Notes (2026-07)
+
+This whitepaper describes the architecture. The **implementation is the canonical
+design**, and where measurement has since refined a design decision, the
+implementation governs. The authoritative record is
+`docs/review/29_CANONICAL_DESIGN_RECORD.md`; this section summarises what a reader
+should carry into the rest of the document.
+
+**Implementation status.** The consensus engine described in this document is
+implemented and tested (940 library tests, 42 end-to-end, 144 TEE tests). The
+**interface layer is not**: the CLI and API parse commands and register routes but
+their implementations are stubs, and neither connects to the node engine. Nothing
+outside the process can currently submit a transaction or query state. This is
+scoped in `docs/review/31_REVIEW_METHOD_AND_INTERFACE_GAP.md`.
+
+**Confirmed by implementation.** Pre-execution conflict rejection (no speculative
+execution, no state unwinding), the dual-DAG structure, four security levels, and
+one-validator-one-TEE attestation are all implemented as described.
+
+**Refined by measurement.**
+
+1. **Corruption detection is attestation verification, not re-execution.** A verifier
+   checks the producer's TEE attestation and its enclave **code measurement** against
+   a network-agreed registry — O(1) per block, no re-execution. Re-execution was
+   built, measured at the produce rate (~90× slower than verification), found
+   anti-scaling, and reverted. Sampled re-execution remains available only as
+   optional defence-in-depth against a compromised TEE.
+2. **Account balances settle off-Merkle.** Balance changes ship as explicit
+   per-account deltas committed by a `balance_commitment` inside the attestation
+   body. Committing balances into the Merkle state root measured **+112–136%** on the
+   verify path; the delta+commitment design gives identical consistency at ~zero cost.
+3. **The attestation body binds the producer.** The signed body is
+   `producer ‖ prior_root ‖ new_root ‖ tx_commitment ‖ balance_commitment ‖
+   rules_version`. Without this binding, lane attribution was attacker-mutable and a
+   forged lane could have caused an innocent validator to be slashed.
+4. **Multi-lane settlement is sender-sharded**, with same-object and same-account
+   writes across lanes structurally rejected.
+5. **State sharding is an opt-in engine mode** (monolithic remains the default) and
+   **cross-round pipelining** applies to both modes.
+
+**Measured performance baseline.** On a single-core reference environment:
+production ~11,400–11,900 tx/s (the per-lane bottleneck), attested verification
+~1.0–1.1M tx/s (~90× headroom), finality O(1) in validator count. Per-lane
+production cost is flat with lane count, which is what makes aggregate throughput
+scale linearly with parallel producers. State sharding divides per-validator state
+and apply work by shard count (16 shards: 6.2% of objects stored, ~3.5M tx/s apply);
+cross-lane conflict checking shards 15.7× at 16 shards.
+
+**On the performance figures elsewhere in this document.** Throughput and latency
+numbers in later sections predate this verification work and have **not** been
+re-validated against the implementation. Treat them as design targets pending audit,
+not as verified results. Aggregate figures such as ~1M tx/s and ~100M tx/s are
+**projections** from the measured per-lane independence and slice-bounding above,
+since parallel production is inherently multi-machine and cannot be measured on a
+single node.
 
 ## Table of Contents
 
@@ -3742,13 +3799,13 @@ The following measurements represent continuous processing capacity observed und
 
 The following burst measurements demonstrate capacity observed during peak network utilization on reference hardware with optimal validator coordination. Burst capacity scales with available computational resources — these are observed reference points, not architectural limits.
 
-**Peak Public Transaction Burst**: Reference hardware has demonstrated 1,200,000–1,400,000 transactions per second burst capacity for transparent operations.
+**Peak Public Transaction Burst**: a design target of 1,200,000-1,400,000 transactions per second for transparent operations. Not yet re-validated against the implementation; see *Canonical Implementation Notes* for what has been measured.
 
-**Peak Protected Transaction Burst**: Reference hardware has demonstrated 1,100,000–1,300,000 transactions per second burst capacity for selective disclosure operations with maintained privacy guarantees.
+**Peak Protected Transaction Burst**: A design target, not yet re-validated, of 1,100,000–1,300,000 transactions per second burst capacity for selective disclosure operations with maintained privacy guarantees.
 
-**Peak Private Transaction Burst**: Reference hardware has demonstrated 1,000,000–1,200,000 transactions per second burst capacity for confidential operations with complete privacy protection and mathematical verification guarantees.
+**Peak Private Transaction Burst**: a design target of 1,000,000-1,200,000 transactions per second for confidential operations with complete privacy protection. Not yet re-validated against the implementation; see *Canonical Implementation Notes*.
 
-**Peak Mixed Privacy Application Burst**: Reference hardware has demonstrated 900,000–1,100,000 transactions per second burst capacity for complex applications coordinating across multiple privacy levels.
+**Peak Mixed Privacy Application Burst**: A design target, not yet re-validated, of 900,000–1,100,000 transactions per second burst capacity for complex applications coordinating across multiple privacy levels.
 
 ### Latency Characteristics Across Privacy and Security Levels
 

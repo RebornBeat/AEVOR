@@ -71,8 +71,12 @@ pub fn run_round<T: MessageTransport>(
     let round_base = engine.state_root().0 .0;
 
     // 1. Produce our lane (applies it to our own state) and 2. broadcast it.
+    //    The configured identity is what this validator ATTESTS as, so the lane's
+    //    producer comes from the signed attestation rather than being carried
+    //    alongside it as mutable metadata.
+    engine.set_validator_id(cfg.producer);
     let (_out, attestation, delta) = engine.produce_attested_batch(my_txs)?;
-    let own = LaneBlock { lane_id: cfg.lane_id, producer: cfg.producer, attestation, delta };
+    let own = LaneBlock { lane_id: cfg.lane_id, producer: attestation.producer, attestation, delta };
     transport.broadcast(NetworkMessage::Block(encode_lane(&own)));
 
     // 3. Collect foreign lanes until quorum (dedup by tx_commitment; ignore echoes
@@ -172,7 +176,13 @@ mod tests {
         let lane = LaneBlock {
             lane_id: 7,
             producer: aevor_core::primitives::Hash256([9u8; 32]),
-            attestation: ExecutionAttestation::seal([1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]),
+            attestation: ExecutionAttestation::seal(
+                aevor_core::primitives::Hash256([9u8; 32]),
+                [1u8; 32],
+                [2u8; 32],
+                [3u8; 32],
+                [4u8; 32],
+            ),
             delta: StateDelta::default(),
         };
         let bytes = encode_lane(&lane);

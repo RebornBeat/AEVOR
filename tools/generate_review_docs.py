@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""Generate the review documents for this pass in one go.
+
+New documents are written by this script; existing narrative documents
+(README.md, WHITEPAPER.md) are edited inline instead, because they carry
+history that a generator would destroy.
+"""
+import pathlib
+
+OUT = pathlib.Path("/mnt/user-data/outputs/aevor-review")
+OUT.mkdir(parents=True, exist_ok=True)
+
+DOCS = {}
+
+# ---------------------------------------------------------------- doc 31
+DOCS["31_REVIEW_METHOD_AND_INTERFACE_GAP.md"] = r"""# 31 — Review Method, Mistakes Made, and the Interface-Layer Gap
+
+Three things: an honest accounting of the mistakes made during this review, the
+working method adopted so they stop recurring, and the finding that method
+immediately produced — the largest gap in the system, missed until now.
+
+---
+
+## 1. Mistakes made in this review
+
+Listed plainly because the pattern matters more than any single item.
+
+### 1.1 Verified names, not behaviour (three times)
+
+- **CLI commands.** Told the user commands like `aevor init --tee-platform` and
+  `aevor create-subnet` "do not exist" and deleted them from the README. In fact
+  most existed under conventional names (`aevor tee configure`,
+  `aevor network subnet-create`). Checked the *name*, not the *capability*.
+- **CLI implementations.** Then said `aevor keys generate` "exists" — because the
+  enum variant was there. It is a **stub** that prints `"keys command"` and
+  returns. Checked the *declaration*, not the *behaviour*.
+- **Capability completeness.** Repeatedly reported subsystems "wired" based on
+  types being present and tests passing at the engine layer, without tracing
+  whether anything outside the engine could reach them. §3 is what that missed.
+
+### 1.2 Asserted instead of measured
+
+- Claimed "no degradation" from throughput variance without running the benchmark
+  repeatedly. Only after being pushed did three runs actually demonstrate it.
+- Claimed state sharding was finalized **without ever benchmarking it**. The
+  benchmark, once written, produced the numbers that justified the design.
+- Framed core-parallel conflict checking as "hypothetical, not worth building"
+  when conflict checking is a live production cost paid by every validator on
+  every round.
+
+### 1.3 Shipped a regression by assuming parallelism helps
+
+Added bucketed parallel conflict detection without gating on available
+parallelism. On a single core it cost **57% more** than the sequential path
+(2.604 ms vs 1.660 ms). Caught only because the benchmark was re-run; fixed by
+requiring `current_num_threads() >= 2`.
+
+### 1.4 Called things "finalized" prematurely
+
+Used "finalized" for the engine while the network wire, real TEE, sharding, and
+the entire interface layer were absent or stubbed. The word should mean *nothing
+material is missing*, and it did not.
+
+### 1.5 Left repository junk in shipped archives
+
+A stray brace-expansion directory
+(`aevor-tee/src/{platform,sgx,sev,...}`) shipped in every archive for many
+rounds. Found only during an explicit audit, never from a build or test signal.
+
+### 1.6 Security issues that existed in code called "finalized"
+
+Both were real, and neither surfaced from routine work:
+
+- **Attestation did not bind the producer.** `LaneBlock.producer` was
+  attacker-mutable metadata used as the slashing offender, so a forged lane could
+  have caused an innocent validator to be slashed. Found only because the user
+  asked how cross-platform attestation verification could be safe.
+- **Keystone used Ed25519 `verify` rather than `verify_strict`**, accepting an
+  all-zero report against the identity public key. Found only because a
+  "must never verify" test was written.
+
+### 1.7 The common cause
+
+**Assertion in place of verification.** Every item above is the same failure:
+concluding from what the code *appears* to declare rather than checking what it
+*does*. Tests passing at one layer were treated as evidence about other layers.
+
+---
+
+## 2. Working method (rules now in force)
+
+1. **Bottom-up by subject.** Take one layer at a time, in dependency order, and
+   finish it before moving up.
+2. **Check, never assume.** A capability counts as present only when its
+   behaviour has been read or exercised. Type declarations, enum variants, and
+   route registrations are not evidence.
+3. **End-to-end wiring per subject.** For each layer, trace the whole path: can an
+   external caller actually reach the engine and get a result? Absent that, the
+   layer is not done regardless of internal test counts.
+4. **Verify capabilities by reading the implementation**, not the interface — and
+   record which files were read.
+5. **Measure before claiming performance**, repeatedly enough to separate signal
+   from variance, and re-measure after any change to a hot path.
+6. **Narrative documents are edited inline** (README, whitepaper) since they carry
+   history; **new review documents are generated by script in one pass** at the end
+   of a subject.
+7. **Reconcile README and whitepaper as each subject completes**, not in one pass
+   at the end.
+8. **"Finalized" means nothing material is missing** — otherwise state precisely
+   what remains.
+
+---
+
+## 3. The finding: the entire interface layer is unwired
+
+Applying rule 2 to the wallet layer produced the largest gap in the system.
+
+### 3.1 What is real
+
+The **engine is genuinely production-ready and tested**: consensus, execution,
+settlement and economics, multi-lane rounds with double-spend defences, real TEE
+attestation on five platforms, state sharding, cross-round pipelining, and the
+live network round. 940 library tests, 42 end-to-end, 144 TEE tests, clippy clean.
+
+`NodeEngine::submit` is real: it checks subnet admission, verifies the signature,
+and admits to the mempool.
+
+### 3.2 What is not
+
+| layer | state |
+|---|---|
+| `aevor` CLI — all 8 command groups | **stubs**: argument parsing is real, every `run()` prints and returns |
+| `aevor-api` REST / GraphQL / gRPC | **shells**: 50 / 4 / 38 lines, no handlers |
+| CLI → engine | **no connection** — the CLI does not reference `NodeEngine` |
+| API → engine | **no connection** — the API does not reference `NodeEngine` |
+| program deployment | absent entirely |
+
+**Consequence.** Nobody outside the process can use the chain. There is no way to
+generate a key, start a node, submit a transaction, query a balance, or deploy a
+program through any external interface. The engine works; nothing can reach it.
+
+### 3.3 Why it was missed
+
+The engine's test suite is large and green, and every earlier "is it wired?" audit
+checked that *types and modules* were reachable from the public API — which they
+are. Reachability of a symbol is not reachability of a capability. Nothing in the
+engine's tests could have caught this, because the gap is entirely outside the
+engine.
+
+---
+
+## 4. Revised bottom-up plan
+
+Each subject completes with: implementation → end-to-end verification of the whole
+path → README/whitepaper reconciliation → documentation.
+
+### Subject 1 — Wallet and key management
+Key generation, storage and import/export; address derivation; transaction
+construction and signing; nonce management. Today: cryptographic primitives and
+address derivation exist and are tested; `aevor keys` is a stub. **Deliverable:** a
+working wallet path from key generation to a signed transaction.
+
+### Subject 2 — Transaction submission
+Connect CLI and API to `NodeEngine::submit`; mempool status; confirmation
+tracking against the security levels. **Deliverable:** an external client can
+submit a transaction and observe its inclusion. This unblocks everything after it.
+
+### Subject 3 — Node lifecycle and genesis
+Genesis specification (accounts, validator set, code registry, trust roots);
+`aevor node start` actually starting a node; configuration load and validation.
+**Deliverable:** a node started from the CLI against a defined genesis.
+
+### Subject 4 — Validator registration and staking
+Register, stake, unstake, slashing reports — connected to the engine rather than
+printing. **Deliverable:** a validator joining a running network.
+
+### Subject 5 — Devnet, testnet, beta-mainnet
+Multi-process devnet over real TCP; then multi-machine testnet on real TEE
+hardware; then beta-mainnet readiness. These proceed together with Subjects 3 and 4
+because genesis, node start, and registration are their prerequisites.
+
+### Subject 6 — Program deployment and invocation
+Packaging, deployment transactions, address return, and a call path.
+**Deliverable:** deploy and invoke a program.
+
+### Subject 7 — dApp platform
+SDK, faucet, explorer, reference applications.
+
+**Ordering rationale.** Subjects 1 and 2 come first because every later subject
+depends on being able to hold a key and submit a transaction. A devnet nobody can
+submit to is not a devnet.
+"""
+
+for name, body in DOCS.items():
+    (OUT / name).write_text(body)
+    print(f"wrote {name} ({len(body.splitlines())} lines)")

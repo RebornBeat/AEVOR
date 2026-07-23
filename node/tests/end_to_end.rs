@@ -661,6 +661,7 @@ fn multi_lane_round_deterministic_ordering_consistent_state() {
         let wallet = Ed25519KeyPair::from_seed([seed; 32]);
         let dir = temp_dir(&format!("lane-src-{lane_id}"));
         let mut eng = open_node(&dir);
+        eng.set_validator_id(aevor_core::primitives::Hash256([lane_id as u8; 32]));
         // Sender-sharded: each lane uses a distinct funded sender (no cross-lane
         // account contention). Verifiers need no funding — absolute balance deltas
         // overwrite.
@@ -756,6 +757,7 @@ fn sharded_verification_bounded_slice_full_coverage() {
         let wallet = Ed25519KeyPair::from_seed([seed; 32]);
         let dir = temp_dir(&format!("shard-src-{lane_id}"));
         let mut eng = open_node(&dir);
+        eng.set_validator_id(aevor_core::primitives::Hash256([lane_id as u8; 32]));
         let sender = Address::from_bytes([(lane_id as u8).wrapping_add(1); 32]);
         assert!(eng.fund(sender, aevor_core::primitives::Amount::from_nano(1_000_000_000)));
         let txs: Vec<_> = (0..4u8)
@@ -828,6 +830,7 @@ fn corruption_detection_produces_slashing_evidence() {
         let wallet = Ed25519KeyPair::from_seed([seed; 32]);
         let dir = temp_dir(&format!("corrupt-src-{lane_id}"));
         let mut eng = open_node(&dir);
+        eng.set_validator_id(aevor_core::primitives::Hash256([lane_id as u8; 32]));
         let sender = Address::from_bytes([(lane_id as u8).wrapping_add(1); 32]);
         assert!(eng.fund(sender, aevor_core::primitives::Amount::from_nano(1_000_000_000)));
         let txs: Vec<_> = (0..4u8)
@@ -876,6 +879,29 @@ fn corruption_detection_produces_slashing_evidence() {
 
 /// Like `signed_tx` but sets an explicit sender address before signing (so the
 /// signature covers it) — used to exercise permissioned-subnet admission.
+fn signed_tx_from_id(
+    wallet: &impl Signer,
+    nonce: u32,
+    object_id: u32,
+    bytecode: Vec<u8>,
+    sender: Address,
+) -> SignedTransaction {
+    // Spread ids across the 32 bytes so distinct ids give distinct objects.
+    let mut bytes = [0u8; 32];
+    bytes[0..4].copy_from_slice(&object_id.to_le_bytes());
+    bytes[4] = 0xA5;
+    let write = ObjectId(Hash256(bytes));
+    let mut tx = aevor_core::transaction::Transaction::new_simple(
+        wallet.public_key_multi(),
+        aevor_core::primitives::Nonce(u64::from(nonce)),
+        &[],
+        &[write],
+        bytecode,
+    );
+    tx.sender = sender;
+    aevor_crypto::agility::sign_transaction(tx, wallet)
+}
+
 fn signed_tx_from(
     wallet: &impl Signer,
     tx_id: u8,
@@ -1327,8 +1353,8 @@ fn multi_lane_settlement_correct_under_sender_sharding() {
     // A verifier with the same genesis (both senders funded) applies the round.
     let mut v = open_fee("shard-v", &[(sender_a, start), (sender_b, start)]);
     let lanes = vec![
-        LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att0, delta: delta0 },
-        LaneBlock { lane_id: 1, producer: Hash256([1u8; 32]), attestation: att1, delta: delta1 },
+        LaneBlock { lane_id: 0, producer: att0.producer, attestation: att0, delta: delta0 },
+        LaneBlock { lane_id: 1, producer: att1.producer, attestation: att1, delta: delta1 },
     ];
     let out = v.apply_lane_round(lanes).unwrap();
     assert_eq!(out.lanes_applied, 2);
@@ -1391,7 +1417,7 @@ fn multi_node_round_over_transport_converges_with_settlement() {
             )])
             .unwrap();
         expected.push((sender, p.balance_of(sender).as_nano()));
-        let lane = LaneBlock { lane_id: i as u32, producer: Hash256([i as u8; 32]), attestation: att, delta };
+        let lane = LaneBlock { lane_id: i as u32, producer: att.producer, attestation: att, delta };
         net.handle(i).broadcast(NetworkMessage::Lane(Box::new(lane)));
     }
 
@@ -1455,8 +1481,8 @@ fn cross_lane_object_double_spend_is_rejected() {
 
     let mut v = attack_engine("ds-v", &[sa, sb]);
     let lanes = vec![
-        LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att0, delta: d0 },
-        LaneBlock { lane_id: 1, producer: Hash256([1u8; 32]), attestation: att1, delta: d1 },
+        LaneBlock { lane_id: 0, producer: att0.producer, attestation: att0, delta: d0 },
+        LaneBlock { lane_id: 1, producer: att1.producer, attestation: att1, delta: d1 },
     ];
     assert!(v.apply_lane_round(lanes).is_err(), "cross-lane object double-spend must be rejected");
 }
@@ -1482,8 +1508,8 @@ fn duplicate_transaction_set_across_lanes_is_rejected() {
 
     let mut v = attack_engine("dup-v", &[sa]);
     let lanes = vec![
-        LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att0, delta: d0 },
-        LaneBlock { lane_id: 1, producer: Hash256([1u8; 32]), attestation: att1, delta: d1 },
+        LaneBlock { lane_id: 0, producer: att0.producer, attestation: att0, delta: d0 },
+        LaneBlock { lane_id: 1, producer: att1.producer, attestation: att1, delta: d1 },
     ];
     assert!(v.apply_lane_round(lanes).is_err(), "duplicate tx set across lanes must be rejected");
 }
@@ -1507,7 +1533,7 @@ fn lane_not_forking_from_round_base_is_rejected() {
 
     // A fresh verifier at the empty round base must reject it.
     let mut v = attack_engine("pr-v", &[sa]);
-    let lanes = vec![LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att, delta: d }];
+    let lanes = vec![LaneBlock { lane_id: 0, producer: att.producer, attestation: att, delta: d }];
     assert!(v.apply_lane_round(lanes).is_err(), "lane not forking from round base must be rejected");
 }
 
@@ -1528,7 +1554,7 @@ fn tampered_lane_balance_delta_is_rejected() {
     d.balances[0].1 = d.balances[0].1.wrapping_add(1_000_000); // forge a bigger balance
 
     let mut v = attack_engine("bt-v", &[sa]);
-    let lanes = vec![LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att, delta: d }];
+    let lanes = vec![LaneBlock { lane_id: 0, producer: att.producer, attestation: att, delta: d }];
     assert!(v.apply_lane_round(lanes).is_err(), "tampered lane balance delta must be rejected");
 }
 
@@ -1554,8 +1580,8 @@ fn cross_lane_same_account_settlement_is_rejected() {
 
     let mut v = attack_engine("acc-v", &[sa]);
     let lanes = vec![
-        LaneBlock { lane_id: 0, producer: Hash256([0u8; 32]), attestation: att0, delta: d0 },
-        LaneBlock { lane_id: 1, producer: Hash256([1u8; 32]), attestation: att1, delta: d1 },
+        LaneBlock { lane_id: 0, producer: att0.producer, attestation: att0, delta: d0 },
+        LaneBlock { lane_id: 1, producer: att1.producer, attestation: att1, delta: d1 },
     ];
     assert!(v.apply_lane_round(lanes).is_err(), "cross-lane same-account settlement must be rejected");
 }
@@ -1582,7 +1608,7 @@ fn apply_foreign_lanes_producer_flow_converges() {
         let (_o, att, delta) = e
             .produce_attested_batch(vec![signed_tx_from(&w, i as u8, &[], &[(i as u8) * 2], prog.to_vec(), s)])
             .unwrap();
-        lanes.push(LaneBlock { lane_id: i as u32, producer: Hash256([i as u8; 32]), attestation: att, delta });
+        lanes.push(LaneBlock { lane_id: i as u32, producer: att.producer, attestation: att, delta });
         if i == 0 {
             producer_a = Some(e); // keep validator A (it already has its own lane applied)
         }
@@ -1676,7 +1702,7 @@ fn sharded_mode_partitions_state_across_validators() {
         let (_o, att, delta) = e
             .produce_attested_batch(vec![signed_tx_from(&w, i, &[], &[i], prog.to_vec(), senders[i as usize])])
             .unwrap();
-        lanes.push(LaneBlock { lane_id: u32::from(i), producer: Hash256([i; 32]), attestation: att, delta });
+        lanes.push(LaneBlock { lane_id: u32::from(i), producer: att.producer, attestation: att, delta });
     }
 
     // Monolithic verifier holds all four objects.
@@ -1783,4 +1809,245 @@ fn cross_shard_delta_ships_all_writes_while_storing_only_owned() {
     // Every object it wrote and owns is readable from its state; the rest are not
     // its responsibility to store.
     assert!(owned_in_delta > 0, "shard 0 owns at least one of its own writes");
+}
+
+#[test]
+fn lane_cannot_be_attributed_to_a_victim_validator() {
+    // ANTI-FRAMING: the producer is bound into the signed attestation body. An
+    // attacker must not be able to take a lane and re-label it with a victim's
+    // validator id — otherwise a deliberately-invalid lane could get an innocent
+    // validator slashed. Both the round-apply path and the slashing attribution
+    // must use the ATTESTED producer, never the claimed field.
+    use node::engine::LaneBlock;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let sender = Address::from_bytes([0xF9; 32]);
+    let victim = Hash256([0xDD; 32]);
+
+    let mut p = attack_engine("frame-p", &[sender]);
+    let honest_id = p.validator_id();
+    let (_o, att, delta) = p
+        .produce_attested_batch(vec![signed_tx_from(&w, 0, &[], &[3], prog.to_vec(), sender)])
+        .unwrap();
+    assert_eq!(att.producer, honest_id, "attestation binds the real producer");
+
+    // The attacker re-labels the lane as the victim's.
+    let framed = LaneBlock { lane_id: 0, producer: victim, attestation: att.clone(), delta };
+    let mut v = attack_engine("frame-v", &[sender]);
+    assert!(
+        v.apply_lane_round(vec![framed.clone()]).is_err(),
+        "a lane whose claimed producer is not the attested one must be rejected"
+    );
+
+    // And slashing evidence must name the attested producer, never the claim.
+    let evidence = v.detect_lane_corruption(&[framed]);
+    for e in &evidence {
+        assert_ne!(e.offender, victim, "slashing must never be redirectable to a victim");
+    }
+
+    // Tampering with the producer inside the attestation invalidates it outright.
+    let mut forged = att;
+    forged.producer = victim;
+    assert!(!forged.verify(), "producer is covered by the signature");
+}
+
+#[test]
+fn shard_local_conflict_checking_requires_full_coverage() {
+    // Sharding the cross-lane conflict check is sound ONLY when every shard has
+    // certified its own slice: a validator that checked just its slice knows only
+    // that ITS slice is clean. Coverage must therefore be structural — a round
+    // missing any shard's certificate is REJECTED, never applied on a partial check.
+    use node::engine::LaneBlock;
+    use node::sharding::{ShardConflictCertificate, ShardingMode};
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let senders = [Address::from_bytes([0xB1; 32]), Address::from_bytes([0xB2; 32])];
+    let total = 4u32;
+
+    let mut lanes = Vec::new();
+    for i in 0..2u8 {
+        let mut p = attack_engine(&format!("cert-p{i}"), &[senders[i as usize]]);
+        p.set_validator_id(Hash256([i; 32]));
+        let (_o, att, delta) = p
+            .produce_attested_batch(vec![signed_tx_from(&w, i, &[], &[i * 2], prog.to_vec(), senders[i as usize])])
+            .unwrap();
+        lanes.push(LaneBlock { lane_id: u32::from(i), producer: att.producer, attestation: att, delta });
+    }
+    let commitment = NodeEngine::lane_set_commitment(&lanes);
+
+    // Each shard certifies its own slice.
+    let mut certs = Vec::new();
+    for shard in 0..total {
+        let mut e = attack_engine(&format!("cert-s{shard}"), &senders);
+        e.set_sharding(ShardingMode::sharded(shard, total));
+        certs.push(e.certify_shard_conflicts(&lanes).expect("own slice is clean"));
+    }
+    assert_eq!(certs.len(), total as usize);
+    assert!(ShardConflictCertificate::covers_all_shards(&certs, total, commitment));
+
+    // A validator on shard 0 with the OTHER shards' certificates applies the round.
+    let mut v = attack_engine("cert-v", &senders);
+    v.set_sharding(ShardingMode::sharded(0, total));
+    let others: Vec<_> = certs.iter().filter(|c| c.shard_id != 0).cloned().collect();
+    assert_eq!(others.len(), 3);
+    let out = v.apply_lane_round_certified(lanes.clone(), &others).expect("full coverage applies");
+    assert_eq!(out.lanes_applied, 2);
+
+    // MISSING a shard's certificate must be rejected — not silently applied.
+    let mut v2 = attack_engine("cert-v2", &senders);
+    v2.set_sharding(ShardingMode::sharded(0, total));
+    let partial: Vec<_> = others.iter().take(1).cloned().collect();
+    assert!(
+        v2.apply_lane_round_certified(lanes.clone(), &partial).is_err(),
+        "incomplete shard coverage must reject the round"
+    );
+
+    // A certificate for a DIFFERENT lane set must not count as coverage (replay).
+    let mut v3 = attack_engine("cert-v3", &senders);
+    v3.set_sharding(ShardingMode::sharded(0, total));
+    let replayed: Vec<_> = others
+        .iter()
+        .map(|c| ShardConflictCertificate {
+            lane_set_commitment: [0xAA; 32], // some other round
+            ..c.clone()
+        })
+        .collect();
+    assert!(
+        v3.apply_lane_round_certified(lanes, &replayed).is_err(),
+        "certificates from another round must not satisfy coverage"
+    );
+}
+
+#[test]
+fn shard_local_conflict_check_still_catches_double_spend_in_its_slice() {
+    // The partition is only safe if a conflict is caught by the shard that owns the
+    // object. Two lanes writing the SAME object must be rejected by whichever shard
+    // owns it — and monolithic (owns everything) must always catch it.
+    use node::engine::LaneBlock;
+    use node::sharding::{ShardAssignment, ShardingMode};
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let (sa, sb) = (Address::from_bytes([0xB3; 32]), Address::from_bytes([0xB4; 32]));
+    let contested = 5u8;
+    let total = 4u32;
+
+    let mut lanes = Vec::new();
+    for (i, s) in [sa, sb].into_iter().enumerate() {
+        let mut p = attack_engine(&format!("ds-shard-p{i}"), &[s]);
+        p.set_validator_id(Hash256([i as u8; 32]));
+        let (_o, att, delta) = p
+            .produce_attested_batch(vec![signed_tx_from(&w, i as u8, &[], &[contested], prog.to_vec(), s)])
+            .unwrap();
+        lanes.push(LaneBlock { lane_id: i as u32, producer: att.producer, attestation: att, delta });
+    }
+
+    // Monolithic owns everything and must catch it.
+    let mono = attack_engine("ds-shard-mono", &[sa, sb]);
+    assert!(mono.certify_shard_conflicts(&lanes).is_err(), "monolithic catches the double-spend");
+
+    // Exactly one shard owns the contested object — that shard must catch it, and
+    // the others legitimately see nothing in their slice.
+    let owner = ShardAssignment::new(total).shard_of_object(&obj(contested));
+    let mut caught = 0;
+    for shard in 0..total {
+        let mut e = attack_engine(&format!("ds-shard-{shard}"), &[sa, sb]);
+        e.set_sharding(ShardingMode::sharded(shard, total));
+        if e.certify_shard_conflicts(&lanes).is_err() {
+            caught += 1;
+            assert_eq!(shard, owner, "the owning shard is the one that catches it");
+        }
+    }
+    assert_eq!(caught, 1, "exactly one shard detects the conflict — complete, non-redundant coverage");
+}
+
+#[test]
+fn conflict_certification_degenerates_correctly_for_monolithic() {
+    // Conflict-sharding is UNIVERSAL code, not a sharded-only path: in monolithic
+    // mode `owns_object`/`owns_account` are true for everything, so
+    // `certify_shard_conflicts` checks the WHOLE round — identical safety to the
+    // inline check, no behaviour change, nothing broken. A monolithic validator is
+    // its own complete coverage (1 shard of 1), so the certified path works with no
+    // peer certificates at all.
+    use node::engine::LaneBlock;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let senders = [Address::from_bytes([0xE1; 32]), Address::from_bytes([0xE2; 32])];
+
+    let mut lanes = Vec::new();
+    for i in 0..2u8 {
+        let mut p = attack_engine(&format!("mono-cert-p{i}"), &[senders[i as usize]]);
+        p.set_validator_id(Hash256([i; 32]));
+        let (_o, att, delta) = p
+            .produce_attested_batch(vec![signed_tx_from(&w, i, &[], &[i * 2], prog.to_vec(), senders[i as usize])])
+            .unwrap();
+        lanes.push(LaneBlock { lane_id: u32::from(i), producer: att.producer, attestation: att, delta });
+    }
+
+    // Monolithic: one shard of one, so it is complete coverage by itself.
+    let mut mono = attack_engine("mono-cert-v", &senders);
+    assert!(!mono.sharding_mode().is_sharded());
+    let cert = mono.certify_shard_conflicts(&lanes).expect("clean round");
+    assert_eq!((cert.shard_id, cert.total_shards), (0, 1), "monolithic is shard 0 of 1");
+    let out = mono.apply_lane_round_certified(lanes.clone(), &[]).expect("no peer certs needed");
+    assert_eq!(out.lanes_applied, 2);
+
+    // The default inline path is untouched and reaches the identical state.
+    let mut plain = attack_engine("mono-cert-plain", &senders);
+    let out_plain = plain.apply_lane_round(lanes.clone()).unwrap();
+    assert_eq!(out.state_root.0 .0, out_plain.state_root.0 .0, "same root either way");
+    for s in &senders {
+        assert_eq!(mono.balance_of(*s).as_nano(), plain.balance_of(*s).as_nano());
+    }
+
+    // And monolithic still catches a double-spend the full inline check would catch.
+    let mut dup = lanes.clone();
+    dup[1] = LaneBlock { lane_id: 1, ..lanes[0].clone() };
+    let mut m2 = attack_engine("mono-cert-ds", &senders);
+    assert!(m2.certify_shard_conflicts(&dup).is_err(), "monolithic catches it");
+    assert!(m2.apply_lane_round_certified(dup, &[]).is_err(), "and the certified path rejects");
+}
+
+#[test]
+fn parallel_conflict_detection_matches_sequential_above_threshold() {
+    // Object-conflict detection switches to a bucketed parallel pass on large
+    // rounds. Bucketing by object hash is what makes that safe: two writes to the
+    // same object always land in the same bucket, so detection is exactly as
+    // complete as the sequential pass. This exercises the parallel path (>4096
+    // objects) both clean and with a planted double-spend.
+    use node::engine::LaneBlock;
+    let prog = BytecodeCodec::encode(&[Ld(2), Ld(3), Add]);
+    let w = Ed25519KeyPair::from_seed([5u8; 32]);
+    let senders = [Address::from_bytes([0xA7; 32]), Address::from_bytes([0xA8; 32])];
+    let per_lane = 2600u32; // 2 lanes x 2600 = 5200 objects, above the threshold
+
+    let mut lanes = Vec::new();
+    for (i, s) in senders.into_iter().enumerate() {
+        let mut p = attack_engine(&format!("par-conf-{i}"), &[s]);
+        p.set_validator_id(Hash256([i as u8; 32]));
+        // Disjoint object ranges per lane so the clean round really is clean.
+        let txs: Vec<_> = (0..per_lane)
+            .map(|n| {
+                let id = (i as u32) * per_lane + n;
+                signed_tx_from_id(&w, n, id, prog.to_vec(), s)
+            })
+            .collect();
+        let (_o, att, delta) = p.produce_attested_batch(txs).unwrap();
+        assert!(delta.objects.len() > 2000, "lane carries a large delta");
+        lanes.push(LaneBlock { lane_id: i as u32, producer: att.producer, attestation: att, delta });
+    }
+    let total: usize = lanes.iter().map(|l| l.delta.objects.len()).sum();
+    assert!(total > 4096, "round is above the parallel threshold ({total} objects)");
+
+    // Clean round: the parallel pass must find no conflict.
+    let v = attack_engine("par-conf-v", &senders);
+    assert!(v.certify_shard_conflicts(&lanes).is_ok(), "clean large round certifies");
+
+    // Plant a cross-lane double-spend: copy one of lane 0's objects into lane 1.
+    let stolen = lanes[0].delta.objects[7].clone();
+    let mut tampered = lanes.clone();
+    tampered[1].delta.objects.push(stolen);
+    assert!(
+        v.certify_shard_conflicts(&tampered).is_err(),
+        "the parallel pass must catch a double-spend as reliably as the sequential one"
+    );
 }
