@@ -116,6 +116,21 @@ if [ -x "$BIN" ]; then
   if grep -q argon2id "$TMPKS/k.json" 2>/dev/null; then ok "keystore is encrypted (argon2id)"; else bad "keystore encryption"; fi
   A1=$($BIN keys export --keystore "$TMPKS/k.json" 2>/dev/null)
   if [ -n "$A1" ]; then ok "keys export recovers the identity"; else bad "keys export"; fi
+  # Every scheme the transaction layer accepts must be usable for custody —
+  # classical, post-quantum, and hybrid.
+  for SCHEME in ed25519 ml-dsa-65 hybrid; do
+    if $BIN keys generate --algorithm "$SCHEME" --keystore-out "$TMPKS/$SCHEME.json" >/dev/null 2>&1; then
+      GOT=$($BIN keys export --keystore "$TMPKS/$SCHEME.json" 2>/dev/null | grep -c address)
+      if [ "${GOT:-0}" -ge 1 ]; then ok "$SCHEME: generate + recover"; else bad "$SCHEME: recovery"; fi
+    else
+      bad "$SCHEME: generate"
+    fi
+  done
+  if $BIN keys generate --algorithm rsa --keystore-out "$TMPKS/x.json" >/dev/null 2>&1; then
+    bad "an unknown scheme was ACCEPTED"
+  else
+    ok "unknown scheme rejected"
+  fi
   if AEVOR_KEYSTORE_PASSPHRASE=wrong-passphrase $BIN keys export --keystore "$TMPKS/k.json" >/dev/null 2>&1; then
     bad "wrong passphrase was ACCEPTED — security regression"
   else

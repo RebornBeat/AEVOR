@@ -42,6 +42,33 @@ impl MlDsa65KeyPair {
         Ok(Self { secret: sk, public_bytes: pk.into_bytes() })
     }
 
+    /// Serialize the **secret** key ([`ML_DSA_65_SK_LEN`] bytes).
+    ///
+    /// Required for key custody: without it an ML-DSA identity could only ever be
+    /// generated fresh, never persisted or recovered, which makes it unusable for a
+    /// wallet. Handle the result as secret material — it is the private key.
+    #[must_use]
+    pub fn to_secret_bytes(&self) -> [u8; ML_DSA_65_SK_LEN] {
+        use fips204::traits::SerDes as _;
+        self.secret.clone().into_bytes()
+    }
+
+    /// Recover a key pair from serialized secret-key bytes.
+    ///
+    /// # Errors
+    /// Returns [`CryptoError::InvalidKey`](crate::CryptoError::InvalidKey) if the
+    /// bytes are not a valid ML-DSA-65 private key.
+    pub fn from_secret_bytes(bytes: &[u8; ML_DSA_65_SK_LEN]) -> crate::CryptoResult<Self> {
+        use fips204::traits::SerDes as _;
+        let secret = ml_dsa_65::PrivateKey::try_from_bytes(*bytes).map_err(|e| {
+            crate::CryptoError::InvalidKey { reason: format!("ML-DSA-65 secret key invalid: {e}") }
+        })?;
+        // The public key is derivable from the secret key, so a recovered pair is
+        // complete and self-consistent.
+        let public_bytes = secret.get_public_key().into_bytes();
+        Ok(Self { secret, public_bytes })
+    }
+
     /// The public key bytes ([`ML_DSA_65_PK_LEN`] bytes).
     #[must_use]
     pub fn public_key_bytes(&self) -> [u8; ML_DSA_65_PK_LEN] {

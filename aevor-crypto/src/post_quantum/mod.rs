@@ -70,6 +70,43 @@ impl HybridKeyPair {
         })
     }
 
+    /// Serialize both secret keys for custody: the Ed25519 seed followed by the
+    /// ML-DSA-65 secret key. A hybrid identity is only useful if it can be
+    /// persisted and recovered — otherwise it must be regenerated every restart,
+    /// which loses the identity.
+    ///
+    /// Treat the result as secret material.
+    #[must_use]
+    pub fn to_secret_bytes(&self) -> Vec<u8> {
+        let mut out =
+            Vec::with_capacity(32 + crate::post_quantum::ml_dsa::ML_DSA_65_SK_LEN);
+        out.extend_from_slice(&self.classical.seed());
+        out.extend_from_slice(&self.pq.to_secret_bytes());
+        out
+    }
+
+    /// Recover a hybrid key pair from [`Self::to_secret_bytes`].
+    ///
+    /// # Errors
+    /// Returns [`CryptoError::InvalidKey`](crate::CryptoError::InvalidKey) if the
+    /// input is the wrong length or the ML-DSA secret key is invalid.
+    pub fn from_secret_bytes(bytes: &[u8]) -> crate::CryptoResult<Self> {
+        const SK: usize = crate::post_quantum::ml_dsa::ML_DSA_65_SK_LEN;
+        if bytes.len() != 32 + SK {
+            return Err(crate::CryptoError::InvalidKey {
+                reason: format!("hybrid secret must be {} bytes, got {}", 32 + SK, bytes.len()),
+            });
+        }
+        let mut seed = [0u8; 32];
+        seed.copy_from_slice(&bytes[..32]);
+        let mut pq_bytes = [0u8; SK];
+        pq_bytes.copy_from_slice(&bytes[32..]);
+        Ok(Self {
+            classical: crate::signatures::Ed25519KeyPair::from_seed(seed),
+            pq: crate::post_quantum::ml_dsa::MlDsa65KeyPair::from_secret_bytes(&pq_bytes)?,
+        })
+    }
+
     /// The classical Ed25519 public key.
     #[must_use]
     pub fn classical_public_key(&self) -> crate::signatures::Ed25519PublicKey {

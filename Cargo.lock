@@ -369,6 +369,7 @@ dependencies = [
  "aevor-core",
  "aevor-crypto",
  "argon2",
+ "blake3",
  "getrandom",
  "hex",
  "serde",

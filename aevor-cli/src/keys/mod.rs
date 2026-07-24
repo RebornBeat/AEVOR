@@ -6,7 +6,7 @@
 //! keystore directory. Passphrases are read from the environment rather than
 //! command-line arguments, because arguments are visible in the process table.
 
-use aevor_wallet::{Keystore, Wallet};
+use aevor_wallet::{Keystore, Scheme, Wallet};
 use clap::{Args, Subcommand};
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,8 @@ const PASSPHRASE_ENV: &str = "AEVOR_KEYSTORE_PASSPHRASE";
 
 #[derive(Debug, Args)]
 pub struct GenerateArgs {
-    /// Signature algorithm (currently `ed25519`).
+    /// Signature scheme: `ed25519`, `ml-dsa-65` (post-quantum), or `hybrid`
+    /// (both — stays valid if either is broken).
     #[arg(long, default_value = "ed25519")]
     pub algorithm: String,
     /// Where to write the encrypted keystore. Named `--keystore-out` because
@@ -55,6 +56,8 @@ pub struct ListArgs {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyInfo {
     pub algorithm: String,
+    /// Whether this scheme resists quantum attack.
+    pub post_quantum: bool,
     pub public_key: String,
     pub address: String,
 }
@@ -82,7 +85,8 @@ fn passphrase() -> CliResult<String> {
 
 fn info(wallet: &Wallet) -> KeyInfo {
     KeyInfo {
-        algorithm: "ed25519".to_string(),
+        algorithm: wallet.scheme().name().to_string(),
+        post_quantum: wallet.scheme().is_post_quantum(),
         public_key: hex::encode(wallet.public_key_bytes()),
         address: hex::encode(wallet.address().0),
     }
@@ -97,14 +101,14 @@ impl KeysCommand {
     pub fn run(&self, _ctx: &CliContext, output: &OutputWriter) -> CliResult<()> {
         match self {
             Self::Generate(args) => {
-                if args.algorithm != "ed25519" {
-                    return Err(CliError::InvalidArgument {
+                let scheme = Scheme::parse(&args.algorithm).map_err(|e| {
+                    CliError::InvalidArgument {
                         arg: "--algorithm".to_string(),
-                        reason: format!("'{}' unsupported (supported: ed25519)", args.algorithm),
-                    });
-                }
+                        reason: e.to_string(),
+                    }
+                })?;
                 let pass = passphrase()?;
-                let wallet = Wallet::generate()
+                let wallet = Wallet::generate_scheme(scheme)
                     .map_err(|e| CliError::IoError(e.to_string()))?;
                 Keystore::save(&wallet, &pass, &args.keystore_out)
                     .map_err(|e| CliError::IoError(e.to_string()))?;
@@ -167,6 +171,7 @@ mod tests {
         let w = Wallet::from_seed([2u8; 32]);
         let i = info(&w);
         assert_eq!(i.algorithm, "ed25519");
+        assert!(!i.post_quantum, "ed25519 is classical");
         assert_eq!(i.address, hex::encode(w.address().0));
         assert_eq!(i.public_key, hex::encode(w.public_key_bytes()));
         // Nothing secret is present.

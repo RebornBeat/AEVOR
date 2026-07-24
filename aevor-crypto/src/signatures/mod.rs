@@ -58,6 +58,16 @@ impl Ed25519KeyPair {
     }
 
     /// The public key.
+    /// The 32-byte seed this key pair was derived from.
+    ///
+    /// Needed for custody: a wallet must be able to persist and recover an
+    /// identity, and the seed is the canonical minimal representation. Treat the
+    /// result as secret material.
+    #[must_use]
+    pub fn seed(&self) -> [u8; 32] {
+        self.signing_key.to_bytes()
+    }
+
     pub fn public_key(&self) -> Ed25519PublicKey {
         Ed25519PublicKey(self.signing_key.verifying_key().to_bytes())
     }

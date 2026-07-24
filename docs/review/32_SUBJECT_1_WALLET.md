@@ -84,7 +84,46 @@ The verification suite gained a wallet section that exercises the real binary:
 keystore written, encryption confirmed, identity recovered, wrong passphrase
 rejected. A regression that accepted a wrong passphrase would fail the gate loudly.
 
-## 5. What this subject does *not* do
+## 5. Signature schemes — a redundancy caught, and a real gap fixed
+
+The wallet was first built Ed25519-only, with "the crypto layer supports more
+schemes; the wallet exposes one until there is a reason to widen it" given as
+scope. That was wrong on both counts, and checking rather than assuming showed why.
+
+**What already existed.** Three types implement `Signer`, so the transaction layer
+already accepts all three: `Ed25519KeyPair`, `MlDsa65KeyPair` (FIPS 204
+post-quantum), and `HybridKeyPair` (Ed25519 **and** ML-DSA-65 together). All three
+are already exercised in the node's end-to-end suite (6 references) and benchmarks
+(9 references), so they are finalized at the engine layer. An Ed25519-only wallet
+was therefore not a scope decision — it was an incomplete layer that could not hold
+identities the chain already verifies.
+
+**A real gap underneath it.** `MlDsa65KeyPair` and `HybridKeyPair` had **only**
+`generate()` — no serialization of secret material, no recovery. A post-quantum
+identity could be created but never persisted or recovered, which makes it unusable
+for custody: every restart would lose the key. That is why an Ed25519-only wallet
+was the path of least resistance, and it would have quietly locked the product out
+of post-quantum accounts.
+
+**Fixed at the crypto layer**, which is where it belonged:
+
+- `MlDsa65KeyPair::to_secret_bytes()` / `from_secret_bytes()` (the public key is
+  re-derived from the secret, so a recovered pair is self-consistent).
+- `HybridKeyPair::to_secret_bytes()` / `from_secret_bytes()` — the Ed25519 seed
+  followed by the ML-DSA secret.
+- `Ed25519KeyPair::seed()` — the canonical minimal representation for custody.
+
+**The wallet now covers every scheme.** `Scheme::{Ed25519, MlDsa65, Hybrid}` with
+`--algorithm` on the CLI, `post_quantum` reported in key info, and unknown schemes
+rejected with a clear message. Addresses fold in the scheme id, so identical key
+bytes under different schemes cannot collide onto one identity; Ed25519 keeps its
+established derivation so existing identities are unchanged.
+
+Hybrid is the migration path worth calling out: it signs with both algorithms, so
+an identity stays valid if **either** is broken — post-quantum protection without
+abandoning classical security in the meantime.
+
+## 6. What this subject still does *not* do
 
 Deliberately scoped:
 
@@ -93,14 +132,14 @@ Deliberately scoped:
 - **No balance queries.** Also Subject 2 — it needs a node interface.
 - **No hardware-wallet or multi-signature custody.** The `Signer` trait is the seam
   for both when needed.
-- **Ed25519 only.** The crypto layer supports more schemes; the wallet exposes one
-  until there is a reason to widen it.
 
-## 6. Status
+## 7. Status
 
 | item | state |
 |---|---|
-| `aevor-wallet` crate | complete, 8 tests, clippy clean |
+| `aevor-wallet` crate | complete, **12 tests**, clippy clean |
+| signature schemes | Ed25519, ML-DSA-65, Hybrid — all verified end-to-end |
+| PQ/hybrid key persistence | **added to `aevor-crypto`** (was impossible before) |
 | `aevor keys` CLI | real, end-to-end verified against the binary |
 | keystore encryption | Argon2id + ChaCha20-Poly1305, tamper-detecting |
 | verification gate | extended — 27 checks, all passing |

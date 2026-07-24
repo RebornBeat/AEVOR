@@ -12,4 +12,5 @@ serde_json   = { workspace = true }
 thiserror    = { workspace = true }
 getrandom    = { workspace = true }
 hex          = { workspace = true }
+blake3       = { workspace = true }
 argon2       = { workspace = true }
